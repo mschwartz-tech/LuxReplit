@@ -22,14 +22,10 @@ export default function AuthPage() {
     }
   }, [user, setLocation]);
 
-  const loginForm = useForm<InsertUser>({
-    resolver: zodResolver(insertUserSchema),
+  const loginForm = useForm<Pick<InsertUser, "username" | "password">>({
     defaultValues: {
       username: "",
       password: "",
-      role: "member",
-      email: "",
-      name: ""
     }
   });
 
@@ -38,7 +34,7 @@ export default function AuthPage() {
     defaultValues: {
       username: "",
       password: "",
-      role: "member",
+      role: "user",
       email: "",
       name: ""
     }
@@ -91,9 +87,13 @@ export default function AuthPage() {
                   />
                   <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
                     {loginMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Login
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Login"
+                    )}
                   </Button>
                 </form>
               </Form>
@@ -156,9 +156,13 @@ export default function AuthPage() {
                   />
                   <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
                     {registerMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Register
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating account...
+                      </>
+                    ) : (
+                      "Register"
+                    )}
                   </Button>
                 </form>
               </Form>
