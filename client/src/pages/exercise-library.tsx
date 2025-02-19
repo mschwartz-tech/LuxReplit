@@ -213,7 +213,7 @@ export default function ExerciseLibrary() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <div className="flex items-center gap-4 mb-2">
-            <Link href="/dashboard">
+            <Link href="/">
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
