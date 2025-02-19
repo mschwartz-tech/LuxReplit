@@ -14,6 +14,7 @@ import {
   FileText,
   Dumbbell,
   UserPlus,
+  CreditCard,
 } from "lucide-react";
 
 export function SidebarNav() {
@@ -64,6 +65,12 @@ export function SidebarNav() {
       roles: ["admin"],
     },
     {
+      title: "Pricing",
+      icon: CreditCard,
+      href: "/pricing",
+      roles: ["admin"],
+    },
+    {
       title: "Billing",
       icon: DollarSign,
       href: "/billing",
@@ -107,7 +114,6 @@ export function SidebarNav() {
         </div>
       </div>
 
-      {/* Fixed logout button at the bottom */}
       <div className="p-3 border-t">
         <Button
           variant="ghost"

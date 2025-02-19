@@ -11,6 +11,7 @@ import TrainingClientsPage from "@/pages/training-clients";
 import ClientProfilePage from "@/pages/client-profile";
 import TrainingManagementPage from "@/pages/training-management";
 import ExerciseLibrary from "@/pages/exercise-library";
+import PricingPage from "@/pages/pricing";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 
@@ -25,6 +26,7 @@ function Router() {
       <ProtectedRoute path="/training-management" component={TrainingManagementPage} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/exercise-library" component={ExerciseLibrary} />
+      <ProtectedRoute path="/pricing" component={PricingPage} />
       <Route component={NotFound} />
     </Switch>
   );
