@@ -7,7 +7,7 @@ import {
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMovementPatternSchema 
 } from "@shared/schema";
-import { generateMovementPatternDescription } from "./services/openai";
+import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -260,6 +260,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in generate-pattern:", error);
       res.status(500).json({ error: "Failed to generate movement pattern description" });
+    }
+  });
+
+  app.post("/api/exercises/predict-muscle-groups", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+
+    const { exerciseName } = req.body;
+    if (!exerciseName) {
+      return res.status(400).json({ error: "Exercise name is required" });
+    }
+
+    try {
+      const muscleGroups = await predictMuscleGroups(exerciseName);
+      res.json(muscleGroups);
+    } catch (error) {
+      console.error("Error in predict-muscle-groups:", error);
+      res.status(500).json({ error: "Failed to predict muscle groups" });
     }
   });
 

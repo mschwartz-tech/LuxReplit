@@ -131,6 +131,32 @@ export default function ExerciseLibrary() {
     },
   });
 
+  const predictMuscleGroupsMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/exercises/predict-muscle-groups", { exerciseName: name });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to predict muscle groups");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId);
+      form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds);
+      toast({
+        title: "Success",
+        description: "Muscle groups predicted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -154,6 +180,7 @@ export default function ExerciseLibrary() {
   React.useEffect(() => {
     if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
       generatePatternMutation.mutate(debouncedExerciseName);
+      predictMuscleGroupsMutation.mutate(debouncedExerciseName);
     }
   }, [debouncedExerciseName]);
 

@@ -11,7 +11,7 @@ export const openai = new OpenAI({
 export async function generateMovementPatternDescription(exerciseName: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      model: "gpt-4o", 
       messages: [
         {
           role: "system",
@@ -30,5 +30,56 @@ export async function generateMovementPatternDescription(exerciseName: string): 
   } catch (error) {
     console.error("Error generating movement pattern description:", error);
     throw new Error("Failed to generate movement pattern description");
+  }
+}
+
+export async function predictMuscleGroups(exerciseName: string): Promise<{
+  primaryMuscleGroupId: number;
+  secondaryMuscleGroupIds: number[];
+}> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", 
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional trainer with expertise in exercise biomechanics. Analyze exercises and determine their primary and secondary muscle groups.
+Primary muscle groups (IDs):
+1. Quadriceps, 2. Hamstrings, 3. Calves, 4. Chest, 5. Back, 6. Shoulders, 
+7. Biceps, 8. Triceps, 9. Core, 10. Glutes
+
+Respond in JSON format with:
+{
+  "primaryMuscleGroupId": number (1-10),
+  "secondaryMuscleGroupIds": number[] (1-10, exclude primary)
+}`
+        },
+        {
+          role: "user",
+          content: `Analyze the primary and secondary muscle groups for this exercise: ${exerciseName}`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 150
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+
+    // Validate the response
+    if (
+      !result.primaryMuscleGroupId ||
+      !Array.isArray(result.secondaryMuscleGroupIds) ||
+      result.primaryMuscleGroupId < 1 ||
+      result.primaryMuscleGroupId > 10 ||
+      result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 10)
+    ) {
+      throw new Error("Invalid muscle group prediction format");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error predicting muscle groups:", error);
+    throw new Error("Failed to predict muscle groups");
   }
 }
