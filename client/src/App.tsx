@@ -17,7 +17,7 @@ function Router() {
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/training" component={TrainingManagement} />
-      <ProtectedRoute path="/exercises" component={ExerciseLibrary} />
+      <ProtectedRoute path="/exercise-library" component={ExerciseLibrary} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
