@@ -297,9 +297,9 @@ export default function ExerciseLibrary() {
                       <FormItem>
                         <FormLabel>Secondary Muscle Groups</FormLabel>
                         <Select
-                          value={field.value.map(String)}
-                          onValueChange={(value) => {
-                            field.onChange(value ? value.map(Number) : []);
+                          value={field.value.map((id) => id.toString())}
+                          onValueChange={(values: string[]) => {
+                            field.onChange(values.map((v) => parseInt(v, 10)));
                           }}
                           multiple
                         >

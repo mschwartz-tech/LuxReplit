@@ -1,11 +1,11 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2, CheckCircle2 } from "lucide-react";
@@ -23,7 +23,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -135,7 +135,7 @@ export default function TrainingManagement() {
       title: "",
       description: "",
       frequencyPerWeek: 3,
-      memberId: null,
+      memberId: undefined as number | undefined,
       status: "active" as const,
       completionRate: "0",
     },
@@ -177,8 +177,8 @@ export default function TrainingManagement() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Training Management</h1>
           <p className="text-muted-foreground">
-            {isAdmin 
-              ? "Manage workout plans and track progress across all members" 
+            {isAdmin
+              ? "Manage workout plans and track progress across all members"
               : "Manage workout plans and track progress for your assigned members"}
           </p>
         </div>
@@ -219,7 +219,7 @@ export default function TrainingManagement() {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea 
+                          <Textarea
                             placeholder="A comprehensive workout targeting all major muscle groups..."
                             {...field}
                           />
@@ -235,9 +235,9 @@ export default function TrainingManagement() {
                       <FormItem>
                         <FormLabel>Weekly Frequency</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min={1} 
+                          <Input
+                            type="number"
+                            min={1}
                             max={7}
                             {...field}
                             onChange={e => field.onChange(parseInt(e.target.value))}
@@ -254,8 +254,8 @@ export default function TrainingManagement() {
                       <FormItem>
                         <FormLabel>Assign Member</FormLabel>
                         <Select
-                          value={field.value?.toString() ?? ""}
-                          onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                          value={field.value?.toString() ?? undefined}
+                          onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -274,9 +274,9 @@ export default function TrainingManagement() {
                       </FormItem>
                     )}
                   />
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     disabled={createWorkoutPlanMutation.isPending}
                   >
                     {createWorkoutPlanMutation.isPending ? (
@@ -311,8 +311,8 @@ export default function TrainingManagement() {
                 </p>
               ) : (
                 workoutPlans?.map((plan) => (
-                  <div 
-                    key={plan.id} 
+                  <div
+                    key={plan.id}
                     className="flex items-center justify-between p-4 border-b last:border-0"
                   >
                     <div className="flex-1">
@@ -371,13 +371,13 @@ export default function TrainingManagement() {
                   <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                     <Line type="monotone" dataKey="workouts" stroke="hsl(var(--primary))" strokeWidth={2} />
                     <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="5 5" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       stroke="hsl(var(--muted-foreground))"
-                      tickFormatter={(date) => new Date(date).toLocaleDateString()} 
+                      tickFormatter={(date) => new Date(date).toLocaleDateString()}
                     />
                     <YAxis stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--background))",
                         border: "1px solid hsl(var(--border))",
