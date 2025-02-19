@@ -1,16 +1,10 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
-import { Loader2, Users, Calendar, DollarSign, BarChart, Edit2 } from "lucide-react";
+import { Loader2, Users, Calendar, DollarSign, BarChart, Edit2, Save } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -19,8 +13,8 @@ import { TrainingPackage } from "@shared/schema";
 export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedPackage, setSelectedPackage] = useState<TrainingPackage | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingRows, setEditingRows] = useState<Record<string, boolean>>({});
+  const [editedValues, setEditedValues] = useState<Record<string, Partial<TrainingPackage>>>({});
 
   const { data: trainingPackages, isLoading: isLoadingPackages } = useQuery<TrainingPackage[]>({
     queryKey: ["/api/training-packages"],
@@ -42,7 +36,8 @@ export default function Dashboard() {
         description: "Package updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/training-packages"] });
-      setIsEditDialogOpen(false);
+      setEditingRows({});
+      setEditedValues({});
     },
     onError: (error: Error) => {
       toast({
@@ -64,33 +59,107 @@ export default function Dashboard() {
   const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
   const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
 
+  const handleEdit = (pkg: TrainingPackage, rowKey: string) => {
+    if (editingRows[rowKey]) {
+      // Save changes
+      if (editedValues[rowKey]) {
+        updatePackageMutation.mutate({
+          id: pkg.id,
+          ...editedValues[rowKey],
+        });
+      }
+    } else {
+      // Start editing
+      setEditingRows(prev => ({ ...prev, [rowKey]: true }));
+      setEditedValues(prev => ({
+        ...prev,
+        [rowKey]: {
+          costPerSession: pkg.costPerSession,
+          costBiWeekly: pkg.costBiWeekly,
+          pifAmount: pkg.pifAmount,
+        },
+      }));
+    }
+  };
+
+  const handleInputChange = (rowKey: string, field: keyof TrainingPackage, value: string) => {
+    setEditedValues(prev => ({
+      ...prev,
+      [rowKey]: {
+        ...prev[rowKey],
+        [field]: value,
+      },
+    }));
+  };
+
   const renderPackageRow = (sessionsPerWeek: number, duration: number) => {
     const pkg = (duration === 60 ? packages60Min : packages30Min).find(p => p.sessionsPerWeek === sessionsPerWeek);
+    if (!pkg) return null;
+
+    const rowKey = `${duration}-${sessionsPerWeek}`;
+    const isEditing = editingRows[rowKey];
+    const editedValue = editedValues[rowKey] || {};
+
     return (
-      <tr key={`${duration}-${sessionsPerWeek}`} className="border-b">
+      <tr key={rowKey} className="border-b">
         <td className="py-4 px-2">{sessionsPerWeek}X</td>
         <td className="py-4 px-2">
-          {pkg?.costPerSession || "-"}
+          {isEditing ? (
+            <Input
+              type="number"
+              value={editedValue.costPerSession ?? pkg.costPerSession}
+              onChange={(e) => handleInputChange(rowKey, "costPerSession", e.target.value)}
+              className="w-24"
+            />
+          ) : (
+            pkg.costPerSession
+          )}
         </td>
         <td className="py-4 px-2">
-          {pkg?.costBiWeekly || "-"}
+          {isEditing ? (
+            <Input
+              type="number"
+              value={editedValue.costBiWeekly ?? pkg.costBiWeekly}
+              onChange={(e) => handleInputChange(rowKey, "costBiWeekly", e.target.value)}
+              className="w-24"
+            />
+          ) : (
+            pkg.costBiWeekly
+          )}
         </td>
         <td className="py-4 px-2">
-          {pkg?.pifAmount || "-"}
+          {isEditing ? (
+            <Input
+              type="number"
+              value={editedValue.pifAmount ?? pkg.pifAmount}
+              onChange={(e) => handleInputChange(rowKey, "pifAmount", e.target.value)}
+              className="w-24"
+            />
+          ) : (
+            pkg.pifAmount
+          )}
         </td>
         <td className="py-4 px-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              if (pkg) {
-                setSelectedPackage(pkg);
-                setIsEditDialogOpen(true);
-              }
-            }}
-            className="w-full"
+            onClick={() => handleEdit(pkg, rowKey)}
+            className="w-full gap-2"
+            disabled={updatePackageMutation.isPending}
           >
-            <Edit2 className="h-4 w-4" />
+            {updatePackageMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isEditing ? (
+              <>
+                <Save className="h-4 w-4" />
+                Save
+              </>
+            ) : (
+              <>
+                <Edit2 className="h-4 w-4" />
+                Edit
+              </>
+            )}
           </Button>
         </td>
       </tr>
@@ -224,85 +293,6 @@ export default function Dashboard() {
           )}
         </main>
       </div>
-
-      {/* Edit Package Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Package Pricing</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="costPerSession">Cost Per Session ($)</label>
-                <Input
-                  id="costPerSession"
-                  type="number"
-                  value={selectedPackage?.costPerSession || ""}
-                  onChange={(e) =>
-                    setSelectedPackage(prev =>
-                      prev ? { ...prev, costPerSession: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="costBiWeekly">Cost Bi-Weekly ($)</label>
-                <Input
-                  id="costBiWeekly"
-                  type="number"
-                  value={selectedPackage?.costBiWeekly || ""}
-                  onChange={(e) =>
-                    setSelectedPackage(prev =>
-                      prev ? { ...prev, costBiWeekly: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="pifAmount">PIF Amount ($)</label>
-                <Input
-                  id="pifAmount"
-                  type="number"
-                  value={selectedPackage?.pifAmount || ""}
-                  onChange={(e) =>
-                    setSelectedPackage(prev =>
-                      prev ? { ...prev, pifAmount: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  if (selectedPackage) {
-                    updatePackageMutation.mutate({
-                      id: selectedPackage.id,
-                      costPerSession: selectedPackage.costPerSession,
-                      costBiWeekly: selectedPackage.costBiWeekly,
-                      pifAmount: selectedPackage.pifAmount,
-                    });
-                  }
-                }}
-                disabled={updatePackageMutation.isPending}
-              >
-                {updatePackageMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
