@@ -59,10 +59,10 @@ export default function Dashboard() {
   const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
   const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
 
-  const handleEdit = (pkg: TrainingPackage, rowKey: string) => {
+  const handleEdit = (pkg: TrainingPackage | null, rowKey: string) => {
     if (editingRows[rowKey]) {
       // Save changes
-      if (editedValues[rowKey]) {
+      if (editedValues[rowKey] && pkg) {
         updatePackageMutation.mutate({
           id: pkg.id,
           ...editedValues[rowKey],
@@ -73,10 +73,14 @@ export default function Dashboard() {
       setEditingRows(prev => ({ ...prev, [rowKey]: true }));
       setEditedValues(prev => ({
         ...prev,
-        [rowKey]: {
+        [rowKey]: pkg ? {
           costPerSession: pkg.costPerSession,
           costBiWeekly: pkg.costBiWeekly,
           pifAmount: pkg.pifAmount,
+        } : {
+          costPerSession: "",
+          costBiWeekly: "",
+          pifAmount: "",
         },
       }));
     }
@@ -94,8 +98,6 @@ export default function Dashboard() {
 
   const renderPackageRow = (sessionsPerWeek: number, duration: number) => {
     const pkg = (duration === 60 ? packages60Min : packages30Min).find(p => p.sessionsPerWeek === sessionsPerWeek);
-    if (!pkg) return null;
-
     const rowKey = `${duration}-${sessionsPerWeek}`;
     const isEditing = editingRows[rowKey];
     const editedValue = editedValues[rowKey] || {};
@@ -107,36 +109,36 @@ export default function Dashboard() {
           {isEditing ? (
             <Input
               type="number"
-              value={editedValue.costPerSession ?? pkg.costPerSession}
+              value={editedValue.costPerSession ?? (pkg?.costPerSession || "")}
               onChange={(e) => handleInputChange(rowKey, "costPerSession", e.target.value)}
               className="w-24"
             />
           ) : (
-            pkg.costPerSession
+            pkg?.costPerSession || "-"
           )}
         </td>
         <td className="py-4 px-2">
           {isEditing ? (
             <Input
               type="number"
-              value={editedValue.costBiWeekly ?? pkg.costBiWeekly}
+              value={editedValue.costBiWeekly ?? (pkg?.costBiWeekly || "")}
               onChange={(e) => handleInputChange(rowKey, "costBiWeekly", e.target.value)}
               className="w-24"
             />
           ) : (
-            pkg.costBiWeekly
+            pkg?.costBiWeekly || "-"
           )}
         </td>
         <td className="py-4 px-2">
           {isEditing ? (
             <Input
               type="number"
-              value={editedValue.pifAmount ?? pkg.pifAmount}
+              value={editedValue.pifAmount ?? (pkg?.pifAmount || "")}
               onChange={(e) => handleInputChange(rowKey, "pifAmount", e.target.value)}
               className="w-24"
             />
           ) : (
-            pkg.pifAmount
+            pkg?.pifAmount || "-"
           )}
         </td>
         <td className="py-4 px-2">
