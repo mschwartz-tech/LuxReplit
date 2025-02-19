@@ -59,11 +59,12 @@ export default function ExerciseLibrary() {
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const canEdit = isAdmin || isTrainer;
+  const [isAddExerciseOpen, setIsAddExerciseOpen] = React.useState(false);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedDifficulty, setSelectedDifficulty] = React.useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = React.useState<number | null>(null);
-  const [isAddExerciseOpen, setIsAddExerciseOpen] = React.useState(false);
+
 
   const { data: exercises, isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
