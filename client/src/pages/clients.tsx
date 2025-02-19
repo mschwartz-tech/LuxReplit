@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter, BarChart, UserPlus, Calendar } from "lucide-react";
+import { Plus, Loader2, Search, Filter, BarChart, UserPlus, Calendar, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Member } from "@shared/schema";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ export default function ClientsPage() {
     enabled: !!user && (isAdmin || isTrainer),
   });
 
-  const filteredClients = clients?.filter(client => 
+  const filteredClients = clients?.filter(client =>
     (statusFilter === "all" || client.status === statusFilter) &&
     (searchQuery === "" || `Client #${client.id}`.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -53,7 +53,7 @@ export default function ClientsPage() {
   return (
     <div className="flex-1 relative">
       {/* Background container with logo */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
         style={{
           backgroundImage: 'url("/assets/branding/logoinvisicon.svg")',
@@ -141,15 +141,21 @@ export default function ClientsPage() {
                       </span>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link href={`/client/${client.id}`}>
+                        <Button variant="outline" size="sm" className="w-full gap-2">
+                          <User className="h-4 w-4" />
+                          Profile
+                        </Button>
+                      </Link>
                       <Link href={`/training-management?client=${client.id}`}>
-                        <Button variant="outline" size="sm" className="flex-1 gap-2">
+                        <Button variant="outline" size="sm" className="w-full gap-2">
                           <BarChart className="h-4 w-4" />
                           Progress
                         </Button>
                       </Link>
                       <Link href={`/schedule?client=${client.id}`}>
-                        <Button variant="outline" size="sm" className="flex-1 gap-2">
+                        <Button variant="outline" size="sm" className="w-full gap-2">
                           <Calendar className="h-4 w-4" />
                           Schedule
                         </Button>
