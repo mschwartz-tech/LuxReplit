@@ -21,6 +21,7 @@ export interface IStorage {
 
   // Member operations
   getMembers(): Promise<Member[]>;
+  getMembersByTrainer(trainerId: number): Promise<Member[]>;
   getMember(id: number): Promise<Member | undefined>;
   createMember(member: InsertMember): Promise<Member>;
 
@@ -91,6 +92,23 @@ export class DatabaseStorage implements IStorage {
 
   async getMembers(): Promise<Member[]> {
     return await db.select().from(members);
+  }
+
+  async getMembersByTrainer(trainerId: number): Promise<Member[]> {
+    // Get members who have workout plans with this trainer
+    const memberIds = await db.select({ memberId: workoutPlans.memberId })
+      .from(workoutPlans)
+      .where(eq(workoutPlans.trainerId, trainerId));
+
+    const uniqueMemberIds = [...new Set(memberIds.map(m => m.memberId))];
+
+    if (uniqueMemberIds.length === 0) {
+      return [];
+    }
+
+    return await db.select()
+      .from(members)
+      .where(sql`${members.id} = ANY(${uniqueMemberIds})`);
   }
 
   async getMember(id: number): Promise<Member | undefined> {

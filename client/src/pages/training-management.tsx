@@ -56,8 +56,9 @@ export default function TrainingManagement() {
     enabled: !!user && !isAdmin,
   });
 
+  // Updated to fetch assigned clients for trainers
   const { data: members, isLoading: isLoadingMembers } = useQuery<Member[]>({
-    queryKey: ["/api/members"],
+    queryKey: [isAdmin ? "/api/members" : `/api/members/trainer/${user?.id}`],
     enabled: !!user && (isAdmin || isTrainer),
   });
 
@@ -178,8 +179,8 @@ export default function TrainingManagement() {
           <h1 className="text-3xl font-bold tracking-tight">Training Management</h1>
           <p className="text-muted-foreground">
             {isAdmin
-              ? "Manage workout plans and track progress across all members"
-              : "Manage workout plans and track progress for your assigned members"}
+              ? "Manage workout plans and track progress across all clients"
+              : "Manage workout plans and track progress for your assigned clients"}
           </p>
         </div>
         {(isAdmin || isTrainer) && (
@@ -194,7 +195,7 @@ export default function TrainingManagement() {
               <DialogHeader>
                 <DialogTitle>Create New Workout Plan</DialogTitle>
                 <DialogDescription>
-                  Create a new workout plan for a member. You can set the title, description, and weekly frequency.
+                  Create a new workout plan for a client. You can set the title, description, and weekly frequency.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -252,20 +253,20 @@ export default function TrainingManagement() {
                     name="memberId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Assign Member</FormLabel>
+                        <FormLabel>Assign Client</FormLabel>
                         <Select
                           value={field.value?.toString() ?? undefined}
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a member" />
+                              <SelectValue placeholder="Select a client" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {members?.map((member) => (
                               <SelectItem key={member.id} value={member.id.toString()}>
-                                Member #{member.id}
+                                Client #{member.id}
                               </SelectItem>
                             ))}
                           </SelectContent>
