@@ -77,15 +77,6 @@ export const muscleGroups = pgTable("muscle_groups", {
   bodyRegion: text("body_region", { enum: ["upper", "lower", "core"] }).notNull()
 });
 
-export const movementPatterns = pgTable("movement_patterns", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  description: text("description").notNull(),
-  type: text("type", { 
-    enum: ["push", "pull", "squat", "hinge", "lunge", "rotation", "gait"] 
-  }).notNull()
-});
-
 export const exercises = pgTable("exercises", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -93,7 +84,6 @@ export const exercises = pgTable("exercises", {
   difficulty: text("difficulty", { 
     enum: ["beginner", "intermediate", "advanced"] 
   }).notNull(),
-  movementPatternId: integer("movement_pattern_id").references(() => movementPatterns.id).notNull(),
   primaryMuscleGroupId: integer("primary_muscle_group_id").references(() => muscleGroups.id).notNull(),
   secondaryMuscleGroupIds: integer("secondary_muscle_group_ids").array().notNull(),
   instructions: text("instructions").array().notNull(),
@@ -105,23 +95,12 @@ export const exercises = pgTable("exercises", {
 
 export const insertUserSchema = createInsertSchema(users);
 export const insertMemberSchema = createInsertSchema(members);
-export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans)
-  .extend({
-    title: z.string().min(3, "Title must be at least 3 characters long"),
-    description: z.string().min(10, "Description must be at least 10 characters long"),
-    frequencyPerWeek: z.number().min(1, "Must train at least once per week").max(7, "Cannot exceed 7 sessions per week"),
-    memberId: z.number().nullable().refine((val) => val === null || val > 0, {
-      message: "Member ID must be a positive number"
-    }),
-    status: z.enum(["active", "completed", "cancelled"]).default("active"),
-    completionRate: z.string().default("0"),
-  });
+export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans);
 export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
 export const insertScheduleSchema = createInsertSchema(schedules);
 export const insertInvoiceSchema = createInsertSchema(invoices);
 export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns);
 export const insertMuscleGroupSchema = createInsertSchema(muscleGroups);
-export const insertMovementPatternSchema = createInsertSchema(movementPatterns);
 export const insertExerciseSchema = createInsertSchema(exercises)
   .extend({
     name: z.string().min(3, "Name must be at least 3 characters"),
@@ -146,7 +125,5 @@ export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
 export type MuscleGroup = typeof muscleGroups.$inferSelect;
 export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
-export type MovementPattern = typeof movementPatterns.$inferSelect;
-export type InsertMovementPattern = z.infer<typeof insertMovementPatternSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;

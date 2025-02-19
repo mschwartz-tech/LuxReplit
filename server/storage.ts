@@ -1,12 +1,11 @@
 import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign } from "@shared/schema";
 import session from "express-session";
 import { users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups, movementPatterns,
+  exercises, muscleGroups,
   type Exercise, type InsertExercise,
-  type MuscleGroup, type InsertMuscleGroup,
-  type MovementPattern, type InsertMovementPattern
+  type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 
@@ -57,14 +56,9 @@ export interface IStorage {
   getMuscleGroup(id: number): Promise<MuscleGroup | undefined>;
   createMuscleGroup(group: InsertMuscleGroup): Promise<MuscleGroup>;
 
-  getMovementPatterns(): Promise<MovementPattern[]>;
-  getMovementPattern(id: number): Promise<MovementPattern | undefined>;
-  createMovementPattern(pattern: InsertMovementPattern): Promise<MovementPattern>;
-
   getExercises(): Promise<Exercise[]>;
   getExercise(id: number): Promise<Exercise | undefined>;
   getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]>;
-  getExercisesByMovementPattern(movementPatternId: number): Promise<Exercise[]>;
   createExercise(exercise: InsertExercise): Promise<Exercise>;
 }
 
@@ -205,20 +199,6 @@ export class DatabaseStorage implements IStorage {
     return newGroup;
   }
 
-  async getMovementPatterns(): Promise<MovementPattern[]> {
-    return await db.select().from(movementPatterns);
-  }
-
-  async getMovementPattern(id: number): Promise<MovementPattern | undefined> {
-    const [pattern] = await db.select().from(movementPatterns).where(eq(movementPatterns.id, id));
-    return pattern;
-  }
-
-  async createMovementPattern(pattern: InsertMovementPattern): Promise<MovementPattern> {
-    const [newPattern] = await db.insert(movementPatterns).values(pattern).returning();
-    return newPattern;
-  }
-
   async getExercises(): Promise<Exercise[]> {
     return await db.select().from(exercises);
   }
@@ -231,14 +211,7 @@ export class DatabaseStorage implements IStorage {
   async getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]> {
     return await db.select()
       .from(exercises)
-      .where(eq(exercises.primaryMuscleGroupId, muscleGroupId))
-      .orWhere(sql`${exercises.secondaryMuscleGroupIds} @> ARRAY[${muscleGroupId}]`);
-  }
-
-  async getExercisesByMovementPattern(movementPatternId: number): Promise<Exercise[]> {
-    return await db.select()
-      .from(exercises)
-      .where(eq(exercises.movementPatternId, movementPatternId));
+      .where(sql`${exercises.primaryMuscleGroupId} = ${muscleGroupId} OR ${muscleGroupId} = ANY(${exercises.secondaryMuscleGroupIds})`);
   }
 
   async createExercise(exercise: InsertExercise): Promise<Exercise> {

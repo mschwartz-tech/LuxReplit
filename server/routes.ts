@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { 
   insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema, 
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
-  insertExerciseSchema, insertMuscleGroupSchema, insertMovementPatternSchema 
+  insertExerciseSchema, insertMuscleGroupSchema
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 
@@ -194,31 +194,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(group);
   });
 
-  app.get("/api/movement-patterns", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const patterns = await storage.getMovementPatterns();
-    res.json(patterns);
-  });
-
-  app.get("/api/movement-patterns/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const pattern = await storage.getMovementPattern(parseInt(req.params.id));
-    if (!pattern) return res.sendStatus(404);
-    res.json(pattern);
-  });
-
-  app.post("/api/movement-patterns", async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      return res.sendStatus(403);
-    }
-    const parsed = insertMovementPatternSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json(parsed.error);
-    }
-    const pattern = await storage.createMovementPattern(parsed.data);
-    res.status(201).json(pattern);
-  });
-
   app.get("/api/exercises", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const exercises = await storage.getExercises();
@@ -235,12 +210,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/exercises/muscle-group/:muscleGroupId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const exercises = await storage.getExercisesByMuscleGroup(parseInt(req.params.muscleGroupId));
-    res.json(exercises);
-  });
-
-  app.get("/api/exercises/movement-pattern/:movementPatternId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const exercises = await storage.getExercisesByMovementPattern(parseInt(req.params.movementPatternId));
     res.json(exercises);
   });
 
@@ -288,10 +257,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const parsed = insertExerciseSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.error("Exercise validation error:", parsed.error);
       return res.status(400).json(parsed.error);
     }
-    const exercise = await storage.createExercise(parsed.data);
-    res.status(201).json(exercise);
+    try {
+      const exercise = await storage.createExercise(parsed.data);
+      res.status(201).json(exercise);
+    } catch (error) {
+      console.error("Error creating exercise:", error);
+      res.status(500).json({ error: "Failed to create exercise" });
+    }
   });
 
   const httpServer = createServer(app);
