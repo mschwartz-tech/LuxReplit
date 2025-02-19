@@ -296,26 +296,26 @@ export default function ExerciseLibrary() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Secondary Muscle Groups</FormLabel>
-                        <Select
-                          value={field.value.map((id) => id.toString())}
-                          onValueChange={(values: string[]) => {
-                            field.onChange(values.map((v) => parseInt(v, 10)));
-                          }}
-                          multiple
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select muscle groups" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {muscleGroups?.map((group) => (
-                              <SelectItem key={group.id} value={group.id.toString()}>
-                                {group.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex flex-col gap-2">
+                          {muscleGroups?.map((group) => (
+                            <div key={group.id} className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`muscle-${group.id}`}
+                                checked={field.value.includes(group.id)}
+                                onChange={(e) => {
+                                  const value = parseInt(group.id.toString());
+                                  if (e.target.checked) {
+                                    field.onChange([...field.value, value]);
+                                  } else {
+                                    field.onChange(field.value.filter((id: number) => id !== value));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`muscle-${group.id}`}>{group.name}</label>
+                            </div>
+                          ))}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
