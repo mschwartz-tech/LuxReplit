@@ -8,10 +8,9 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, CheckCircle2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChartContainer } from "@/components/ui/chart";
-import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema, Member } from "@shared/schema";
+import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema, insertWorkoutLogSchema, Member } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   Dialog,
@@ -42,8 +41,10 @@ export default function TrainingManagement() {
   const { toast } = useToast();
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
+  const isMember = user?.role === "member";
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [selectedPlanId, setSelectedPlanId] = React.useState<number | null>(null);
 
   const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery<WorkoutPlan[]>({
     queryKey: ["/api/workout-plans"],
@@ -95,6 +96,39 @@ export default function TrainingManagement() {
     },
   });
 
+  const logWorkoutMutation = useMutation({
+    mutationFn: async (planId: number) => {
+      const workoutLog = {
+        memberId: user?.id,
+        workoutPlanId: planId,
+        completedAt: new Date().toISOString(),
+        duration: 60, // Default duration in minutes
+        notes: "Workout completed",
+      };
+      const res = await apiRequest("POST", "/api/workout-logs", workoutLog);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to log workout");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Workout logged successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-logs/member", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/workout-plans"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm({
     resolver: zodResolver(insertWorkoutPlanSchema),
     defaultValues: {
@@ -109,18 +143,24 @@ export default function TrainingManagement() {
 
   // Transform workout logs into chart data
   const chartData = React.useMemo(() => {
-    return workoutLogs?.map(log => ({
-      date: new Date(log.createdAt).toLocaleDateString(),
-      workouts: 1
-    })).reduce((acc, curr) => {
-      const existingDay = acc.find(d => d.date === curr.date);
-      if (existingDay) {
-        existingDay.workouts += curr.workouts;
-      } else {
-        acc.push(curr);
-      }
+    if (!workoutLogs) return [];
+
+    const last30Days = [...Array(30)].map((_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return date.toISOString().split('T')[0];
+    }).reverse();
+
+    const logsByDate = workoutLogs.reduce((acc, log) => {
+      const date = new Date(log.completedAt).toISOString().split('T')[0];
+      acc[date] = (acc[date] || 0) + 1;
       return acc;
-    }, [] as { date: string; workouts: number }[]) || [];
+    }, {} as Record<string, number>);
+
+    return last30Days.map(date => ({
+      date,
+      workouts: logsByDate[date] || 0
+    }));
   }, [workoutLogs]);
 
   if (isLoadingPlans || isLoadingLogs || isLoadingMembers) {
@@ -275,17 +315,36 @@ export default function TrainingManagement() {
                     key={plan.id} 
                     className="flex items-center justify-between p-4 border-b last:border-0"
                   >
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium">{plan.title}</p>
                       <p className="text-sm text-muted-foreground">
                         {plan.description}
                       </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{plan.completionRate || '0'}%</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mt-1">
                         {plan.frequencyPerWeek}x per week
                       </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-medium">{plan.completionRate || '0'}%</p>
+                        <p className="text-sm text-muted-foreground">
+                          completed
+                        </p>
+                      </div>
+                      {isMember && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => logWorkoutMutation.mutate(plan.id)}
+                          disabled={logWorkoutMutation.isPending}
+                        >
+                          {logWorkoutMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -298,7 +357,7 @@ export default function TrainingManagement() {
           <CardHeader>
             <CardTitle>Progress Overview</CardTitle>
             <CardDescription>
-              Workout completion trends over time
+              Workout completion trends over the last 30 days
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -312,9 +371,21 @@ export default function TrainingManagement() {
                   <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                     <Line type="monotone" dataKey="workouts" stroke="hsl(var(--primary))" strokeWidth={2} />
                     <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="5 5" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))"
+                      tickFormatter={(date) => new Date(date).toLocaleDateString()} 
+                    />
                     <YAxis stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--background))",
+                        border: "1px solid hsl(var(--border))",
+                      }}
+                      labelStyle={{
+                        color: "hsl(var(--foreground))",
+                      }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
