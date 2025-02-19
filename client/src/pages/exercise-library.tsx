@@ -8,7 +8,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,6 +34,7 @@ import { Exercise, MuscleGroup, MovementPattern, insertExerciseSchema } from "@s
 import React from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 // Debounce utility
 function useDebounce<T>(value: T, delay: number): T {
@@ -211,7 +212,14 @@ export default function ExerciseLibrary() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Exercise Library</h1>
+          <div className="flex items-center gap-4 mb-2">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold tracking-tight">Exercise Library</h1>
+          </div>
           <p className="text-muted-foreground">
             Browse and manage exercises with detailed movement patterns and muscle groups
           </p>
