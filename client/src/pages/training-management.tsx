@@ -65,8 +65,9 @@ export default function TrainingManagement() {
       const newPlan = {
         ...data,
         status: "active" as const,
-        trainerId: isTrainer ? user?.id : null,
-        createdAt: new Date(),
+        trainerId: isTrainer ? user?.id : undefined,
+        memberId: data.memberId || undefined,
+        frequencyPerWeek: Number(data.frequencyPerWeek),
         completionRate: "0",
       };
       const res = await apiRequest("POST", "/api/workout-plans", newPlan);
