@@ -30,7 +30,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Exercise, MuscleGroup, MovementPattern, insertExerciseSchema } from "@shared/schema";
+import { Exercise, MuscleGroup, insertExerciseSchema } from "@shared/schema";
 import React from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -72,11 +72,6 @@ export default function ExerciseLibrary() {
 
   const { data: muscleGroups, isLoading: isLoadingMuscleGroups } = useQuery<MuscleGroup[]>({
     queryKey: ["/api/muscle-groups"],
-    enabled: !!user,
-  });
-
-  const { data: movementPatterns, isLoading: isLoadingMovementPatterns } = useQuery<MovementPattern[]>({
-    queryKey: ["/api/movement-patterns"],
     enabled: !!user,
   });
 
@@ -164,7 +159,6 @@ export default function ExerciseLibrary() {
       name: "",
       description: "",
       difficulty: "beginner" as const,
-      movementPatternId: 2,
       primaryMuscleGroupId: 0,
       secondaryMuscleGroupIds: [] as number[],
       instructions: [""],
@@ -200,7 +194,7 @@ export default function ExerciseLibrary() {
     });
   }, [exercises, searchQuery, selectedDifficulty, selectedMuscleGroup]);
 
-  if (isLoadingExercises || isLoadingMuscleGroups || isLoadingMovementPatterns) {
+  if (isLoadingExercises || isLoadingMuscleGroups) {
     return (
       <div className="flex h-[200px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -221,7 +215,7 @@ export default function ExerciseLibrary() {
             <h1 className="text-3xl font-bold tracking-tight">Exercise Library</h1>
           </div>
           <p className="text-muted-foreground">
-            Browse and manage exercises with detailed movement patterns and muscle groups
+            Browse and manage exercises with detailed descriptions and muscle groups
           </p>
         </div>
         {canEdit && (
@@ -236,7 +230,7 @@ export default function ExerciseLibrary() {
               <DialogHeader>
                 <DialogTitle>Add New Exercise</DialogTitle>
                 <DialogDescription>
-                  Create a new exercise. The movement pattern will be automatically generated based on the exercise name.
+                  Create a new exercise. The movement description will be automatically generated based on the exercise name.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -262,7 +256,7 @@ export default function ExerciseLibrary() {
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Movement pattern description will be generated automatically..."
+                            placeholder="Movement description will be generated automatically..."
                             {...field}
                             disabled={generatePatternMutation.isPending}
                           />
@@ -291,33 +285,6 @@ export default function ExerciseLibrary() {
                               <SelectItem value="beginner">Beginner</SelectItem>
                               <SelectItem value="intermediate">Intermediate</SelectItem>
                               <SelectItem value="advanced">Advanced</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="movementPatternId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Movement Pattern</FormLabel>
-                          <Select
-                            value={field.value ? field.value.toString() : undefined}
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select movement pattern" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {movementPatterns?.map((pattern) => (
-                                <SelectItem key={pattern.id} value={pattern.id.toString()}>
-                                  {pattern.name}
-                                </SelectItem>
-                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -492,7 +459,6 @@ export default function ExerciseLibrary() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredExercises.map((exercise) => {
                   const muscleGroup = muscleGroups?.find(g => g.id === exercise.primaryMuscleGroupId);
-                  const movementPattern = movementPatterns?.find(p => p.id === exercise.movementPatternId);
 
                   return (
                     <Card key={exercise.id}>
@@ -506,11 +472,6 @@ export default function ExerciseLibrary() {
                             {muscleGroup && (
                               <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
                                 {muscleGroup.name}
-                              </span>
-                            )}
-                            {movementPattern && (
-                              <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                                {movementPattern.name}
                               </span>
                             )}
                           </div>
