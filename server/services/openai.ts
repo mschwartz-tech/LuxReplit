@@ -15,15 +15,15 @@ export async function generateMovementPatternDescription(exerciseName: string): 
       messages: [
         {
           role: "system",
-          content: "You are a professional personal trainer with expertise in exercise biomechanics. Generate descriptions that combine technical accuracy with practical, easy-to-understand instructions. Focus on: 1) Primary movement pattern in simple terms, 2) Key joints and muscles involved, 3) Basic form cues a trainer would give. Keep responses under 150 words and use language that both trainers and clients can understand."
+          content: "You are a fitness expert providing concise, mobile-friendly exercise instructions. Focus on 3 key aspects:\n1. Primary movement (1 short sentence)\n2. Form cues (2-3 bullet points)\n3. Key muscles engaged (comma-separated list)\n\nKeep the entire response under 100 words and use simple, clear language."
         },
         {
           role: "user",
-          content: `Generate a trainer-friendly movement pattern description for the exercise: ${exerciseName}`
+          content: `Generate a mobile-friendly movement pattern description for: ${exerciseName}`
         }
       ],
       temperature: 0.7,
-      max_tokens: 200
+      max_tokens: 150
     });
 
     return response.choices[0].message.content || "Movement pattern description unavailable.";
@@ -39,7 +39,7 @@ export async function predictMuscleGroups(exerciseName: string): Promise<{
 }> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", 
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -64,7 +64,7 @@ Respond in JSON format with:
       max_tokens: 150
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content || "{}");
 
     // Validate the response
     if (
