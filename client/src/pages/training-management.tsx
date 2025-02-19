@@ -33,18 +33,27 @@ export default function TrainingManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === "admin";
+  const isTrainer = user?.role === "trainer";
 
-  const { data: workoutPlans } = useQuery<WorkoutPlan[]>({
+  const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery<WorkoutPlan[]>({
     queryKey: ["/api/workout-plans"],
+    enabled: !!user,
   });
 
-  const { data: workoutLogs } = useQuery<WorkoutLog[]>({
-    queryKey: ["/api/workout-logs"],
+  const { data: workoutLogs, isLoading: isLoadingLogs } = useQuery<WorkoutLog[]>({
+    queryKey: ["/api/workout-logs/member", user?.id],
+    enabled: !!user && !isAdmin, // Only fetch logs for specific member if not admin
   });
 
   const createWorkoutPlanMutation = useMutation({
-    mutationFn: async (data: WorkoutPlan) => {
-      const res = await apiRequest("POST", "/api/workout-plans", data);
+    mutationFn: async (data: typeof insertWorkoutPlanSchema._type) => {
+      const newPlan = {
+        ...data,
+        status: "active" as const,
+        trainerId: isTrainer ? user?.id : null,
+        createdAt: new Date(),
+      };
+      const res = await apiRequest("POST", "/api/workout-plans", newPlan);
       return res.json();
     },
     onSuccess: () => {
@@ -69,8 +78,9 @@ export default function TrainingManagement() {
       title: "",
       description: "",
       frequencyPerWeek: 3,
-      memberId: 0,
-      completionRate: 0,
+      memberId: null,
+      completionRate: "0",
+      status: "active" as const,
     },
   });
 
@@ -78,7 +88,19 @@ export default function TrainingManagement() {
   const chartData = workoutLogs?.map(log => ({
     date: new Date(log.createdAt).toLocaleDateString(),
     workouts: 1
-  })) || [];
+  })).reduce((acc, curr) => {
+    const existingDay = acc.find(d => d.date === curr.date);
+    if (existingDay) {
+      existingDay.workouts += curr.workouts;
+    } else {
+      acc.push(curr);
+    }
+    return acc;
+  }, [] as { date: string; workouts: number }[]) || [];
+
+  if (isLoadingPlans || isLoadingLogs) {
+    return <div className="p-8">Loading...</div>;
+  }
 
   return (
     <div className="p-8">
@@ -91,95 +113,97 @@ export default function TrainingManagement() {
               : "Manage workout plans and track progress for your assigned members"}
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Workout Plan
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Workout Plan</DialogTitle>
-              <DialogDescription>
-                Create a new workout plan for a member. You can set the title, description, and weekly frequency.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit((data) => createWorkoutPlanMutation.mutate(data))} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Full Body Workout" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="A comprehensive workout targeting all major muscle groups..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="frequencyPerWeek"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Weekly Frequency</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min={1} 
-                          max={7}
-                          {...field}
-                          onChange={e => field.onChange(parseInt(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="memberId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Member ID</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number"
-                          min={1}
-                          {...field}
-                          onChange={e => field.onChange(parseInt(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={createWorkoutPlanMutation.isPending}>
-                  Create Plan
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        {(isAdmin || isTrainer) && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Create Workout Plan
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Workout Plan</DialogTitle>
+                <DialogDescription>
+                  Create a new workout plan for a member. You can set the title, description, and weekly frequency.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => createWorkoutPlanMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Full Body Workout" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="A comprehensive workout targeting all major muscle groups..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="frequencyPerWeek"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Weekly Frequency</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min={1} 
+                            max={7}
+                            {...field}
+                            onChange={e => field.onChange(parseInt(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="memberId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Member ID</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            min={1}
+                            {...field}
+                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={createWorkoutPlanMutation.isPending}>
+                    {createWorkoutPlanMutation.isPending ? "Creating..." : "Create Plan"}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
@@ -192,25 +216,31 @@ export default function TrainingManagement() {
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px]">
-              {workoutPlans?.map((plan) => (
-                <div 
-                  key={plan.id} 
-                  className="flex items-center justify-between p-4 border-b last:border-0"
-                >
-                  <div>
-                    <p className="font-medium">{plan.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {plan.description}
-                    </p>
+              {workoutPlans?.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No workout plans found.
+                </p>
+              ) : (
+                workoutPlans?.map((plan) => (
+                  <div 
+                    key={plan.id} 
+                    className="flex items-center justify-between p-4 border-b last:border-0"
+                  >
+                    <div>
+                      <p className="font-medium">{plan.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {plan.description}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{plan.completionRate || '0'}%</p>
+                      <p className="text-sm text-muted-foreground">
+                        {plan.frequencyPerWeek}x per week
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{plan.completionRate || '0'}%</p>
-                    <p className="text-sm text-muted-foreground">
-                      {plan.frequencyPerWeek}x per week
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </ScrollArea>
           </CardContent>
         </Card>
@@ -223,28 +253,23 @@ export default function TrainingManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer 
-              className="h-[400px]" 
-              config={{
-                workouts: {
-                  label: "Workouts",
-                  theme: {
-                    light: "hsl(var(--primary))",
-                    dark: "hsl(var(--primary))",
-                  },
-                },
-              }}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <Line type="monotone" dataKey="workouts" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="5 5" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            {chartData.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No workout data available yet.
+              </p>
+            ) : (
+              <ChartContainer className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <Line type="monotone" dataKey="workouts" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="5 5" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>
