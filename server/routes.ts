@@ -9,7 +9,6 @@ import {
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
-import { trainingClients } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
