@@ -32,6 +32,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(member);
   });
 
+  // Add this new route after the existing members routes
+  app.get("/api/members/trainer/:trainerId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const members = await storage.getMembersByTrainer(parseInt(req.params.trainerId));
+    res.json(members);
+  });
+
   // Member Profile Routes
   app.get("/api/member-profiles/:memberId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
