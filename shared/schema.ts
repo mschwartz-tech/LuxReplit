@@ -156,23 +156,6 @@ export const exercises = pgTable("exercises", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const trainingPackages = pgTable("training_packages", {
-  id: serial("id").primaryKey(),
-  sessionDuration: integer("session_duration").notNull(), // 30 or 60 minutes
-  sessionsPerWeek: integer("sessions_per_week").notNull(), // 1-4
-  costPerSession: numeric("cost_per_session").notNull(),
-  costBiWeekly: numeric("cost_bi_weekly").notNull(),
-  pifAmount: numeric("pif_amount").notNull(), // Pay in Full amount
-  additionalBenefits: text("additional_benefits").array(),
-  isActive: boolean("is_active").notNull().default(true),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  createdAt: timestamp("created_at").notNull().defaultNow()
-}, (table) => {
-  return {
-    uniquePackage: uniqueIndex('unique_package').on(table.sessionDuration, table.sessionsPerWeek),
-  }
-});
-
 
 // Create insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
@@ -210,16 +193,6 @@ export const insertExerciseSchema = createInsertSchema(exercises)
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
   });
 
-export const insertTrainingPackageSchema = createInsertSchema(trainingPackages)
-  .extend({
-    sessionDuration: z.number().refine(val => val === 30 || val === 60, "Session duration must be either 30 or 60 minutes"),
-    sessionsPerWeek: z.number().min(1).max(4),
-    costPerSession: z.number().min(0),
-    costBiWeekly: z.number().min(0),
-    pifAmount: z.number().min(0),
-    additionalBenefits: z.array(z.string()).optional()
-  });
-
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -247,5 +220,3 @@ export type MuscleGroup = typeof muscleGroups.$inferSelect;
 export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
-export type TrainingPackage = typeof trainingPackages.$inferSelect;
-export type InsertTrainingPackage = z.infer<typeof insertTrainingPackageSchema>;

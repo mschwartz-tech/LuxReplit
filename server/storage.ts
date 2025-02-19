@@ -1,6 +1,6 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, TrainingClient, InsertTrainingClient, trainingPackages, type TrainingPackage } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, TrainingClient, InsertTrainingClient } from "@shared/schema";
 import session from "express-session";
-import { 
+import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
   exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos,
   trainingClients,
@@ -90,9 +90,6 @@ export interface IStorage {
   getTrainingClientsByTrainer(trainerId: number): Promise<TrainingClient[]>;
   getTrainingClient(id: number): Promise<TrainingClient | undefined>;
   createTrainingClient(client: InsertTrainingClient): Promise<TrainingClient>;
-
-  // Add new method for updating training packages
-  updateTrainingPackage(id: number, data: Partial<TrainingPackage>): Promise<TrainingPackage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -370,23 +367,6 @@ export class DatabaseStorage implements IStorage {
   async createTrainingClient(client: InsertTrainingClient): Promise<TrainingClient> {
     const [newClient] = await db.insert(trainingClients).values(client).returning();
     return newClient;
-  }
-
-  async updateTrainingPackage(id: number, data: Partial<TrainingPackage>): Promise<TrainingPackage> {
-    const [updatedPackage] = await db
-      .update(trainingPackages)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(trainingPackages.id, id))
-      .returning();
-
-    if (!updatedPackage) {
-      throw new Error("Training package not found");
-    }
-
-    return updatedPackage;
   }
 }
 
