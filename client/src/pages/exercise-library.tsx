@@ -35,6 +35,23 @@ import React from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Debounce utility
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = React.useState<T>(value);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function ExerciseLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -130,13 +147,15 @@ export default function ExerciseLibrary() {
     },
   });
 
-  // Watch the exercise name field to trigger pattern generation
+  // Watch the exercise name field and debounce it
   const exerciseName = form.watch("name");
+  const debouncedExerciseName = useDebounce(exerciseName, 1000); // 1 second delay
+
   React.useEffect(() => {
-    if (exerciseName && exerciseName.length >= 3 && !form.formState.errors.name) {
-      generatePatternMutation.mutate(exerciseName);
+    if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
+      generatePatternMutation.mutate(debouncedExerciseName);
     }
-  }, [exerciseName]);
+  }, [debouncedExerciseName]);
 
   const filteredExercises = React.useMemo(() => {
     if (!exercises) return [];
@@ -210,13 +229,14 @@ export default function ExerciseLibrary() {
                           <Textarea
                             placeholder="Movement pattern description will be generated automatically..."
                             {...field}
+                            disabled={generatePatternMutation.isPending}
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-4">
                     <FormField
                       control={form.control}
                       name="difficulty"
@@ -279,7 +299,7 @@ export default function ExerciseLibrary() {
                         <Select
                           value={field.value.map(String)}
                           onValueChange={(value) => {
-                            field.onChange(Array.isArray(value) ? value.map(Number) : []);
+                            field.onChange(value ? value.map(Number) : []);
                           }}
                           multiple
                         >
