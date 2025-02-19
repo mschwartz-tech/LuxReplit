@@ -71,13 +71,13 @@ export function SidebarNav() {
   ];
 
   return (
-    <div className="border-r bg-sidebar h-screen w-64">
-      <div className="space-y-4 py-4">
+    <div className="border-r bg-sidebar h-screen w-64 flex flex-col">
+      <div className="flex-1">
         <div className="px-3 py-2">
           <div className="mb-6 px-4">
             <Logo size="xl" type="banner" />
           </div>
-          <ScrollArea className="h-[calc(100vh-8rem)]">
+          <ScrollArea className="h-[calc(100vh-10rem)]">
             <div className="space-y-1">
               {items
                 .filter((item) => item.roles.includes(user?.role || ""))
@@ -98,16 +98,18 @@ export function SidebarNav() {
             </div>
           </ScrollArea>
         </div>
-        <div className="px-3">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2"
-            onClick={() => logoutMutation.mutate()}
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
+      </div>
+
+      {/* Fixed logout button at the bottom */}
+      <div className="p-3 border-t">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          onClick={() => logoutMutation.mutate()}
+        >
+          <LogOut className="h-4 w-4" />
+          Logout
+        </Button>
       </div>
     </div>
   );
