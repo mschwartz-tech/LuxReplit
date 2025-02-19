@@ -25,7 +25,7 @@ export default function Dashboard() {
             backgroundImage: 'url("/assets/branding/logo.png")',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            backgroundSize: '75% auto',
+            backgroundSize: '90% auto',
             filter: 'grayscale(0.5)'
           }}
         />
