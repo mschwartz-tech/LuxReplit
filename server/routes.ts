@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertMemberSchema, insertWorkoutPlanSchema, insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema } from "@shared/schema";
+import { insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema, insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -33,6 +33,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(plans);
   });
 
+  app.get("/api/workout-plans/member/:memberId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const plans = await storage.getWorkoutPlansByMember(parseInt(req.params.memberId));
+    res.json(plans);
+  });
+
   app.post("/api/workout-plans", async (req, res) => {
     if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
       return res.sendStatus(403);
@@ -43,6 +49,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const plan = await storage.createWorkoutPlan(parsed.data);
     res.status(201).json(plan);
+  });
+
+  app.patch("/api/workout-plans/:id/completion", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+    const { completionRate } = req.body;
+    if (typeof completionRate !== 'number' || completionRate < 0 || completionRate > 100) {
+      return res.status(400).json({ error: "Invalid completion rate" });
+    }
+    const plan = await storage.updateWorkoutPlanCompletionRate(parseInt(req.params.id), completionRate);
+    res.json(plan);
+  });
+
+  // Workout Logs
+  app.get("/api/workout-logs/plan/:planId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const logs = await storage.getWorkoutLogs(parseInt(req.params.planId));
+    res.json(logs);
+  });
+
+  app.get("/api/workout-logs/member/:memberId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const logs = await storage.getMemberWorkoutLogs(parseInt(req.params.memberId));
+    res.json(logs);
+  });
+
+  app.post("/api/workout-logs", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const parsed = insertWorkoutLogSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const log = await storage.createWorkoutLog(parsed.data);
+    res.status(201).json(log);
   });
 
   // Schedules
