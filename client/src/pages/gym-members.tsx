@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Search, Filter, User, Calendar } from "lucide-react";
+import { Plus, Loader2, Search, Filter, User, Calendar, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Member } from "@shared/schema";
 import { Input } from "@/components/ui/input";
@@ -67,8 +67,15 @@ export default function GymMembersPage() {
       {/* Content overlay */}
       <div className="relative z-10 p-8">
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gym Members</h1>
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <h1 className="text-3xl font-bold tracking-tight">Gym Members</h1>
+            </div>
             <p className="text-muted-foreground">
               Manage gym memberships and member information
             </p>
