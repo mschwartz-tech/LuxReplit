@@ -8,10 +8,10 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChartContainer } from "@/components/ui/chart";
-import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema } from "@shared/schema";
+import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema, Member } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   Dialog,
@@ -24,16 +24,26 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import React from 'react';
 
 export default function TrainingManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
+
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
 
   const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery<WorkoutPlan[]>({
     queryKey: ["/api/workout-plans"],
@@ -42,7 +52,12 @@ export default function TrainingManagement() {
 
   const { data: workoutLogs, isLoading: isLoadingLogs } = useQuery<WorkoutLog[]>({
     queryKey: ["/api/workout-logs/member", user?.id],
-    enabled: !!user && !isAdmin, // Only fetch logs for specific member if not admin
+    enabled: !!user && !isAdmin,
+  });
+
+  const { data: members, isLoading: isLoadingMembers } = useQuery<Member[]>({
+    queryKey: ["/api/members"],
+    enabled: !!user && (isAdmin || isTrainer),
   });
 
   const createWorkoutPlanMutation = useMutation({
@@ -52,8 +67,13 @@ export default function TrainingManagement() {
         status: "active" as const,
         trainerId: isTrainer ? user?.id : null,
         createdAt: new Date(),
+        completionRate: "0",
       };
       const res = await apiRequest("POST", "/api/workout-plans", newPlan);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create workout plan");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -62,6 +82,8 @@ export default function TrainingManagement() {
         description: "Workout plan created successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-plans"] });
+      setIsDialogOpen(false);
+      form.reset();
     },
     onError: (error: Error) => {
       toast({
@@ -79,8 +101,8 @@ export default function TrainingManagement() {
       description: "",
       frequencyPerWeek: 3,
       memberId: null,
-      completionRate: "0",
       status: "active" as const,
+      completionRate: "0",
     },
   });
 
@@ -98,8 +120,12 @@ export default function TrainingManagement() {
     return acc;
   }, [] as { date: string; workouts: number }[]) || [];
 
-  if (isLoadingPlans || isLoadingLogs) {
-    return <div className="p-8">Loading...</div>;
+  if (isLoadingPlans || isLoadingLogs || isLoadingMembers) {
+    return (
+      <div className="flex h-[200px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -114,7 +140,7 @@ export default function TrainingManagement() {
           </p>
         </div>
         {(isAdmin || isTrainer) && (
-          <Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -183,21 +209,41 @@ export default function TrainingManagement() {
                     name="memberId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Member ID</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number"
-                            min={1}
-                            {...field}
-                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
-                          />
-                        </FormControl>
+                        <FormLabel>Assign Member</FormLabel>
+                        <Select
+                          value={field.value?.toString()}
+                          onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a member" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {members?.map((member) => (
+                              <SelectItem key={member.id} value={member.id.toString()}>
+                                {member.userId} {/* Update this to show member name when available */}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full" disabled={createWorkoutPlanMutation.isPending}>
-                    {createWorkoutPlanMutation.isPending ? "Creating..." : "Create Plan"}
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createWorkoutPlanMutation.isPending}
+                  >
+                    {createWorkoutPlanMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create Plan"
+                    )}
                   </Button>
                 </form>
               </Form>

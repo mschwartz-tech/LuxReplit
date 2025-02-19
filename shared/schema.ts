@@ -27,7 +27,7 @@ export const workoutPlans = pgTable("workout_plans", {
   memberId: integer("member_id").references(() => members.id),
   status: text("status", { enum: ["active", "completed", "cancelled"] }).notNull(),
   frequencyPerWeek: integer("frequency_per_week").notNull(),
-  completionRate: numeric("completion_rate"),
+  completionRate: numeric("completion_rate").default("0"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
@@ -72,7 +72,17 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
 
 export const insertUserSchema = createInsertSchema(users);
 export const insertMemberSchema = createInsertSchema(members);
-export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans);
+export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans)
+  .extend({
+    title: z.string().min(3, "Title must be at least 3 characters long"),
+    description: z.string().min(10, "Description must be at least 10 characters long"),
+    frequencyPerWeek: z.number().min(1, "Must train at least once per week").max(7, "Cannot exceed 7 sessions per week"),
+    memberId: z.number().nullable().refine((val) => val === null || val > 0, {
+      message: "Member ID must be a positive number"
+    }),
+    status: z.enum(["active", "completed", "cancelled"]).default("active"),
+    completionRate: z.string().default("0"),
+  });
 export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
 export const insertScheduleSchema = createInsertSchema(schedules);
 export const insertInvoiceSchema = createInsertSchema(invoices);
