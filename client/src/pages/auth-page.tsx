@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,22 +44,22 @@ export default function AuthPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      {/* Background Icon */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
-        style={{
-          backgroundImage: 'url("/assets/branding/logoinvisicon.svg")',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: '90% auto',
-          filter: 'grayscale(0.5)'
-        }}
-      />
+    <div className="min-h-screen flex items-center justify-center p-4">
+      {/* Card with background image */}
+      <Card className="w-full max-w-md mx-auto relative overflow-hidden">
+        <div 
+          className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.03]"
+          style={{
+            backgroundImage: 'url("/assets/branding/logoinvisicon.svg")',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: 'cover',
+            filter: 'grayscale(0.5)'
+          }}
+        />
 
-      {/* Content overlay */}
-      <Card className="w-full max-w-md mx-auto relative z-10">
-        <CardContent className="pt-6">
+        {/* Content overlay */}
+        <CardContent className="pt-6 relative z-10">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
