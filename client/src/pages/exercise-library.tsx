@@ -121,7 +121,7 @@ export default function ExerciseLibrary() {
       name: "",
       description: "",
       difficulty: "beginner",
-      movementPatternId: undefined,
+      movementPatternId: 1, // Default to first movement pattern since it's AI-generated
       primaryMuscleGroupId: undefined,
       secondaryMuscleGroupIds: [],
       instructions: [""],
@@ -183,7 +183,7 @@ export default function ExerciseLibrary() {
               <DialogHeader>
                 <DialogTitle>Add New Exercise</DialogTitle>
                 <DialogDescription>
-                  Create a new exercise with detailed information about movement patterns and muscle groups.
+                  Create a new exercise. The movement pattern will be automatically generated based on the exercise name.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -209,7 +209,7 @@ export default function ExerciseLibrary() {
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="A compound exercise that targets the lower body..."
+                            placeholder="Movement pattern description will be generated automatically..."
                             {...field}
                           />
                         </FormControl>
@@ -245,35 +245,6 @@ export default function ExerciseLibrary() {
                     />
                     <FormField
                       control={form.control}
-                      name="movementPatternId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Movement Pattern</FormLabel>
-                          <Select
-                            value={field.value?.toString()}
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select pattern" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {movementPatterns?.map((pattern) => (
-                                <SelectItem key={pattern.id} value={pattern.id.toString()}>
-                                  {pattern.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
                       name="primaryMuscleGroupId"
                       render={({ field }) => (
                         <FormItem>
@@ -299,35 +270,35 @@ export default function ExerciseLibrary() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="secondaryMuscleGroupIds"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Secondary Muscle Groups</FormLabel>
-                          <Select
-                            value={field.value?.map(String)}
-                            onValueChange={(values) => field.onChange(values.map(Number))}
-                            multiple
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select muscle groups" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {muscleGroups?.map((group) => (
-                                <SelectItem key={group.id} value={group.id.toString()}>
-                                  {group.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                   </div>
+                  <FormField
+                    control={form.control}
+                    name="secondaryMuscleGroupIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Secondary Muscle Groups</FormLabel>
+                        <Select
+                          value={field.value?.map(String)}
+                          onValueChange={(values) => field.onChange(values.map(Number))}
+                          multiple
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select muscle groups" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {muscleGroups?.map((group) => (
+                              <SelectItem key={group.id} value={group.id.toString()}>
+                                {group.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <Button
                     type="submit"
                     className="w-full"
