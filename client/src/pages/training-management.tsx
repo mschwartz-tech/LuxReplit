@@ -8,10 +8,11 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChartContainer } from "@/components/ui/chart";
 import { WorkoutPlan, WorkoutLog } from "@shared/schema";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function TrainingManagement() {
   const { user } = useAuth();
@@ -24,6 +25,12 @@ export default function TrainingManagement() {
   const { data: workoutLogs } = useQuery<WorkoutLog[]>({
     queryKey: ["/api/workout-logs"],
   });
+
+  // Transform workout logs into chart data
+  const chartData = workoutLogs?.map(log => ({
+    date: new Date(log.createdAt).toLocaleDateString(),
+    workouts: 1
+  })) || [];
 
   return (
     <div className="p-8">
@@ -58,13 +65,13 @@ export default function TrainingManagement() {
                   className="flex items-center justify-between p-4 border-b last:border-0"
                 >
                   <div>
-                    <p className="font-medium">{plan.name}</p>
+                    <p className="font-medium">{plan.title}</p>
                     <p className="text-sm text-muted-foreground">
                       {plan.description}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">{plan.completionRate}%</p>
+                    <p className="font-medium">{plan.completionRate || '0'}%</p>
                     <p className="text-sm text-muted-foreground">
                       {plan.frequencyPerWeek}x per week
                     </p>
@@ -95,7 +102,15 @@ export default function TrainingManagement() {
                 },
               }}
             >
-              {/* Add chart implementation here */}
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <Line type="monotone" dataKey="workouts" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="5 5" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip />
+                </LineChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
