@@ -27,15 +27,15 @@ export function SidebarNav() {
       roles: ["admin", "trainer", "member"],
     },
     {
-      title: "Members",
+      title: "Clients",
       icon: Users,
-      href: "/members",
+      href: "/clients",
       roles: ["admin", "trainer"],
     },
     {
-      title: "Training",
+      title: "Training Management",
       icon: Dumbbell,
-      href: "/training",
+      href: "/training-management",
       roles: ["admin", "trainer"],
     },
     {
