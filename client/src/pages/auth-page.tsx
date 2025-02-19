@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema, InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -45,21 +46,14 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      {/* Card with background image */}
-      <Card className="w-full max-w-md mx-auto relative overflow-hidden">
-        <div 
-          className="absolute inset-0 pointer-events-none opacity-[0.04] dark:opacity-[0.03]"
-          style={{
-            backgroundImage: 'url("/assets/branding/logoinvisicon.svg")',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            backgroundSize: 'cover',
-            filter: 'grayscale(0.5)'
-          }}
-        />
+      <Card className="w-full max-w-md mx-auto relative">
+        {/* Logo at the top */}
+        <div className="flex justify-center pt-6">
+          <Logo size="xl" type="banner" />
+        </div>
 
-        {/* Content overlay */}
-        <CardContent className="pt-6 relative z-10">
+        {/* Content */}
+        <CardContent className="pt-6">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
