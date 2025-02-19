@@ -399,9 +399,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const updatedPackage = await storage.updateTrainingPackage(id, {
-        costPerSession: Number(costPerSession),
-        costBiWeekly: Number(costBiWeekly),
-        pifAmount: Number(pifAmount),
+        costPerSession: costPerSession.toString(),
+        costBiWeekly: costBiWeekly.toString(),
+        pifAmount: pifAmount.toString(),
         updatedAt: new Date(),
       });
       res.json(updatedPackage);
