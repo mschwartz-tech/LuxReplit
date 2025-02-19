@@ -6,22 +6,49 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role", { enum: ["admin", "trainer", "member"] }).notNull(),
+  role: text("role", {
+    enum: ["admin", "trainer", "user"]
+  }).notNull(),
   email: text("email").notNull(),
-  name: text("name").notNull()
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+// Represents gym membership
 export const members = pgTable("members", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
-  joinDate: timestamp("join_date").notNull().defaultNow(),
-  status: text("status", { enum: ["active", "inactive"] }).notNull(),
-  assignedTrainerId: integer("assigned_trainer_id").references(() => users.id)
+  userId: integer("user_id").references(() => users.id).notNull(),
+  membershipType: text("membership_type", {
+    enum: ["standard", "premium", "vip"]
+  }).notNull(),
+  membershipStatus: text("membership_status", {
+    enum: ["active", "inactive", "suspended"]
+  }).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+// Represents personal training clients
+export const trainingClients = pgTable("training_clients", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  assignedTrainerId: integer("assigned_trainer_id").references(() => users.id),
+  clientStatus: text("client_status", {
+    enum: ["active", "inactive", "on_hold"]
+  }).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  packageType: text("package_type", {
+    enum: ["single", "monthly", "quarterly", "annual"]
+  }).notNull(),
+  sessionsRemaining: integer("sessions_remaining"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+// Represents gym membership
 export const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").references(() => members.id).notNull(),
+  userId: integer("user_id").references(() => users.id).notNull(),
   height: numeric("height"),  // in cm
   weight: numeric("weight"),  // in kg
   goals: text("goals").array(),
@@ -129,8 +156,28 @@ export const exercises = pgTable("exercises", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const insertUserSchema = createInsertSchema(users);
-export const insertMemberSchema = createInsertSchema(members);
+// Create insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
+export const insertMemberSchema = createInsertSchema(members).omit({ createdAt: true });
+export const insertTrainingClientSchema = createInsertSchema(trainingClients).omit({ createdAt: true });
+export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
+  .extend({
+    goals: z.array(z.string()).min(1, "At least one goal is required"),
+    healthConditions: z.array(z.string()).optional(),
+    height: z.number().min(1, "Height must be greater than 0"),
+    weight: z.number().min(1, "Weight must be greater than 0"),
+  });
+export const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
+  .extend({
+    measurements: z.object({
+      chest: z.number().optional(),
+      waist: z.number().optional(),
+      hips: z.number().optional(),
+      thighs: z.number().optional(),
+      arms: z.number().optional()
+    })
+  });
+export const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos);
 export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans);
 export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
 export const insertScheduleSchema = createInsertSchema(schedules);
@@ -145,31 +192,20 @@ export const insertExerciseSchema = createInsertSchema(exercises)
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
   });
 
-export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
-  .extend({
-    goals: z.array(z.string()).min(1, "At least one goal is required"),
-    healthConditions: z.array(z.string()).optional(),
-    height: z.number().min(1, "Height must be greater than 0"),
-    weight: z.number().min(1, "Weight must be greater than 0"),
-  });
 
-export const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
-  .extend({
-    measurements: z.object({
-      chest: z.number().optional(),
-      waist: z.number().optional(),
-      hips: z.number().optional(),
-      thighs: z.number().optional(),
-      arms: z.number().optional()
-    })
-  });
-
-export const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos);
-
+// Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;
 export type InsertMember = z.infer<typeof insertMemberSchema>;
+export type TrainingClient = typeof trainingClients.$inferSelect;
+export type InsertTrainingClient = z.infer<typeof insertTrainingClientSchema>;
+export type MemberProfile = typeof memberProfiles.$inferSelect;
+export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
+export type MemberAssessment = typeof memberAssessments.$inferSelect;
+export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
+export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
+export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
 export type WorkoutPlan = typeof workoutPlans.$inferSelect;
 export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
 export type WorkoutLog = typeof workoutLogs.$inferSelect;
@@ -184,9 +220,3 @@ export type MuscleGroup = typeof muscleGroups.$inferSelect;
 export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
-export type MemberProfile = typeof memberProfiles.$inferSelect;
-export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
-export type MemberAssessment = typeof memberAssessments.$inferSelect;
-export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
-export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
-export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;

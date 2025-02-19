@@ -1,12 +1,13 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, TrainingClient, InsertTrainingClient } from "@shared/schema";
 import session from "express-session";
 import { 
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
   exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos,
+  trainingClients,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 
@@ -78,6 +79,17 @@ export interface IStorage {
   getExercise(id: number): Promise<Exercise | undefined>;
   getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]>;
   createExercise(exercise: InsertExercise): Promise<Exercise>;
+
+  // New methods for gym members
+  getGymMembers(): Promise<Member[]>;
+  getGymMember(id: number): Promise<Member | undefined>;
+  createGymMember(member: InsertMember): Promise<Member>;
+
+  // New methods for training clients
+  getTrainingClients(): Promise<TrainingClient[]>;
+  getTrainingClientsByTrainer(trainerId: number): Promise<TrainingClient[]>;
+  getTrainingClient(id: number): Promise<TrainingClient | undefined>;
+  createTrainingClient(client: InsertTrainingClient): Promise<TrainingClient>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -317,6 +329,44 @@ export class DatabaseStorage implements IStorage {
   async createExercise(exercise: InsertExercise): Promise<Exercise> {
     const [newExercise] = await db.insert(exercises).values(exercise).returning();
     return newExercise;
+  }
+
+  // Gym member methods
+  async getGymMembers(): Promise<Member[]> {
+    return await db.select().from(members);
+  }
+
+  async getGymMember(id: number): Promise<Member | undefined> {
+    const [member] = await db.select().from(members).where(eq(members.id, id));
+    return member;
+  }
+
+  async createGymMember(member: InsertMember): Promise<Member> {
+    const [newMember] = await db.insert(members).values(member).returning();
+    return newMember;
+  }
+
+  // Training client methods
+  async getTrainingClients(): Promise<TrainingClient[]> {
+    return await db.select().from(trainingClients);
+  }
+
+  async getTrainingClientsByTrainer(trainerId: number): Promise<TrainingClient[]> {
+    return await db.select()
+      .from(trainingClients)
+      .where(eq(trainingClients.assignedTrainerId, trainerId));
+  }
+
+  async getTrainingClient(id: number): Promise<TrainingClient | undefined> {
+    const [client] = await db.select()
+      .from(trainingClients)
+      .where(eq(trainingClients.id, id));
+    return client;
+  }
+
+  async createTrainingClient(client: InsertTrainingClient): Promise<TrainingClient> {
+    const [newClient] = await db.insert(trainingClients).values(client).returning();
+    return newClient;
   }
 }
 

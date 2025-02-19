@@ -6,7 +6,8 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import InvoicesPage from "@/pages/invoices";
-import ClientsPage from "@/pages/clients";
+import GymMembersPage from "@/pages/gym-members";
+import TrainingClientsPage from "@/pages/training-clients";
 import ClientProfilePage from "@/pages/client-profile";
 import TrainingManagementPage from "@/pages/training-management";
 import ExerciseLibrary from "@/pages/exercise-library";
@@ -17,7 +18,8 @@ function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={Dashboard} />
-      <ProtectedRoute path="/clients" component={ClientsPage} />
+      <ProtectedRoute path="/gym-members" component={GymMembersPage} />
+      <ProtectedRoute path="/training-clients" component={TrainingClientsPage} />
       <ProtectedRoute path="/client/:id" component={ClientProfilePage} />
       <ProtectedRoute path="/training-management" component={TrainingManagementPage} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
