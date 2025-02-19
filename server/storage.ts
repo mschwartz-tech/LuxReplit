@@ -1,11 +1,12 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto } from "@shared/schema";
 import session from "express-session";
-import { users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups,
+import { 
+  users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
+  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 
@@ -24,6 +25,22 @@ export interface IStorage {
   getMembersByTrainer(trainerId: number): Promise<Member[]>;
   getMember(id: number): Promise<Member | undefined>;
   createMember(member: InsertMember): Promise<Member>;
+
+  // Member profile operations
+  getMemberProfile(memberId: number): Promise<MemberProfile | undefined>;
+  createMemberProfile(profile: InsertMemberProfile): Promise<MemberProfile>;
+  updateMemberProfile(memberId: number, profile: Partial<InsertMemberProfile>): Promise<MemberProfile>;
+
+  // Member assessment operations
+  getMemberAssessments(memberId: number): Promise<MemberAssessment[]>;
+  getMemberAssessment(id: number): Promise<MemberAssessment | undefined>;
+  createMemberAssessment(assessment: InsertMemberAssessment): Promise<MemberAssessment>;
+
+  // Member progress photo operations
+  getMemberProgressPhotos(memberId: number): Promise<MemberProgressPhoto[]>;
+  getMemberProgressPhoto(id: number): Promise<MemberProgressPhoto | undefined>;
+  createMemberProgressPhoto(photo: InsertMemberProgressPhoto): Promise<MemberProgressPhoto>;
+
 
   // Workout plan operations
   getWorkoutPlans(): Promise<WorkoutPlan[]>;
@@ -119,6 +136,82 @@ export class DatabaseStorage implements IStorage {
   async createMember(member: InsertMember): Promise<Member> {
     const [newMember] = await db.insert(members).values(member).returning();
     return newMember;
+  }
+
+  async getMemberProfile(memberId: number): Promise<MemberProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(memberProfiles)
+      .where(eq(memberProfiles.memberId, memberId));
+    return profile;
+  }
+
+  async createMemberProfile(profile: InsertMemberProfile): Promise<MemberProfile> {
+    const [newProfile] = await db
+      .insert(memberProfiles)
+      .values(profile)
+      .returning();
+    return newProfile;
+  }
+
+  async updateMemberProfile(
+    memberId: number,
+    profile: Partial<InsertMemberProfile>
+  ): Promise<MemberProfile> {
+    const [updatedProfile] = await db
+      .update(memberProfiles)
+      .set({ ...profile, updatedAt: new Date() })
+      .where(eq(memberProfiles.memberId, memberId))
+      .returning();
+    return updatedProfile;
+  }
+
+  async getMemberAssessments(memberId: number): Promise<MemberAssessment[]> {
+    return await db
+      .select()
+      .from(memberAssessments)
+      .where(eq(memberAssessments.memberId, memberId))
+      .orderBy(desc(memberAssessments.assessmentDate));
+  }
+
+  async getMemberAssessment(id: number): Promise<MemberAssessment | undefined> {
+    const [assessment] = await db
+      .select()
+      .from(memberAssessments)
+      .where(eq(memberAssessments.id, id));
+    return assessment;
+  }
+
+  async createMemberAssessment(assessment: InsertMemberAssessment): Promise<MemberAssessment> {
+    const [newAssessment] = await db
+      .insert(memberAssessments)
+      .values(assessment)
+      .returning();
+    return newAssessment;
+  }
+
+  async getMemberProgressPhotos(memberId: number): Promise<MemberProgressPhoto[]> {
+    return await db
+      .select()
+      .from(memberProgressPhotos)
+      .where(eq(memberProgressPhotos.memberId, memberId))
+      .orderBy(desc(memberProgressPhotos.photoDate));
+  }
+
+  async getMemberProgressPhoto(id: number): Promise<MemberProgressPhoto | undefined> {
+    const [photo] = await db
+      .select()
+      .from(memberProgressPhotos)
+      .where(eq(memberProgressPhotos.id, id));
+    return photo;
+  }
+
+  async createMemberProgressPhoto(photo: InsertMemberProgressPhoto): Promise<MemberProgressPhoto> {
+    const [newPhoto] = await db
+      .insert(memberProgressPhotos)
+      .values(photo)
+      .returning();
+    return newPhoto;
   }
 
   async getWorkoutPlans(): Promise<WorkoutPlan[]> {

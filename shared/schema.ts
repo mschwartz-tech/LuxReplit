@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -17,6 +17,42 @@ export const members = pgTable("members", {
   joinDate: timestamp("join_date").notNull().defaultNow(),
   status: text("status", { enum: ["active", "inactive"] }).notNull(),
   assignedTrainerId: integer("assigned_trainer_id").references(() => users.id)
+});
+
+export const memberProfiles = pgTable("member_profiles", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  height: numeric("height"),  // in cm
+  weight: numeric("weight"),  // in kg
+  goals: text("goals").array(),
+  healthConditions: text("health_conditions").array(),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  emergencyContactRelation: text("emergency_contact_relation"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
+export const memberAssessments = pgTable("member_assessments", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  assessmentDate: timestamp("assessment_date").notNull(),
+  weight: numeric("weight"),  // in kg
+  bodyFatPercentage: numeric("body_fat_percentage"),
+  measurements: jsonb("measurements").notNull(), // chest, waist, hips, etc.
+  notes: text("notes"),
+  trainerId: integer("trainer_id").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const memberProgressPhotos = pgTable("member_progress_photos", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  photoUrl: text("photo_url").notNull(),
+  photoDate: timestamp("photo_date").notNull(),
+  category: text("category", { enum: ["front", "back", "side"] }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
 export const workoutPlans = pgTable("workout_plans", {
@@ -81,8 +117,8 @@ export const exercises = pgTable("exercises", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
   description: text("description").notNull(),
-  difficulty: text("difficulty", { 
-    enum: ["beginner", "intermediate", "advanced"] 
+  difficulty: text("difficulty", {
+    enum: ["beginner", "intermediate", "advanced"]
   }).notNull(),
   primaryMuscleGroupId: integer("primary_muscle_group_id").references(() => muscleGroups.id).notNull(),
   secondaryMuscleGroupIds: integer("secondary_muscle_group_ids").array().notNull(),
@@ -109,6 +145,27 @@ export const insertExerciseSchema = createInsertSchema(exercises)
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
   });
 
+export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
+  .extend({
+    goals: z.array(z.string()).min(1, "At least one goal is required"),
+    healthConditions: z.array(z.string()).optional(),
+    height: z.number().min(1, "Height must be greater than 0"),
+    weight: z.number().min(1, "Weight must be greater than 0"),
+  });
+
+export const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
+  .extend({
+    measurements: z.object({
+      chest: z.number().optional(),
+      waist: z.number().optional(),
+      hips: z.number().optional(),
+      thighs: z.number().optional(),
+      arms: z.number().optional()
+    })
+  });
+
+export const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;
@@ -127,3 +184,9 @@ export type MuscleGroup = typeof muscleGroups.$inferSelect;
 export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
 export type Exercise = typeof exercises.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
+export type MemberProfile = typeof memberProfiles.$inferSelect;
+export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
+export type MemberAssessment = typeof memberAssessments.$inferSelect;
+export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
+export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
+export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;

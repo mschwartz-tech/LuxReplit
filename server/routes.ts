@@ -5,7 +5,8 @@ import { storage } from "./storage";
 import { 
   insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema, 
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
-  insertExerciseSchema, insertMuscleGroupSchema
+  insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
+  insertMemberAssessmentSchema, insertMemberProgressPhotoSchema
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 
@@ -29,6 +30,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const member = await storage.createMember(parsed.data);
     res.status(201).json(member);
+  });
+
+  // Member Profile Routes
+  app.get("/api/member-profiles/:memberId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const profile = await storage.getMemberProfile(parseInt(req.params.memberId));
+    if (!profile) return res.sendStatus(404);
+    res.json(profile);
+  });
+
+  app.post("/api/member-profiles", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+    const parsed = insertMemberProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const profile = await storage.createMemberProfile(parsed.data);
+    res.status(201).json(profile);
+  });
+
+  app.patch("/api/member-profiles/:memberId", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+    const memberId = parseInt(req.params.memberId);
+    const profile = await storage.getMemberProfile(memberId);
+    if (!profile) return res.sendStatus(404);
+
+    const parsed = insertMemberProfileSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const updatedProfile = await storage.updateMemberProfile(memberId, parsed.data);
+    res.json(updatedProfile);
+  });
+
+  // Member Assessment Routes
+  app.get("/api/member-assessments/:memberId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const assessments = await storage.getMemberAssessments(parseInt(req.params.memberId));
+    res.json(assessments);
+  });
+
+  app.get("/api/member-assessments/:memberId/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const assessment = await storage.getMemberAssessment(parseInt(req.params.id));
+    if (!assessment) return res.sendStatus(404);
+    if (assessment.memberId !== parseInt(req.params.memberId)) return res.sendStatus(403);
+    res.json(assessment);
+  });
+
+  app.post("/api/member-assessments", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+    const parsed = insertMemberAssessmentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const assessment = await storage.createMemberAssessment(parsed.data);
+    res.status(201).json(assessment);
+  });
+
+  // Member Progress Photo Routes
+  app.get("/api/member-progress-photos/:memberId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const photos = await storage.getMemberProgressPhotos(parseInt(req.params.memberId));
+    res.json(photos);
+  });
+
+  app.get("/api/member-progress-photos/:memberId/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const photo = await storage.getMemberProgressPhoto(parseInt(req.params.id));
+    if (!photo) return res.sendStatus(404);
+    if (photo.memberId !== parseInt(req.params.memberId)) return res.sendStatus(403);
+    res.json(photo);
+  });
+
+  app.post("/api/member-progress-photos", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+    const parsed = insertMemberProgressPhotoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const photo = await storage.createMemberProgressPhoto(parsed.data);
+    res.status(201).json(photo);
   });
 
   // Workout Plans
