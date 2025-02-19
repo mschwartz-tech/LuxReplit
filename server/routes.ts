@@ -6,7 +6,7 @@ import {
   insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
-  insertMemberAssessmentSchema, insertMemberProgressPhotoSchema
+  insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 import { logError, logInfo } from "./services/logger";
@@ -48,7 +48,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(member);
   }));
 
-  // Add these new routes after the existing members routes
   app.get("/api/members/:id", asyncHandler(async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const member = await storage.getMember(parseInt(req.params.id));
@@ -352,6 +351,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const campaign = await storage.createMarketingCampaign(parsed.data);
     logInfo("New marketing campaign created", { campaignId: campaign.id });
     res.status(201).json(campaign);
+  }));
+
+
+  // Pricing Plans
+  app.get("/api/pricing-plans", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const plans = await storage.getPricingPlans();
+    logInfo("Pricing plans retrieved", { count: plans.length });
+    res.json(plans);
+  }));
+
+  app.get("/api/pricing-plans/:id", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const plan = await storage.getPricingPlan(parseInt(req.params.id));
+    if (!plan) return res.sendStatus(404);
+    logInfo("Pricing plan retrieved", { planId: req.params.id });
+    res.json(plan);
+  }));
+
+  app.post("/api/pricing-plans", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      logError("Unauthorized pricing plan creation attempt", {
+        userId: (req.user as any)?.id,
+        role: (req.user as any)?.role,
+      });
+      return res.sendStatus(403);
+    }
+
+    const parsed = insertPricingPlanSchema.safeParse(req.body);
+    if (!parsed.success) {
+      logError("Pricing plan creation validation failed", {
+        errors: parsed.error.errors,
+      });
+      return res.status(400).json(parsed.error);
+    }
+
+    const plan = await storage.createPricingPlan(parsed.data);
+    logInfo("New pricing plan created", { planId: plan.id });
+    res.status(201).json(plan);
+  }));
+
+  app.patch("/api/pricing-plans/:id", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      logError("Unauthorized pricing plan update attempt", {
+        userId: (req.user as any)?.id,
+        role: (req.user as any)?.role,
+      });
+      return res.sendStatus(403);
+    }
+
+    const planId = parseInt(req.params.id);
+    const plan = await storage.getPricingPlan(planId);
+    if (!plan) return res.sendStatus(404);
+
+    const parsed = insertPricingPlanSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      logError("Pricing plan update validation failed", {
+        errors: parsed.error.errors,
+      });
+      return res.status(400).json(parsed.error);
+    }
+
+    const updatedPlan = await storage.updatePricingPlan(planId, parsed.data);
+    logInfo("Pricing plan updated", { planId: updatedPlan.id });
+    res.json(updatedPlan);
   }));
 
   const httpServer = createServer(app);

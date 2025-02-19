@@ -1,8 +1,8 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan } from "@shared/schema";
 import session from "express-session";
 import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos,
+  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
@@ -77,6 +77,12 @@ export interface IStorage {
   getExercise(id: number): Promise<Exercise | undefined>;
   getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]>;
   createExercise(exercise: InsertExercise): Promise<Exercise>;
+
+  // Pricing plan operations
+  getPricingPlans(): Promise<PricingPlan[]>;
+  getPricingPlan(id: number): Promise<PricingPlan | undefined>;
+  createPricingPlan(plan: InsertPricingPlan): Promise<PricingPlan>;
+  updatePricingPlan(id: number, plan: Partial<InsertPricingPlan>): Promise<PricingPlan>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -343,6 +349,37 @@ export class DatabaseStorage implements IStorage {
   async createGymMember(member: InsertMember): Promise<Member> {
     const [newMember] = await db.insert(members).values(member).returning();
     return newMember;
+  }
+
+  async getPricingPlans(): Promise<PricingPlan[]> {
+    return await db.select().from(pricingPlans)
+      .orderBy(pricingPlans.sessionsPerWeek, pricingPlans.duration);
+  }
+
+  async getPricingPlan(id: number): Promise<PricingPlan | undefined> {
+    const [plan] = await db.select().from(pricingPlans).where(eq(pricingPlans.id, id));
+    return plan;
+  }
+
+  async createPricingPlan(plan: InsertPricingPlan): Promise<PricingPlan> {
+    const [newPlan] = await db.insert(pricingPlans)
+      .values({
+        ...plan,
+        updatedAt: new Date(),
+      })
+      .returning();
+    return newPlan;
+  }
+
+  async updatePricingPlan(id: number, plan: Partial<InsertPricingPlan>): Promise<PricingPlan> {
+    const [updatedPlan] = await db.update(pricingPlans)
+      .set({
+        ...plan,
+        updatedAt: new Date(),
+      })
+      .where(eq(pricingPlans.id, id))
+      .returning();
+    return updatedPlan;
   }
 }
 
