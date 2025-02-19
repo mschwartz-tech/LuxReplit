@@ -40,7 +40,7 @@ import React from 'react';
 export default function TrainingManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [_, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const isMember = user?.role === "member";
@@ -180,10 +180,13 @@ export default function TrainingManagement() {
         <Button
           variant="ghost"
           className="w-fit"
-          onClick={() => setLocation("/dashboard")}
+          onClick={(e) => {
+            e.preventDefault();
+            window.history.back();
+          }}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
+          Back
         </Button>
 
         <div className="flex justify-between items-center">
