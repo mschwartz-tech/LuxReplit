@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertMemberSchema, insertWorkoutPlanSchema, insertScheduleSchema } from "@shared/schema";
+import { insertMemberSchema, insertWorkoutPlanSchema, insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -60,6 +60,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const schedule = await storage.createSchedule(parsed.data);
     res.status(201).json(schedule);
+  });
+
+  // Invoices
+  app.get("/api/invoices", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+    const invoices = await storage.getInvoices();
+    res.json(invoices);
+  });
+
+  app.get("/api/invoices/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+    const invoice = await storage.getInvoice(parseInt(req.params.id));
+    if (!invoice) return res.sendStatus(404);
+    res.json(invoice);
+  });
+
+  app.post("/api/invoices", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+    const parsed = insertInvoiceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const invoice = await storage.createInvoice(parsed.data);
+    res.status(201).json(invoice);
+  });
+
+  // Marketing Campaigns
+  app.get("/api/marketing-campaigns", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+    const campaigns = await storage.getMarketingCampaigns();
+    res.json(campaigns);
+  });
+
+  app.get("/api/marketing-campaigns/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+    const campaign = await storage.getMarketingCampaign(parseInt(req.params.id));
+    if (!campaign) return res.sendStatus(404);
+    res.json(campaign);
+  });
+
+  app.post("/api/marketing-campaigns", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+    const parsed = insertMarketingCampaignSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json(parsed.error);
+    }
+    const campaign = await storage.createMarketingCampaign(parsed.data);
+    res.status(201).json(campaign);
   });
 
   const httpServer = createServer(app);

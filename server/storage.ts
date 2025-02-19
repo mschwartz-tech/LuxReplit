@@ -1,6 +1,6 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, Schedule, InsertSchedule } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign } from "@shared/schema";
 import session from "express-session";
-import { users, members, workoutPlans, schedules } from "@shared/schema";
+import { users, members, workoutPlans, schedules, invoices, marketingCampaigns } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
@@ -29,6 +29,16 @@ export interface IStorage {
   getSchedules(): Promise<Schedule[]>;
   getSchedule(id: number): Promise<Schedule | undefined>;
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
+
+  // Invoice operations
+  getInvoices(): Promise<Invoice[]>;
+  getInvoice(id: number): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+
+  // Marketing campaign operations
+  getMarketingCampaigns(): Promise<MarketingCampaign[]>;
+  getMarketingCampaign(id: number): Promise<MarketingCampaign | undefined>;
+  createMarketingCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -98,6 +108,34 @@ export class DatabaseStorage implements IStorage {
   async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
     const [newSchedule] = await db.insert(schedules).values(schedule).returning();
     return newSchedule;
+  }
+
+  async getInvoices(): Promise<Invoice[]> {
+    return await db.select().from(invoices);
+  }
+
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
+    return newInvoice;
+  }
+
+  async getMarketingCampaigns(): Promise<MarketingCampaign[]> {
+    return await db.select().from(marketingCampaigns);
+  }
+
+  async getMarketingCampaign(id: number): Promise<MarketingCampaign | undefined> {
+    const [campaign] = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.id, id));
+    return campaign;
+  }
+
+  async createMarketingCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign> {
+    const [newCampaign] = await db.insert(marketingCampaigns).values(campaign).returning();
+    return newCampaign;
   }
 }
 
