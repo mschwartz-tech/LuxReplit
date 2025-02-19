@@ -23,7 +23,13 @@ export default function Dashboard() {
 
   const updatePackageMutation = useMutation({
     mutationFn: async (data: Partial<TrainingPackage>) => {
-      const res = await apiRequest("PATCH", `/api/training-packages/${data.id}`, data);
+      const res = await apiRequest("PATCH", `/api/training-packages/${data.id}`, {
+        ...data,
+        // Convert string values to numbers for the API
+        costPerSession: Number(data.costPerSession),
+        costBiWeekly: Number(data.costBiWeekly),
+        pifAmount: Number(data.pifAmount),
+      });
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to update package");
@@ -74,9 +80,9 @@ export default function Dashboard() {
       setEditedValues(prev => ({
         ...prev,
         [rowKey]: pkg ? {
-          costPerSession: pkg.costPerSession,
-          costBiWeekly: pkg.costBiWeekly,
-          pifAmount: pkg.pifAmount,
+          costPerSession: pkg.costPerSession.toString(),
+          costBiWeekly: pkg.costBiWeekly.toString(),
+          pifAmount: pkg.pifAmount.toString(),
         } : {
           costPerSession: "",
           costBiWeekly: "",
