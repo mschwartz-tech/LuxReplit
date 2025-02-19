@@ -90,6 +90,31 @@ export default function ExerciseLibrary() {
     },
   });
 
+  const generatePatternMutation = useMutation({
+    mutationFn: async (exerciseName: string) => {
+      const res = await apiRequest("POST", "/api/exercises/generate-pattern", { exerciseName });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to generate pattern description");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      form.setValue("description", data.description);
+      toast({
+        title: "Success",
+        description: "Movement pattern description generated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -105,6 +130,14 @@ export default function ExerciseLibrary() {
       videoUrl: "",
     },
   });
+
+  // Watch the exercise name field to trigger pattern generation
+  const exerciseName = form.watch("name");
+  React.useEffect(() => {
+    if (exerciseName && exerciseName.length >= 3 && !form.formState.errors.name) {
+      generatePatternMutation.mutate(exerciseName);
+    }
+  }, [exerciseName]);
 
   const filteredExercises = React.useMemo(() => {
     if (!exercises) return [];

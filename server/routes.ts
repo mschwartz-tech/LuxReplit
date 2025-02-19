@@ -7,6 +7,7 @@ import {
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMovementPatternSchema 
 } from "@shared/schema";
+import { generateMovementPatternDescription } from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -241,6 +242,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const exercises = await storage.getExercisesByMovementPattern(parseInt(req.params.movementPatternId));
     res.json(exercises);
+  });
+
+  app.post("/api/exercises/generate-pattern", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      return res.sendStatus(403);
+    }
+
+    const { exerciseName } = req.body;
+    if (!exerciseName) {
+      return res.status(400).json({ error: "Exercise name is required" });
+    }
+
+    try {
+      const description = await generateMovementPatternDescription(exerciseName);
+      res.json({ description });
+    } catch (error) {
+      console.error("Error in generate-pattern:", error);
+      res.status(500).json({ error: "Failed to generate movement pattern description" });
+    }
   });
 
   app.post("/api/exercises", async (req, res) => {
