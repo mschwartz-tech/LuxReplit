@@ -107,18 +107,20 @@ export default function TrainingManagement() {
   });
 
   // Transform workout logs into chart data
-  const chartData = workoutLogs?.map(log => ({
-    date: new Date(log.createdAt).toLocaleDateString(),
-    workouts: 1
-  })).reduce((acc, curr) => {
-    const existingDay = acc.find(d => d.date === curr.date);
-    if (existingDay) {
-      existingDay.workouts += curr.workouts;
-    } else {
-      acc.push(curr);
-    }
-    return acc;
-  }, [] as { date: string; workouts: number }[]) || [];
+  const chartData = React.useMemo(() => {
+    return workoutLogs?.map(log => ({
+      date: new Date(log.createdAt).toLocaleDateString(),
+      workouts: 1
+    })).reduce((acc, curr) => {
+      const existingDay = acc.find(d => d.date === curr.date);
+      if (existingDay) {
+        existingDay.workouts += curr.workouts;
+      } else {
+        acc.push(curr);
+      }
+      return acc;
+    }, [] as { date: string; workouts: number }[]) || [];
+  }, [workoutLogs]);
 
   if (isLoadingPlans || isLoadingLogs || isLoadingMembers) {
     return (
@@ -211,7 +213,7 @@ export default function TrainingManagement() {
                       <FormItem>
                         <FormLabel>Assign Member</FormLabel>
                         <Select
-                          value={field.value?.toString()}
+                          value={field.value?.toString() ?? ""}
                           onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
                         >
                           <FormControl>
@@ -222,7 +224,7 @@ export default function TrainingManagement() {
                           <SelectContent>
                             {members?.map((member) => (
                               <SelectItem key={member.id} value={member.id.toString()}>
-                                {member.userId} {/* Update this to show member name when available */}
+                                Member #{member.id}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -304,7 +306,7 @@ export default function TrainingManagement() {
                 No workout data available yet.
               </p>
             ) : (
-              <ChartContainer className="h-[400px]">
+              <div className="h-[400px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                     <Line type="monotone" dataKey="workouts" stroke="hsl(var(--primary))" strokeWidth={2} />
@@ -314,7 +316,7 @@ export default function TrainingManagement() {
                     <Tooltip />
                   </LineChart>
                 </ResponsiveContainer>
-              </ChartContainer>
+              </div>
             )}
           </CardContent>
         </Card>
