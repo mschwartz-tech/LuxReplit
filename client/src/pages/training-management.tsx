@@ -8,10 +8,11 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, CheckCircle2 } from "lucide-react";
+import { Plus, Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema, insertWorkoutLogSchema, Member } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useLocation } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ import React from 'react';
 export default function TrainingManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [_, setLocation] = useLocation();
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const isMember = user?.role === "member";
@@ -174,126 +176,137 @@ export default function TrainingManagement() {
 
   return (
     <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Training Management</h1>
-          <p className="text-muted-foreground">
-            {isAdmin
-              ? "Manage workout plans and track progress across all clients"
-              : "Manage workout plans and track progress for your assigned clients"}
-          </p>
-        </div>
-        {(isAdmin || isTrainer) && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Workout Plan
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Workout Plan</DialogTitle>
-                <DialogDescription>
-                  Create a new workout plan for a client. You can set the title, description, and weekly frequency.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => createWorkoutPlanMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Title</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Full Body Workout" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="A comprehensive workout targeting all major muscle groups..."
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="frequencyPerWeek"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Weekly Frequency</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={7}
-                            {...field}
-                            onChange={e => field.onChange(parseInt(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="memberId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assign Client</FormLabel>
-                        <Select
-                          value={field.value?.toString() ?? undefined}
-                          onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                        >
+      <div className="flex flex-col gap-6">
+        <Button
+          variant="ghost"
+          className="w-fit"
+          onClick={() => setLocation("/dashboard")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Training Management</h1>
+            <p className="text-muted-foreground">
+              {isAdmin
+                ? "Manage workout plans and track progress across all clients"
+                : "Manage workout plans and track progress for your assigned clients"}
+            </p>
+          </div>
+          {(isAdmin || isTrainer) && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Workout Plan
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Workout Plan</DialogTitle>
+                  <DialogDescription>
+                    Create a new workout plan for a client. You can set the title, description, and weekly frequency.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit((data) => createWorkoutPlanMutation.mutate(data))} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a client" />
-                            </SelectTrigger>
+                            <Input placeholder="Full Body Workout" {...field} />
                           </FormControl>
-                          <SelectContent>
-                            {members?.map((member) => (
-                              <SelectItem key={member.id} value={member.id.toString()}>
-                                Client #{member.id}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={createWorkoutPlanMutation.isPending}
-                  >
-                    {createWorkoutPlanMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      "Create Plan"
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="A comprehensive workout targeting all major muscle groups..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="frequencyPerWeek"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Weekly Frequency</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={7}
+                              {...field}
+                              onChange={e => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="memberId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assign Client</FormLabel>
+                          <Select
+                            value={field.value?.toString() ?? undefined}
+                            onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a client" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {members?.map((member) => (
+                                <SelectItem key={member.id} value={member.id.toString()}>
+                                  Client #{member.id}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={createWorkoutPlanMutation.isPending}
+                    >
+                      {createWorkoutPlanMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Plan"
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
