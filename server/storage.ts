@@ -112,20 +112,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMembersByTrainer(trainerId: number): Promise<Member[]> {
-    // Get members who have workout plans with this trainer
-    const memberIds = await db.select({ memberId: workoutPlans.memberId })
-      .from(workoutPlans)
-      .where(eq(workoutPlans.trainerId, trainerId));
-
-    const uniqueMemberIds = [...new Set(memberIds.map(m => m.memberId))];
-
-    if (uniqueMemberIds.length === 0) {
-      return [];
-    }
-
     return await db.select()
       .from(members)
-      .where(sql`${members.id} = ANY(${uniqueMemberIds})`);
+      .where(eq(members.assignedTrainerId, trainerId));
   }
 
   async getMember(id: number): Promise<Member | undefined> {
