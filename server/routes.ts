@@ -2,13 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { 
-  insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema, 
+import {
+  insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
+import { trainingClients } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -388,6 +389,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to create exercise" });
     }
   });
+
+  app.get("/api/training-packages", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const packages = [
+        { id: 1, name: "Single Session", type: "single", sessions: 1, price: 75 },
+        { id: 2, name: "Monthly Package", type: "monthly", sessions: 8, price: 500 },
+        { id: 3, name: "Quarterly Package", type: "quarterly", sessions: 36, price: 1800 },
+        { id: 4, name: "Annual Package", type: "annual", sessions: 144, price: 6000 }
+      ];
+      res.json(packages);
+    } catch (error) {
+      console.error("Error fetching training packages:", error);
+      res.status(500).json({ error: "Failed to fetch training packages" });
+    }
+  });
+
+  app.get("/api/training-packages/:type", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const trainingPackages = {
+        single: { id: 1, name: "Single Session", type: "single", sessions: 1, price: 75 },
+        monthly: { id: 2, name: "Monthly Package", type: "monthly", sessions: 8, price: 500 },
+        quarterly: { id: 3, name: "Quarterly Package", type: "quarterly", sessions: 36, price: 1800 },
+        annual: { id: 4, name: "Annual Package", type: "annual", sessions: 144, price: 6000 }
+      };
+      const selectedPackage = trainingPackages[req.params.type as keyof typeof trainingPackages];
+      if (!selectedPackage) {
+        return res.status(404).json({ error: "Package type not found" });
+      }
+      res.json(selectedPackage);
+    } catch (error) {
+      console.error("Error fetching training package:", error);
+      res.status(500).json({ error: "Failed to fetch training package" });
+    }
+  });
+
+
 
   const httpServer = createServer(app);
   return httpServer;
