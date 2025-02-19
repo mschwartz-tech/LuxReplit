@@ -1,11 +1,11 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, Search, Filter } from "lucide-react";
@@ -46,7 +46,6 @@ export default function ExerciseLibrary() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedDifficulty, setSelectedDifficulty] = React.useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = React.useState<number | null>(null);
-  const [selectedMovementPattern, setSelectedMovementPattern] = React.useState<number | null>(null);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = React.useState(false);
 
   const { data: exercises, isLoading: isLoadingExercises } = useQuery<Exercise[]>({
@@ -112,17 +111,15 @@ export default function ExerciseLibrary() {
 
     return exercises.filter(exercise => {
       const matchesSearch = exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
+                         exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDifficulty = !selectedDifficulty || exercise.difficulty === selectedDifficulty;
       const matchesMuscleGroup = !selectedMuscleGroup || 
-                                exercise.primaryMuscleGroupId === selectedMuscleGroup ||
-                                exercise.secondaryMuscleGroupIds.includes(selectedMuscleGroup);
-      const matchesMovementPattern = !selectedMovementPattern || 
-                                   exercise.movementPatternId === selectedMovementPattern;
+                               exercise.primaryMuscleGroupId === selectedMuscleGroup ||
+                               exercise.secondaryMuscleGroupIds.includes(selectedMuscleGroup);
 
-      return matchesSearch && matchesDifficulty && matchesMuscleGroup && matchesMovementPattern;
+      return matchesSearch && matchesDifficulty && matchesMuscleGroup;
     });
-  }, [exercises, searchQuery, selectedDifficulty, selectedMuscleGroup, selectedMovementPattern]);
+  }, [exercises, searchQuery, selectedDifficulty, selectedMuscleGroup]);
 
   if (isLoadingExercises || isLoadingMuscleGroups || isLoadingMovementPatterns) {
     return (
@@ -178,7 +175,7 @@ export default function ExerciseLibrary() {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea 
+                          <Textarea
                             placeholder="A compound exercise that targets the lower body..."
                             {...field}
                           />
@@ -298,8 +295,8 @@ export default function ExerciseLibrary() {
                       )}
                     />
                   </div>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="w-full"
                     disabled={createExerciseMutation.isPending}
                   >
@@ -335,7 +332,6 @@ export default function ExerciseLibrary() {
                   setSearchQuery("");
                   setSelectedDifficulty(null);
                   setSelectedMuscleGroup(null);
-                  setSelectedMovementPattern(null);
                 }}
               >
                 Clear Filters
@@ -343,7 +339,7 @@ export default function ExerciseLibrary() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="flex gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
@@ -373,21 +369,6 @@ export default function ExerciseLibrary() {
                   {muscleGroups?.map((group) => (
                     <SelectItem key={group.id} value={group.id.toString()}>
                       {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={selectedMovementPattern?.toString() || ""}
-                onValueChange={(value) => setSelectedMovementPattern(value ? parseInt(value) : null)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Movement Pattern" />
-                </SelectTrigger>
-                <SelectContent>
-                  {movementPatterns?.map((pattern) => (
-                    <SelectItem key={pattern.id} value={pattern.id.toString()}>
-                      {pattern.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
