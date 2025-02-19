@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2, Search, Filter, User, Calendar, BarChart, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TrainingClient } from "@shared/schema";
+import { Member } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -26,15 +26,15 @@ export default function TrainingClientsPage() {
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "on_hold">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "suspended">("all");
 
-  const { data: clients, isLoading } = useQuery<TrainingClient[]>({
-    queryKey: [isAdmin ? "/api/training-clients" : `/api/training-clients/trainer/${user?.id}`],
+  const { data: clients, isLoading } = useQuery<Member[]>({
+    queryKey: [isAdmin ? "/api/members" : `/api/members/trainer/${user?.id}`],
     enabled: !!user && (isAdmin || isTrainer),
   });
 
   const filteredClients = clients?.filter(client =>
-    (statusFilter === "all" || client.clientStatus === statusFilter) &&
+    (statusFilter === "all" || client.membershipStatus === statusFilter) &&
     (searchQuery === "" || 
      `Client #${client.id}`.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -53,7 +53,6 @@ export default function TrainingClientsPage() {
 
   return (
     <div className="flex-1 relative">
-      {/* Background container with logo */}
       <div
         className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
         style={{
@@ -65,7 +64,6 @@ export default function TrainingClientsPage() {
         }}
       />
 
-      {/* Content overlay */}
       <div className="relative z-10 p-8">
         <div className="flex justify-between items-center mb-8">
           <div className="space-y-2">
@@ -79,7 +77,7 @@ export default function TrainingClientsPage() {
             </div>
             <p className="text-muted-foreground">
               {isAdmin
-                ? "Manage all personal training clients"
+                ? "Manage all training clients"
                 : "Manage your assigned training clients"}
             </p>
           </div>
@@ -91,7 +89,6 @@ export default function TrainingClientsPage() {
           )}
         </div>
 
-        {/* Search and Filter Bar */}
         <div className="flex gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -119,14 +116,13 @@ export default function TrainingClientsPage() {
               <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>
                 Inactive Clients
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter("on_hold")}>
-                On Hold
+              <DropdownMenuItem onClick={() => setStatusFilter("suspended")}>
+                Suspended
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Clients Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {!filteredClients || filteredClients.length === 0 ? (
             <p className="text-center text-muted-foreground py-8 col-span-full">
@@ -139,10 +135,10 @@ export default function TrainingClientsPage() {
                   <CardTitle className="text-lg">Client #{client.id}</CardTitle>
                   <CardDescription>
                     Status: <span className={`font-medium ${
-                      client.clientStatus === 'active' ? 'text-green-500' : 
-                      client.clientStatus === 'on_hold' ? 'text-yellow-500' : 'text-red-500'
+                      client.membershipStatus === 'active' ? 'text-green-500' : 
+                      client.membershipStatus === 'suspended' ? 'text-yellow-500' : 'text-red-500'
                     }`}>
-                      {client.clientStatus.split('_').map(word => 
+                      {client.membershipStatus.split('_').map(word => 
                         word.charAt(0).toUpperCase() + word.slice(1)
                       ).join(' ')}
                     </span>
@@ -151,15 +147,9 @@ export default function TrainingClientsPage() {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Package:</span>
+                      <span className="text-sm text-muted-foreground">Membership:</span>
                       <span className="text-sm font-medium capitalize">
-                        {client.packageType}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Sessions Left:</span>
-                      <span className="text-sm font-medium">
-                        {client.sessionsRemaining || 0}
+                        {client.membershipType}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">

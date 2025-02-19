@@ -29,20 +29,6 @@ export const members = pgTable("members", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const trainingClients = pgTable("training_clients", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  assignedTrainerId: integer("assigned_trainer_id").references(() => users.id),
-  clientStatus: text("client_status", {
-    enum: ["active", "inactive", "on_hold"]
-  }).notNull(),
-  startDate: timestamp("start_date").notNull(),
-  packageType: text("package_type", {
-    enum: ["single", "monthly", "quarterly", "annual"]
-  }).notNull(),
-  sessionsRemaining: integer("sessions_remaining"),
-  createdAt: timestamp("created_at").notNull().defaultNow()
-});
 
 export const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
@@ -157,7 +143,6 @@ export const exercises = pgTable("exercises", {
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members).omit({ createdAt: true });
-export const insertTrainingClientSchema = createInsertSchema(trainingClients).omit({ createdAt: true });
 export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
   .extend({
     goals: z.array(z.string()).min(1, "At least one goal is required"),
@@ -194,8 +179,6 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;
 export type InsertMember = z.infer<typeof insertMemberSchema>;
-export type TrainingClient = typeof trainingClients.$inferSelect;
-export type InsertTrainingClient = z.infer<typeof insertTrainingClientSchema>;
 export type MemberProfile = typeof memberProfiles.$inferSelect;
 export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
 export type MemberAssessment = typeof memberAssessments.$inferSelect;
