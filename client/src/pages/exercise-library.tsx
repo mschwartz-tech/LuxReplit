@@ -289,64 +289,77 @@ export default function ExerciseLibrary() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="primaryMuscleGroupId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Primary Muscle Group</FormLabel>
-                          <Select
-                            value={field.value ? field.value.toString() : undefined}
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select muscle group" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {muscleGroups?.map((group) => (
-                                <SelectItem key={group.id} value={group.id.toString()}>
-                                  {group.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid gap-4">
+                     <FormField
+                       control={form.control}
+                       name="primaryMuscleGroupId"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Primary Muscle Group</FormLabel>
+                           <Select
+                             value={field.value ? field.value.toString() : undefined}
+                             onValueChange={(value) => field.onChange(parseInt(value))}
+                           >
+                             <FormControl>
+                               <SelectTrigger className="w-full">
+                                 <SelectValue placeholder="Select primary muscle group" />
+                               </SelectTrigger>
+                             </FormControl>
+                             <SelectContent>
+                               {muscleGroups?.map((group) => (
+                                 <SelectItem key={group.id} value={group.id.toString()}>
+                                   {group.name}
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                     <FormField
+                       control={form.control}
+                       name="secondaryMuscleGroupIds"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Secondary Muscle Groups</FormLabel>
+                           <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
+                             {muscleGroups?.map((group) => (
+                               <div key={group.id} className="flex items-center space-x-2">
+                                 <input
+                                   type="checkbox"
+                                   id={`muscle-${group.id}`}
+                                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                   checked={field.value.includes(group.id)}
+                                   onChange={(e) => {
+                                     const value = parseInt(group.id.toString());
+                                     if (e.target.checked) {
+                                       field.onChange([...field.value, value]);
+                                     } else {
+                                       field.onChange(field.value.filter((id: number) => id !== value));
+                                     }
+                                   }}
+                                   disabled={group.id === form.getValues("primaryMuscleGroupId")}
+                                 />
+                                 <label 
+                                   htmlFor={`muscle-${group.id}`}
+                                   className={`text-sm ${
+                                     group.id === form.getValues("primaryMuscleGroupId")
+                                       ? "text-gray-400"
+                                       : "text-gray-700"
+                                   }`}
+                                 >
+                                   {group.name}
+                                 </label>
+                               </div>
+                             ))}
+                           </div>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="secondaryMuscleGroupIds"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Secondary Muscle Groups</FormLabel>
-                        <div className="flex flex-col gap-2">
-                          {muscleGroups?.map((group) => (
-                            <div key={group.id} className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                id={`muscle-${group.id}`}
-                                checked={field.value.includes(group.id)}
-                                onChange={(e) => {
-                                  const value = parseInt(group.id.toString());
-                                  if (e.target.checked) {
-                                    field.onChange([...field.value, value]);
-                                  } else {
-                                    field.onChange(field.value.filter((id: number) => id !== value));
-                                  }
-                                }}
-                              />
-                              <label htmlFor={`muscle-${group.id}`}>{group.name}</label>
-                            </div>
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <Button
                     type="submit"
                     className="w-full"
