@@ -45,7 +45,7 @@ export default function AuthPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-[#F5F7FA] to-[#E4E7EB]">
       <Card className="w-full max-w-md mx-auto relative">
         {/* Logo at the top */}
         <div className="flex justify-center pt-6">
