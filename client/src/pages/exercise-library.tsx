@@ -8,7 +8,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Search, Filter } from "lucide-react";
+import { Loader2, Plus, Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,8 +26,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -35,6 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Exercise, MuscleGroup, MovementPattern, insertExerciseSchema } from "@shared/schema";
 import React from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ExerciseLibrary() {
   const { user } = useAuth();
@@ -120,10 +119,10 @@ export default function ExerciseLibrary() {
     defaultValues: {
       name: "",
       description: "",
-      difficulty: "beginner",
-      movementPatternId: 1, // Default to first movement pattern since it's AI-generated
-      primaryMuscleGroupId: undefined,
-      secondaryMuscleGroupIds: [],
+      difficulty: "beginner" as const,
+      movementPatternId: 1,
+      primaryMuscleGroupId: 0,
+      secondaryMuscleGroupIds: [] as number[],
       instructions: [""],
       tips: [],
       equipment: [],
@@ -250,7 +249,7 @@ export default function ExerciseLibrary() {
                         <FormItem>
                           <FormLabel>Primary Muscle Group</FormLabel>
                           <Select
-                            value={field.value?.toString()}
+                            value={field.value ? field.value.toString() : undefined}
                             onValueChange={(value) => field.onChange(parseInt(value))}
                           >
                             <FormControl>
@@ -278,8 +277,10 @@ export default function ExerciseLibrary() {
                       <FormItem>
                         <FormLabel>Secondary Muscle Groups</FormLabel>
                         <Select
-                          value={field.value?.map(String)}
-                          onValueChange={(values) => field.onChange(values.map(Number))}
+                          value={field.value.map(String)}
+                          onValueChange={(value) => {
+                            field.onChange(Array.isArray(value) ? value.map(Number) : []);
+                          }}
                           multiple
                         >
                           <FormControl>
@@ -352,7 +353,10 @@ export default function ExerciseLibrary() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={selectedDifficulty || ""} onValueChange={(value) => setSelectedDifficulty(value || null)}>
+              <Select 
+                value={selectedDifficulty || undefined} 
+                onValueChange={(value) => setSelectedDifficulty(value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Difficulty" />
                 </SelectTrigger>
@@ -363,7 +367,7 @@ export default function ExerciseLibrary() {
                 </SelectContent>
               </Select>
               <Select
-                value={selectedMuscleGroup?.toString() || ""}
+                value={selectedMuscleGroup?.toString()}
                 onValueChange={(value) => setSelectedMuscleGroup(value ? parseInt(value) : null)}
               >
                 <SelectTrigger>
