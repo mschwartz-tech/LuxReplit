@@ -20,12 +20,13 @@ export default function Dashboard() {
       <div className="flex-1 relative">
         {/* Background container with logo */}
         <div 
-          className="absolute inset-0 pointer-events-none opacity-5"
+          className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
           style={{
             backgroundImage: 'url("/assets/branding/logo.png")',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            backgroundSize: 'contain'
+            backgroundSize: '75% auto',
+            filter: 'grayscale(0.5)'
           }}
         />
 
