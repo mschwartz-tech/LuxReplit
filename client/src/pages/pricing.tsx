@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type PricingPlan } from "@shared/schema";
 import { toast } from "@/hooks/use-toast";
+import { useState, useCallback } from "react";
 
 interface EditableCellProps {
   value: string;
@@ -28,6 +29,7 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
 
 export default function PricingPage() {
   const queryClient = useQueryClient();
+  const [changes, setChanges] = useState<Record<number, Partial<PricingPlan>>>({});
 
   const { data: pricingPlans, isLoading } = useQuery({
     queryKey: ["/api/pricing-plans"],
@@ -45,55 +47,81 @@ export default function PricingPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (plan: Partial<PricingPlan>) => {
-      const response = await fetch(`/api/pricing-plans/${plan.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(plan),
-      });
-      if (!response.ok) throw new Error("Failed to update pricing plan");
-      return response.json();
+    mutationFn: async (updates: Record<number, Partial<PricingPlan>>) => {
+      const promises = Object.entries(updates).map(([id, plan]) =>
+        fetch(`/api/pricing-plans/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(plan),
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to update pricing plan ${id}`);
+          return res.json();
+        })
+      );
+      return Promise.all(promises);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pricing-plans"] });
+      setChanges({});
       toast({
         title: "Success",
-        description: "Pricing plan updated successfully",
+        description: "All pricing plans updated successfully",
       });
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update pricing plan",
+        description: "Failed to update pricing plans",
         variant: "destructive",
       });
     },
   });
 
-  const handlePriceChange = (
+  const handlePriceChange = useCallback((
     planId: number,
     field: "costPerSession" | "biweeklyPrice" | "pifPrice",
     value: string
   ) => {
-    updateMutation.mutate({
-      id: planId,
-      [field]: value,
-    });
+    setChanges(prev => ({
+      ...prev,
+      [planId]: {
+        ...prev[planId],
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  const handleSaveChanges = () => {
+    updateMutation.mutate(changes);
   };
 
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
+  const hasChanges = Object.keys(changes).length > 0;
+
   return (
     <div className="p-8">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold">Pricing Management</h1>
+        </div>
+        {hasChanges && (
+          <Button
+            onClick={handleSaveChanges}
+            disabled={updateMutation.isPending}
+            className="gap-2"
+          >
+            <Save className="h-4 w-4" />
+            Save Changes
           </Button>
-        </Link>
-        <h1 className="text-3xl font-bold">Pricing Management</h1>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -131,29 +159,32 @@ export default function PricingPage() {
                   const plan = pricingPlans?.[duration]?.find(
                     (p) => p.sessionsPerWeek === sessions
                   );
+                  if (!plan) return null;
+
+                  const currentChanges = changes[plan.id] || {};
                   return (
                     <>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <EditableCell
-                          value={plan?.costPerSession ?? "0"}
+                          value={currentChanges.costPerSession ?? plan.costPerSession}
                           onChange={(value) =>
-                            plan && handlePriceChange(plan.id, "costPerSession", value)
+                            handlePriceChange(plan.id, "costPerSession", value)
                           }
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <EditableCell
-                          value={plan?.biweeklyPrice ?? "0"}
+                          value={currentChanges.biweeklyPrice ?? plan.biweeklyPrice}
                           onChange={(value) =>
-                            plan && handlePriceChange(plan.id, "biweeklyPrice", value)
+                            handlePriceChange(plan.id, "biweeklyPrice", value)
                           }
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <EditableCell
-                          value={plan?.pifPrice ?? "0"}
+                          value={currentChanges.pifPrice ?? plan.pifPrice}
                           onChange={(value) =>
-                            plan && handlePriceChange(plan.id, "pifPrice", value)
+                            handlePriceChange(plan.id, "pifPrice", value)
                           }
                         />
                       </td>
