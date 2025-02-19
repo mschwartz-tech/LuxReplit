@@ -36,6 +36,7 @@ export async function generateMovementPatternDescription(exerciseName: string): 
 export async function predictMuscleGroups(exerciseName: string): Promise<{
   primaryMuscleGroupId: number;
   secondaryMuscleGroupIds: number[];
+  difficulty: "beginner" | "intermediate" | "advanced";
 }> {
   try {
     const response = await openai.chat.completions.create({
@@ -43,7 +44,7 @@ export async function predictMuscleGroups(exerciseName: string): Promise<{
       messages: [
         {
           role: "system",
-          content: `You are a professional trainer with expertise in exercise biomechanics. Analyze exercises and determine their primary and secondary muscle groups.
+          content: `You are a professional trainer with expertise in exercise biomechanics. Analyze exercises and determine their primary and secondary muscle groups, and difficulty level.
 Primary muscle groups (IDs):
 1. Quadriceps, 2. Hamstrings, 3. Calves, 4. Chest, 5. Back, 6. Shoulders, 
 7. Biceps, 8. Triceps, 9. Core, 10. Glutes
@@ -51,12 +52,13 @@ Primary muscle groups (IDs):
 Respond in JSON format with:
 {
   "primaryMuscleGroupId": number (1-10),
-  "secondaryMuscleGroupIds": number[] (1-10, exclude primary)
+  "secondaryMuscleGroupIds": number[] (1-10, exclude primary),
+  "difficulty": "beginner" | "intermediate" | "advanced"
 }`
         },
         {
           role: "user",
-          content: `Analyze the primary and secondary muscle groups for this exercise: ${exerciseName}`
+          content: `Analyze the primary and secondary muscle groups and difficulty level for this exercise: ${exerciseName}`
         }
       ],
       response_format: { type: "json_object" },
@@ -70,16 +72,18 @@ Respond in JSON format with:
     if (
       !result.primaryMuscleGroupId ||
       !Array.isArray(result.secondaryMuscleGroupIds) ||
+      !result.difficulty ||
       result.primaryMuscleGroupId < 1 ||
       result.primaryMuscleGroupId > 10 ||
-      result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 10)
+      result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 10) ||
+      !["beginner", "intermediate", "advanced"].includes(result.difficulty)
     ) {
-      throw new Error("Invalid muscle group prediction format");
+      throw new Error("Invalid prediction format");
     }
 
     return result;
   } catch (error) {
-    console.error("Error predicting muscle groups:", error);
-    throw new Error("Failed to predict muscle groups");
+    console.error("Error predicting muscle groups and difficulty:", error);
+    throw new Error("Failed to predict muscle groups and difficulty");
   }
 }

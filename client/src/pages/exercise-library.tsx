@@ -140,9 +140,10 @@ export default function ExerciseLibrary() {
     onSuccess: (data) => {
       form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId);
       form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds);
+      form.setValue("difficulty", data.difficulty);
       toast({
         title: "Success",
-        description: "Muscle groups predicted successfully",
+        description: "Muscle groups and difficulty predicted successfully",
       });
     },
     onError: (error: Error) => {
