@@ -1,12 +1,18 @@
 import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, Schedule, InsertSchedule } from "@shared/schema";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { neon } from "@neondatabase/serverless";
+import { users, members, workoutPlans, schedules } from "@shared/schema";
+import connectPg from "connect-pg-simple";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
+
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
 
 export interface IStorage {
   sessionStore: session.Store;
-  
+
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -28,86 +34,74 @@ export interface IStorage {
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private members: Map<number, Member>;
-  private workoutPlans: Map<number, WorkoutPlan>;
-  private schedules: Map<number, Schedule>;
+export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
-  private currentId: number;
 
   constructor() {
-    this.users = new Map();
-    this.members = new Map();
-    this.workoutPlans = new Map();
-    this.schedules = new Map();
-    this.currentId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      conObject: {
+        connectionString: process.env.DATABASE_URL,
+      },
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await db.select().from(users).where(sql`${users.id} = ${id}`);
+    return result[0];
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const result = await db.select().from(users).where(sql`${users.username} = ${username}`);
+    return result[0];
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createUser(user: InsertUser): Promise<User> {
+    const result = await db.insert(users).values(user).returning();
+    return result[0];
   }
 
   async getMembers(): Promise<Member[]> {
-    return Array.from(this.members.values());
+    return await db.select().from(members);
   }
 
   async getMember(id: number): Promise<Member | undefined> {
-    return this.members.get(id);
+    const result = await db.select().from(members).where(sql`${members.id} = ${id}`);
+    return result[0];
   }
 
-  async createMember(insertMember: InsertMember): Promise<Member> {
-    const id = this.currentId++;
-    const member: Member = { ...insertMember, id };
-    this.members.set(id, member);
-    return member;
+  async createMember(member: InsertMember): Promise<Member> {
+    const result = await db.insert(members).values(member).returning();
+    return result[0];
   }
 
   async getWorkoutPlans(): Promise<WorkoutPlan[]> {
-    return Array.from(this.workoutPlans.values());
+    return await db.select().from(workoutPlans);
   }
 
   async getWorkoutPlan(id: number): Promise<WorkoutPlan | undefined> {
-    return this.workoutPlans.get(id);
+    const result = await db.select().from(workoutPlans).where(sql`${workoutPlans.id} = ${id}`);
+    return result[0];
   }
 
-  async createWorkoutPlan(insertPlan: InsertWorkoutPlan): Promise<WorkoutPlan> {
-    const id = this.currentId++;
-    const plan: WorkoutPlan = { ...insertPlan, id };
-    this.workoutPlans.set(id, plan);
-    return plan;
+  async createWorkoutPlan(plan: InsertWorkoutPlan): Promise<WorkoutPlan> {
+    const result = await db.insert(workoutPlans).values(plan).returning();
+    return result[0];
   }
 
   async getSchedules(): Promise<Schedule[]> {
-    return Array.from(this.schedules.values());
+    return await db.select().from(schedules);
   }
 
   async getSchedule(id: number): Promise<Schedule | undefined> {
-    return this.schedules.get(id);
+    const result = await db.select().from(schedules).where(sql`${schedules.id} = ${id}`);
+    return result[0];
   }
 
-  async createSchedule(insertSchedule: InsertSchedule): Promise<Schedule> {
-    const id = this.currentId++;
-    const schedule: Schedule = { ...insertSchedule, id };
-    this.schedules.set(id, schedule);
-    return schedule;
+  async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
+    const result = await db.insert(schedules).values(schedule).returning();
+    return result[0];
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
