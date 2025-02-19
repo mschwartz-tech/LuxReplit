@@ -130,33 +130,33 @@ export default function PricingPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th rowSpan={2} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th rowSpan={2} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b w-20">
                   Sessions per Week
                 </th>
-                <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   30MIN
                 </th>
-                <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th colSpan={3} className="px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   60MIN
                 </th>
               </tr>
               <tr>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   Cost/Session
                 </th>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   Bi-weekly
                 </th>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   PIF
                 </th>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   Cost/Session
                 </th>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   Bi-weekly
                 </th>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   PIF
                 </th>
               </tr>
