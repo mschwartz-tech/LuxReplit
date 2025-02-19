@@ -1,10 +1,58 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
-import { Loader2, Users, Calendar, DollarSign, BarChart } from "lucide-react";
+import { Loader2, Users, Calendar, DollarSign, BarChart, Edit2 } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { TrainingPackage } from "@shared/schema";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedPackage, setSelectedPackage] = useState<TrainingPackage | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const { data: trainingPackages, isLoading: isLoadingPackages } = useQuery<TrainingPackage[]>({
+    queryKey: ["/api/training-packages"],
+    enabled: !!user && user.role === "admin",
+  });
+
+  const updatePackageMutation = useMutation({
+    mutationFn: async (data: Partial<TrainingPackage>) => {
+      const res = await apiRequest("PATCH", `/api/training-packages/${data.id}`, data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update package");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Package updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-packages"] });
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   if (!user) {
     return (
@@ -13,6 +61,9 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60) || [];
+  const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30) || [];
 
   return (
     <div className="flex h-screen">
@@ -36,7 +87,7 @@ export default function Dashboard() {
             Welcome back, {user.name}
           </h1>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -85,8 +136,179 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {user.role === "admin" && (
+            <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
+              {/* 60 Minute Program Options */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl">60 MINUTE PROGRAM OPTIONS</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">SESSIONS PER WEEK</th>
+                          <th className="text-left py-2">COST PER SESSION</th>
+                          <th className="text-left py-2">COST BI-WEEKLY</th>
+                          <th className="text-left py-2">PIF</th>
+                          <th className="text-left py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {packages60Min.map((pkg) => (
+                          <tr key={pkg.id} className="border-b">
+                            <td className="py-2">{pkg.sessionsPerWeek}X</td>
+                            <td className="py-2">${pkg.costPerSession}</td>
+                            <td className="py-2">${pkg.costBiWeekly}</td>
+                            <td className="py-2">${pkg.pifAmount}</td>
+                            <td className="py-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPackage(pkg);
+                                  setIsEditDialogOpen(true);
+                                }}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 30 Minute Program Options */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl">30 MINUTE PROGRAM OPTIONS</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">SESSIONS PER WEEK</th>
+                          <th className="text-left py-2">COST PER SESSION</th>
+                          <th className="text-left py-2">COST BI-WEEKLY</th>
+                          <th className="text-left py-2">PIF</th>
+                          <th className="text-left py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {packages30Min.map((pkg) => (
+                          <tr key={pkg.id} className="border-b">
+                            <td className="py-2">{pkg.sessionsPerWeek}X</td>
+                            <td className="py-2">${pkg.costPerSession}</td>
+                            <td className="py-2">${pkg.costBiWeekly}</td>
+                            <td className="py-2">${pkg.pifAmount}</td>
+                            <td className="py-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPackage(pkg);
+                                  setIsEditDialogOpen(true);
+                                }}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Edit Package Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Package Pricing</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <label htmlFor="costPerSession">Cost Per Session ($)</label>
+                <Input
+                  id="costPerSession"
+                  type="number"
+                  value={selectedPackage?.costPerSession || ""}
+                  onChange={(e) =>
+                    setSelectedPackage(prev =>
+                      prev ? { ...prev, costPerSession: parseFloat(e.target.value) } : null
+                    )
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="costBiWeekly">Cost Bi-Weekly ($)</label>
+                <Input
+                  id="costBiWeekly"
+                  type="number"
+                  value={selectedPackage?.costBiWeekly || ""}
+                  onChange={(e) =>
+                    setSelectedPackage(prev =>
+                      prev ? { ...prev, costBiWeekly: parseFloat(e.target.value) } : null
+                    )
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label htmlFor="pifAmount">PIF Amount ($)</label>
+                <Input
+                  id="pifAmount"
+                  type="number"
+                  value={selectedPackage?.pifAmount || ""}
+                  onChange={(e) =>
+                    setSelectedPackage(prev =>
+                      prev ? { ...prev, pifAmount: parseFloat(e.target.value) } : null
+                    )
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedPackage) {
+                    updatePackageMutation.mutate({
+                      id: selectedPackage.id,
+                      costPerSession: selectedPackage.costPerSession,
+                      costBiWeekly: selectedPackage.costBiWeekly,
+                      pifAmount: selectedPackage.pifAmount,
+                    });
+                  }
+                }}
+                disabled={updatePackageMutation.isPending}
+              >
+                {updatePackageMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
