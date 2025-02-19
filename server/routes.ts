@@ -388,6 +388,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to create exercise" });
     }
   });
+  // Add this endpoint after the last API endpoint
+  app.patch("/api/training-packages/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.sendStatus(403);
+    }
+
+    const id = parseInt(req.params.id);
+    const { costPerSession, costBiWeekly, pifAmount } = req.body;
+
+    try {
+      const updatedPackage = await storage.updateTrainingPackage(id, {
+        costPerSession: Number(costPerSession),
+        costBiWeekly: Number(costBiWeekly),
+        pifAmount: Number(pifAmount),
+        updatedAt: new Date(),
+      });
+      res.json(updatedPackage);
+    } catch (error) {
+      console.error("Error updating training package:", error);
+      res.status(500).json({ error: "Failed to update training package" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -167,6 +167,10 @@ export const trainingPackages = pgTable("training_packages", {
   isActive: boolean("is_active").notNull().default(true),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    uniquePackage: uniqueIndex('unique_package').on(table.sessionDuration, table.sessionsPerWeek),
+  }
 });
 
 
