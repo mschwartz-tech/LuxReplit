@@ -1,14 +1,11 @@
 import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, Schedule, InsertSchedule } from "@shared/schema";
 import session from "express-session";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { neon } from "@neondatabase/serverless";
 import { users, members, workoutPlans, schedules } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
+import { db } from "./db";
 
 const PostgresSessionStore = connectPg(session);
-
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql);
 
 export interface IStorage {
   sessionStore: session.Store;
@@ -47,18 +44,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    const result = await db.select().from(users).where(sql`${users.id} = ${id}`);
-    return result[0];
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(sql`${users.username} = ${username}`);
-    return result[0];
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(user).returning();
-    return result[0];
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
   }
 
   async getMembers(): Promise<Member[]> {
@@ -66,13 +63,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMember(id: number): Promise<Member | undefined> {
-    const result = await db.select().from(members).where(sql`${members.id} = ${id}`);
-    return result[0];
+    const [member] = await db.select().from(members).where(eq(members.id, id));
+    return member;
   }
 
   async createMember(member: InsertMember): Promise<Member> {
-    const result = await db.insert(members).values(member).returning();
-    return result[0];
+    const [newMember] = await db.insert(members).values(member).returning();
+    return newMember;
   }
 
   async getWorkoutPlans(): Promise<WorkoutPlan[]> {
@@ -80,13 +77,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkoutPlan(id: number): Promise<WorkoutPlan | undefined> {
-    const result = await db.select().from(workoutPlans).where(sql`${workoutPlans.id} = ${id}`);
-    return result[0];
+    const [plan] = await db.select().from(workoutPlans).where(eq(workoutPlans.id, id));
+    return plan;
   }
 
   async createWorkoutPlan(plan: InsertWorkoutPlan): Promise<WorkoutPlan> {
-    const result = await db.insert(workoutPlans).values(plan).returning();
-    return result[0];
+    const [newPlan] = await db.insert(workoutPlans).values(plan).returning();
+    return newPlan;
   }
 
   async getSchedules(): Promise<Schedule[]> {
@@ -94,13 +91,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSchedule(id: number): Promise<Schedule | undefined> {
-    const result = await db.select().from(schedules).where(sql`${schedules.id} = ${id}`);
-    return result[0];
+    const [schedule] = await db.select().from(schedules).where(eq(schedules.id, id));
+    return schedule;
   }
 
   async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
-    const result = await db.insert(schedules).values(schedule).returning();
-    return result[0];
+    const [newSchedule] = await db.insert(schedules).values(schedule).returning();
+    return newSchedule;
   }
 }
 
