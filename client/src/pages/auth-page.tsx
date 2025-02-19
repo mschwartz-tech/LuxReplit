@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +10,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema, InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -45,19 +44,24 @@ export default function AuthPage() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
-            <Logo size="lg" type="banner" />
-          </div>
-          <CardDescription>
-            Manage your fitness journey with our comprehensive platform
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login">
-            <TabsList className="grid w-full grid-cols-2">
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+      {/* Background Icon */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
+        style={{
+          backgroundImage: 'url("/assets/branding/logoinvisicon.svg")',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: '90% auto',
+          filter: 'grayscale(0.5)'
+        }}
+      />
+
+      {/* Content overlay */}
+      <Card className="w-full max-w-md mx-auto relative z-10">
+        <CardContent className="pt-6">
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
