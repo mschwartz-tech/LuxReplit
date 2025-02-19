@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
+import { Logo } from "@/components/ui/logo";
 import {
   Users,
   Calendar,
@@ -73,9 +74,9 @@ export function SidebarNav() {
     <div className="border-r bg-sidebar h-screen w-64">
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold">
-            LuxeWorks Fitness
-          </h2>
+          <div className="mb-2 px-4">
+            <Logo size="lg" type="banner" />
+          </div>
           <ScrollArea className="h-[calc(100vh-8rem)]">
             <div className="space-y-1">
               {items
