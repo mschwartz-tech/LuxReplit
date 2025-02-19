@@ -15,15 +15,15 @@ export async function generateMovementPatternDescription(exerciseName: string): 
       messages: [
         {
           role: "system",
-          content: "You are a professional fitness trainer specializing in exercise biomechanics. Generate concise, technical descriptions of movement patterns for exercises. Focus on the primary movement pattern, joint actions, and movement planes. Keep responses under 100 words."
+          content: "You are a professional personal trainer with expertise in exercise biomechanics. Generate descriptions that combine technical accuracy with practical, easy-to-understand instructions. Focus on: 1) Primary movement pattern in simple terms, 2) Key joints and muscles involved, 3) Basic form cues a trainer would give. Keep responses under 150 words and use language that both trainers and clients can understand."
         },
         {
           role: "user",
-          content: `Generate a technical movement pattern description for the exercise: ${exerciseName}`
+          content: `Generate a trainer-friendly movement pattern description for the exercise: ${exerciseName}`
         }
       ],
       temperature: 0.7,
-      max_tokens: 150
+      max_tokens: 200
     });
 
     return response.choices[0].message.content || "Movement pattern description unavailable.";
