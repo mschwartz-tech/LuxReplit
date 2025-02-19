@@ -163,7 +163,7 @@ export default function ExerciseLibrary() {
       name: "",
       description: "",
       difficulty: "beginner" as const,
-      movementPatternId: 2, 
+      movementPatternId: 2,
       primaryMuscleGroupId: 0,
       secondaryMuscleGroupIds: [] as number[],
       instructions: [""],
@@ -189,11 +189,11 @@ export default function ExerciseLibrary() {
 
     return exercises.filter(exercise => {
       const matchesSearch = exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
+        exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDifficulty = !selectedDifficulty || exercise.difficulty === selectedDifficulty;
-      const matchesMuscleGroup = !selectedMuscleGroup || 
-                               exercise.primaryMuscleGroupId === selectedMuscleGroup ||
-                               exercise.secondaryMuscleGroupIds.includes(selectedMuscleGroup);
+      const matchesMuscleGroup = !selectedMuscleGroup ||
+        exercise.primaryMuscleGroupId === selectedMuscleGroup ||
+        exercise.secondaryMuscleGroupIds.includes(selectedMuscleGroup);
 
       return matchesSearch && matchesDifficulty && matchesMuscleGroup;
     });
@@ -493,7 +493,7 @@ export default function ExerciseLibrary() {
                         <CardDescription>
                           <div className="flex gap-2 flex-wrap">
                             <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium">
-                              {exercise.difficulty}
+                              {exercise.difficulty.charAt(0).toUpperCase() + exercise.difficulty.slice(1)}
                             </span>
                             {muscleGroup && (
                               <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
