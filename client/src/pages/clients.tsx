@@ -28,16 +28,23 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
+  // Updated query to explicitly handle the endpoint based on role
   const { data: clients, isLoading } = useQuery<Member[]>({
     queryKey: [isAdmin ? "/api/members" : `/api/members/trainer/${user?.id}`],
     enabled: !!user && (isAdmin || isTrainer),
   });
+
+  console.log("Clients data:", clients); // Add debugging log
 
   // Filter clients based on search query and status
   const filteredClients = clients?.filter(client => 
     (statusFilter === "all" || client.status === statusFilter) &&
     (searchQuery === "" || `Client #${client.id}`.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  if (!user || (!isAdmin && !isTrainer)) {
+    return <div className="p-8">Not authorized to view this page</div>;
+  }
 
   if (isLoading) {
     return (
@@ -100,12 +107,12 @@ export default function ClientsPage() {
 
       {/* Client Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredClients?.length === 0 ? (
+        {!filteredClients || filteredClients.length === 0 ? (
           <p className="text-center text-muted-foreground py-8 col-span-full">
             No clients found.
           </p>
         ) : (
-          filteredClients?.map((client) => (
+          filteredClients.map((client) => (
             <Card key={client.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg">Client #{client.id}</CardTitle>
