@@ -21,7 +21,7 @@ export default function Dashboard() {
 
   const { data: trainingPackages, isLoading: isLoadingPackages } = useQuery<TrainingPackage[]>({
     queryKey: ["/api/training-packages"],
-    enabled: !!user && user.role === "admin",
+    enabled: !!user?.role === "admin",
   });
 
   const updatePackageMutation = useMutation({
@@ -69,8 +69,24 @@ export default function Dashboard() {
     );
   }
 
-  const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
-  const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
+  if (isLoadingPackages) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!trainingPackages) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-red-500">Error loading training packages</div>
+      </div>
+    );
+  }
+
+  const packages60Min = trainingPackages.filter(pkg => pkg.sessionDuration === 60).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek);
+  const packages30Min = trainingPackages.filter(pkg => pkg.sessionDuration === 30).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek);
 
   const handleInputChange = (pkg: TrainingPackage, field: keyof TrainingPackage, value: string) => {
     const rowKey = `${pkg.sessionDuration}-${pkg.sessionsPerWeek}`;
