@@ -14,17 +14,20 @@ interface EditableCellProps {
 }
 
 const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) => (
-  <Input
-    type={type}
-    value={value}
-    onChange={(e) => {
-      const val = e.target.value;
-      if (type === "number" && !/^\d*\.?\d*$/.test(val)) return;
-      onChange(val);
-    }}
-    className="w-20 h-8 text-sm px-2 text-right"
-    min="0"
-  />
+  <div className="relative flex items-center">
+    <span className="absolute left-2 text-gray-500">$</span>
+    <Input
+      type={type}
+      value={value}
+      onChange={(e) => {
+        const val = e.target.value;
+        if (type === "number" && !/^\d*\.?\d*$/.test(val)) return;
+        onChange(val);
+      }}
+      className="w-20 h-8 text-sm px-6 text-right"
+      min="0"
+    />
+  </div>
 );
 
 export default function PricingPage() {
