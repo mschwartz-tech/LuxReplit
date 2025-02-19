@@ -125,79 +125,81 @@ export default function PricingPage() {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                Sessions per Week
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                30min Cost/Session
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                30min Bi-weekly
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                30min PIF
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                60min Cost/Session
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                60min Bi-weekly
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
-                60min PIF
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {[1, 2, 3, 4].map((sessions, index) => (
-              <tr key={sessions} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {sessions}
-                </td>
-                {[30, 60].map((duration) => {
-                  const plan = pricingPlans?.[duration]?.find(
-                    (p) => p.sessionsPerWeek === sessions
-                  );
-                  if (!plan) return null;
-
-                  const currentChanges = changes[plan.id] || {};
-                  return (
-                    <>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <EditableCell
-                          value={currentChanges.costPerSession ?? plan.costPerSession}
-                          onChange={(value) =>
-                            handlePriceChange(plan.id, "costPerSession", value)
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <EditableCell
-                          value={currentChanges.biweeklyPrice ?? plan.biweeklyPrice}
-                          onChange={(value) =>
-                            handlePriceChange(plan.id, "biweeklyPrice", value)
-                          }
-                        />
-                      </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <EditableCell
-                          value={currentChanges.pifPrice ?? plan.pifPrice}
-                          onChange={(value) =>
-                            handlePriceChange(plan.id, "pifPrice", value)
-                          }
-                        />
-                      </td>
-                    </>
-                  );
-                })}
+      <div className="flex justify-center">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 max-w-4xl">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  Sessions per Week
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  30min Cost/Session
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  30min Bi-weekly
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  30min PIF
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  60min Cost/Session
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  60min Bi-weekly
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap border-b">
+                  60min PIF
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {[1, 2, 3, 4].map((sessions, index) => (
+                <tr key={sessions} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {sessions}
+                  </td>
+                  {[30, 60].map((duration) => {
+                    const plan = pricingPlans?.[duration]?.find(
+                      (p) => p.sessionsPerWeek === sessions
+                    );
+                    if (!plan) return null;
+
+                    const currentChanges = changes[plan.id] || {};
+                    return (
+                      <>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <EditableCell
+                            value={currentChanges.costPerSession ?? plan.costPerSession}
+                            onChange={(value) =>
+                              handlePriceChange(plan.id, "costPerSession", value)
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <EditableCell
+                            value={currentChanges.biweeklyPrice ?? plan.biweeklyPrice}
+                            onChange={(value) =>
+                              handlePriceChange(plan.id, "biweeklyPrice", value)
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <EditableCell
+                            value={currentChanges.pifPrice ?? plan.pifPrice}
+                            onChange={(value) =>
+                              handlePriceChange(plan.id, "pifPrice", value)
+                            }
+                          />
+                        </td>
+                      </>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
