@@ -62,8 +62,8 @@ export default function Dashboard() {
     );
   }
 
-  const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60) || [];
-  const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30) || [];
+  const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
+  const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
 
   return (
     <div className="flex h-screen">
@@ -149,34 +149,39 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2">SESSIONS PER WEEK</th>
-                          <th className="text-left py-2">COST PER SESSION</th>
-                          <th className="text-left py-2">COST BI-WEEKLY</th>
-                          <th className="text-left py-2">PIF</th>
-                          <th className="text-left py-2">Actions</th>
+                          <th className="text-left py-2 font-bold">SESSIONS PER WEEK</th>
+                          <th className="text-left py-2 font-bold">COST PER SESSION</th>
+                          <th className="text-left py-2 font-bold">COST BI-WEEKLY</th>
+                          <th className="text-left py-2 font-bold">PIF</th>
+                          <th className="text-left py-2 w-20">EDIT</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {packages60Min.map((pkg) => (
-                          <tr key={pkg.id} className="border-b">
-                            <td className="py-2">{pkg.sessionsPerWeek}X</td>
-                            <td className="py-2">${pkg.costPerSession}</td>
-                            <td className="py-2">${pkg.costBiWeekly}</td>
-                            <td className="py-2">${pkg.pifAmount}</td>
-                            <td className="py-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedPackage(pkg);
-                                  setIsEditDialogOpen(true);
-                                }}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                        {[1, 2, 3, 4].map((sessionsPerWeek) => {
+                          const pkg = packages60Min.find(p => p.sessionsPerWeek === sessionsPerWeek);
+                          if (!pkg) return null;
+                          return (
+                            <tr key={pkg.id} className="border-b hover:bg-muted/50">
+                              <td className="py-4 font-medium">{sessionsPerWeek}X</td>
+                              <td className="py-4">${pkg.costPerSession}</td>
+                              <td className="py-4">${pkg.costBiWeekly}</td>
+                              <td className="py-4">${pkg.pifAmount}</td>
+                              <td className="py-4">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPackage(pkg);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                  className="w-full"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -193,34 +198,39 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2">SESSIONS PER WEEK</th>
-                          <th className="text-left py-2">COST PER SESSION</th>
-                          <th className="text-left py-2">COST BI-WEEKLY</th>
-                          <th className="text-left py-2">PIF</th>
-                          <th className="text-left py-2">Actions</th>
+                          <th className="text-left py-2 font-bold">SESSIONS PER WEEK</th>
+                          <th className="text-left py-2 font-bold">COST PER SESSION</th>
+                          <th className="text-left py-2 font-bold">COST BI-WEEKLY</th>
+                          <th className="text-left py-2 font-bold">PIF</th>
+                          <th className="text-left py-2 w-20">EDIT</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {packages30Min.map((pkg) => (
-                          <tr key={pkg.id} className="border-b">
-                            <td className="py-2">{pkg.sessionsPerWeek}X</td>
-                            <td className="py-2">${pkg.costPerSession}</td>
-                            <td className="py-2">${pkg.costBiWeekly}</td>
-                            <td className="py-2">${pkg.pifAmount}</td>
-                            <td className="py-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedPackage(pkg);
-                                  setIsEditDialogOpen(true);
-                                }}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                        {[1, 2, 3, 4].map((sessionsPerWeek) => {
+                          const pkg = packages30Min.find(p => p.sessionsPerWeek === sessionsPerWeek);
+                          if (!pkg) return null;
+                          return (
+                            <tr key={pkg.id} className="border-b hover:bg-muted/50">
+                              <td className="py-4 font-medium">{sessionsPerWeek}X</td>
+                              <td className="py-4">${pkg.costPerSession}</td>
+                              <td className="py-4">${pkg.costBiWeekly}</td>
+                              <td className="py-4">${pkg.pifAmount}</td>
+                              <td className="py-4">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPackage(pkg);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                  className="w-full"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -247,7 +257,7 @@ export default function Dashboard() {
                   value={selectedPackage?.costPerSession || ""}
                   onChange={(e) =>
                     setSelectedPackage(prev =>
-                      prev ? { ...prev, costPerSession: parseFloat(e.target.value) } : null
+                      prev ? { ...prev, costPerSession: e.target.value } : null
                     )
                   }
                 />
@@ -260,7 +270,7 @@ export default function Dashboard() {
                   value={selectedPackage?.costBiWeekly || ""}
                   onChange={(e) =>
                     setSelectedPackage(prev =>
-                      prev ? { ...prev, costBiWeekly: parseFloat(e.target.value) } : null
+                      prev ? { ...prev, costBiWeekly: e.target.value } : null
                     )
                   }
                 />
@@ -273,7 +283,7 @@ export default function Dashboard() {
                   value={selectedPackage?.pifAmount || ""}
                   onChange={(e) =>
                     setSelectedPackage(prev =>
-                      prev ? { ...prev, pifAmount: parseFloat(e.target.value) } : null
+                      prev ? { ...prev, pifAmount: e.target.value } : null
                     )
                   }
                 />
