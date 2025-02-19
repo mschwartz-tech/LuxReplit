@@ -38,6 +38,12 @@ export function SidebarNav() {
       roles: ["admin", "trainer"],
     },
     {
+      title: "Exercise Library",
+      icon: Dumbbell,
+      href: "/exercise-library",
+      roles: ["admin", "trainer", "member"],
+    },
+    {
       title: "Schedule",
       icon: Calendar,
       href: "/schedule",
