@@ -65,7 +65,7 @@ export default function Dashboard() {
   const packages60Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 60).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
   const packages30Min = trainingPackages?.filter(pkg => pkg.sessionDuration === 30).sort((a, b) => a.sessionsPerWeek - b.sessionsPerWeek) || [];
 
-  const handleEdit = (pkg: TrainingPackage | null, rowKey: string) => {
+  const handleEdit = (pkg: TrainingPackage | undefined | null, rowKey: string) => {
     if (editingRows[rowKey]) {
       // Save changes
       if (editedValues[rowKey] && pkg) {
@@ -77,18 +77,16 @@ export default function Dashboard() {
     } else {
       // Start editing
       setEditingRows(prev => ({ ...prev, [rowKey]: true }));
-      setEditedValues(prev => ({
-        ...prev,
-        [rowKey]: pkg ? {
-          costPerSession: pkg.costPerSession.toString(),
-          costBiWeekly: pkg.costBiWeekly.toString(),
-          pifAmount: pkg.pifAmount.toString(),
-        } : {
-          costPerSession: "",
-          costBiWeekly: "",
-          pifAmount: "",
-        },
-      }));
+      if (pkg) {
+        setEditedValues(prev => ({
+          ...prev,
+          [rowKey]: {
+            costPerSession: pkg.costPerSession.toString(),
+            costBiWeekly: pkg.costBiWeekly.toString(),
+            pifAmount: pkg.pifAmount.toString(),
+          },
+        }));
+      }
     }
   };
 
