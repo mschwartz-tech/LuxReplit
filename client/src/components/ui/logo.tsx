@@ -44,7 +44,7 @@ export function Logo({ size = "md", type = "banner", className, ...props }: Logo
         <img
           src="/assets/branding/logo.png"
           alt="Company Logo"
-          className={cn(bannerDimensions[size], "object-contain")}
+          className={cn(bannerDimensions[size], "w-full object-contain")}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';

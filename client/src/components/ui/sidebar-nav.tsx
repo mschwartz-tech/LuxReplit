@@ -74,7 +74,7 @@ export function SidebarNav() {
     <div className="border-r bg-sidebar h-screen w-64">
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
-          <div className="mb-2 px-4">
+          <div className="mb-2 px-4 py-2">
             <Logo size="lg" type="banner" />
           </div>
           <ScrollArea className="h-[calc(100vh-8rem)]">

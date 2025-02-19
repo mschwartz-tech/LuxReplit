@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema, InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -48,7 +49,9 @@ export default function AuthPage() {
       <div className="flex-1 p-8 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>LuxeWorks Fitness</CardTitle>
+            <div className="flex justify-center mb-4">
+              <Logo size="lg" type="banner" />
+            </div>
             <CardDescription>
               Manage your fitness journey with our comprehensive platform
             </CardDescription>
@@ -169,7 +172,9 @@ export default function AuthPage() {
       </div>
       <div className="hidden lg:flex flex-1 bg-muted items-center justify-center p-8">
         <div className="max-w-md text-center">
-          <h1 className="text-4xl font-bold mb-6">Welcome to LuxeWorks Fitness</h1>
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" type="banner" />
+          </div>
           <p className="text-lg text-muted-foreground">
             Your all-in-one platform for managing fitness training, scheduling, and progress tracking.
           </p>
