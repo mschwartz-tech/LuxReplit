@@ -10,6 +10,7 @@ import {
   BarChart,
   Settings,
   LogOut,
+  FileText,
 } from "lucide-react";
 
 export function SidebarNav() {
@@ -34,6 +35,12 @@ export function SidebarNav() {
       icon: Calendar,
       href: "/schedule",
       roles: ["admin", "trainer", "member"],
+    },
+    {
+      title: "Invoices",
+      icon: FileText,
+      href: "/invoices",
+      roles: ["admin"],
     },
     {
       title: "Billing",
