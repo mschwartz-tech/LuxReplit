@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   type?: "banner" | "icon";
 }
 
@@ -9,13 +9,15 @@ export function Logo({ size = "md", type = "banner", className, ...props }: Logo
   const dimensions = {
     sm: "h-6 w-6",
     md: "h-8 w-8",
-    lg: "h-12 w-12"
+    lg: "h-12 w-12",
+    xl: "h-16 w-16"
   };
 
   const bannerDimensions = {
     sm: "h-6",
     md: "h-8",
-    lg: "h-12"
+    lg: "h-12",
+    xl: "h-16"
   };
 
   if (type === "icon") {
