@@ -1,7 +1,9 @@
-
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { setupVite, serveStatic } from "./vite";
+import { logInfo, logError } from "./services/logger";
+import { ZodError } from "zod";
+import { fromZodError } from "zod-validation-error";
 
 const app = express();
 
@@ -26,18 +28,25 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     if (path.startsWith("/api")) {
       const duration = Date.now() - start;
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+      const statusCode = res.statusCode;
+      const method = req.method;
 
-      // Truncate long log lines
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+      const logData = {
+        path,
+        method,
+        statusCode,
+        duration,
+        userAgent: req.get("user-agent"),
+        ip: req.ip,
+        userId: (req.user as any)?.id,
+        response: capturedJsonResponse,
+      };
 
-      log(logLine);
+      if (statusCode >= 400) {
+        logError(`${method} ${path} failed with status ${statusCode}`, logData);
+      } else {
+        logInfo(`${method} ${path} completed`, logData);
+      }
     }
   });
 
@@ -49,11 +58,39 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
 
   // Global error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
+
+    // Handle Zod validation errors
+    if (err instanceof ZodError) {
+      const validationError = fromZodError(err);
+      logError("Validation Error", {
+        path: req.path,
+        method: req.method,
+        errors: validationError.details,
+      });
+      return res.status(400).json({
+        message: "Validation Error",
+        errors: validationError.details,
+      });
+    }
+
+    // Log the error with additional context
+    logError(err, {
+      path: req.path,
+      method: req.method,
+      userId: (req.user as any)?.id,
+      body: req.body,
+      query: req.query,
+      statusCode: status,
+    });
+
+    // Send error response
+    res.status(status).json({ 
+      message,
+      ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
+    });
   });
 
   // Setup Vite or static serving based on environment
@@ -66,6 +103,20 @@ app.use((req, res, next) => {
   // Start server
   const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
-    log(`serving on port ${PORT}`);
+    logInfo(`Server started on port ${PORT}`, {
+      env: process.env.NODE_ENV,
+      port: PORT,
+    });
   });
 })();
+
+// Handle uncaught exceptions and rejections
+process.on("uncaughtException", (error) => {
+  logError("Uncaught Exception", { error });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logError("Unhandled Rejection", { reason });
+  process.exit(1);
+});
