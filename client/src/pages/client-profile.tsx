@@ -8,13 +8,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Dumbbell, LineChart, Camera } from "lucide-react";
+import { ArrowLeft, Calendar, Dumbbell, LineChart, Camera, Receipt } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { Member, MemberProfile, MemberAssessment } from "@shared/schema";
+import { Member, MemberProfile, MemberAssessment, Invoice } from "@shared/schema";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Measurements {
   chest?: number;
@@ -46,11 +54,16 @@ export default function ClientProfilePage() {
     enabled: !!clientId && (isAdmin || isTrainer),
   });
 
+  const { data: invoices, isLoading: isLoadingInvoices } = useQuery<Invoice[]>({
+    queryKey: [`/api/members/${clientId}/invoices`],
+    enabled: !!clientId && isAdmin, // Only load invoices for admin users
+  });
+
   if (!user || (!isAdmin && !isTrainer)) {
     return <div className="p-8">Not authorized to view this page</div>;
   }
 
-  if (isLoadingMember || isLoadingProfile || isLoadingAssessments) {
+  if (isLoadingMember || isLoadingProfile || isLoadingAssessments || (isAdmin && isLoadingInvoices)) {
     return (
       <div className="flex h-[200px] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -102,6 +115,7 @@ export default function ClientProfilePage() {
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="assessments">Assessments</TabsTrigger>
             <TabsTrigger value="progress">Progress Photos</TabsTrigger>
+            {isAdmin && <TabsTrigger value="billing">Billing</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="profile">
@@ -275,6 +289,69 @@ export default function ClientProfilePage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="billing">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Billing History</CardTitle>
+                      <CardDescription>
+                        View and manage client's invoices and payments
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" className="gap-2">
+                      <Receipt className="h-4 w-4" />
+                      New Invoice
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {!invoices?.length ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No invoices found for this client
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Due Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoices.map((invoice) => (
+                          <TableRow key={invoice.id}>
+                            <TableCell>#{invoice.id}</TableCell>
+                            <TableCell>{format(new Date(invoice.createdAt), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>{invoice.description}</TableCell>
+                            <TableCell>${Number(invoice.amount).toFixed(2)}</TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                                invoice.status === 'paid'
+                                  ? 'bg-green-50 text-green-700'
+                                  : invoice.status === 'pending'
+                                  ? 'bg-yellow-50 text-yellow-700'
+                                  : 'bg-red-50 text-red-700'
+                              }`}>
+                                {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                              </span>
+                            </TableCell>
+                            <TableCell>{format(new Date(invoice.dueDate), 'MMM d, yyyy')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>
