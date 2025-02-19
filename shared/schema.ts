@@ -14,10 +14,10 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Represents gym membership
 export const members = pgTable("members", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  assignedTrainerId: integer("assigned_trainer_id").references(() => users.id),
   membershipType: text("membership_type", {
     enum: ["standard", "premium", "vip"]
   }).notNull(),
@@ -29,7 +29,6 @@ export const members = pgTable("members", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Represents personal training clients
 export const trainingClients = pgTable("training_clients", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -45,12 +44,11 @@ export const trainingClients = pgTable("training_clients", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Represents gym membership
 export const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  height: numeric("height"),  // in cm
-  weight: numeric("weight"),  // in kg
+  height: text("height"),  // Store as text to handle various formats
+  weight: text("weight"),  // Store as text to handle various formats
   goals: text("goals").array(),
   healthConditions: text("health_conditions").array(),
   emergencyContactName: text("emergency_contact_name"),
@@ -157,7 +155,6 @@ export const exercises = pgTable("exercises", {
 });
 
 
-// Create insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members).omit({ createdAt: true });
 export const insertTrainingClientSchema = createInsertSchema(trainingClients).omit({ createdAt: true });
@@ -165,8 +162,8 @@ export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
   .extend({
     goals: z.array(z.string()).min(1, "At least one goal is required"),
     healthConditions: z.array(z.string()).optional(),
-    height: z.number().min(1, "Height must be greater than 0"),
-    weight: z.number().min(1, "Weight must be greater than 0"),
+    height: z.string().min(1, "Height must not be empty"),
+    weight: z.string().min(1, "Weight must not be empty"),
   });
 export const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
   .extend({
@@ -193,7 +190,6 @@ export const insertExerciseSchema = createInsertSchema(exercises)
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
   });
 
-// Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;

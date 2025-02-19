@@ -92,6 +92,12 @@ export interface IStorage {
   createTrainingClient(client: InsertTrainingClient): Promise<TrainingClient>;
 }
 
+async function convertToNumber(value: string): Promise<number> {
+  const num = parseFloat(value);
+  if (isNaN(num)) throw new Error("Invalid number format");
+  return num;
+}
+
 export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
@@ -150,19 +156,32 @@ export class DatabaseStorage implements IStorage {
   async createMemberProfile(profile: InsertMemberProfile): Promise<MemberProfile> {
     const [newProfile] = await db
       .insert(memberProfiles)
-      .values(profile)
+      .values({
+        ...profile,
+        height: profile.height.toString(),
+        weight: profile.weight.toString(),
+      })
       .returning();
     return newProfile;
   }
 
   async updateMemberProfile(
-    memberId: number,
+    userId: number,
     profile: Partial<InsertMemberProfile>
   ): Promise<MemberProfile> {
+    const updateData: any = { ...profile };
+    if (profile.height !== undefined) {
+      updateData.height = profile.height.toString();
+    }
+    if (profile.weight !== undefined) {
+      updateData.weight = profile.weight.toString();
+    }
+    updateData.updatedAt = new Date();
+
     const [updatedProfile] = await db
       .update(memberProfiles)
-      .set({ ...profile, updatedAt: new Date() })
-      .where(eq(memberProfiles.memberId, memberId))
+      .set(updateData)
+      .where(eq(memberProfiles.userId, userId))
       .returning();
     return updatedProfile;
   }
