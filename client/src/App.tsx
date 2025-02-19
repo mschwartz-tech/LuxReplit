@@ -10,23 +10,16 @@ import TrainingManagement from "@/pages/training-management";
 import ExerciseLibrary from "@/pages/exercise-library";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
-import { DashboardLayout } from "@/components/layout";
 
 function Router() {
   return (
     <Switch>
+      <ProtectedRoute path="/" component={Dashboard} />
+      <ProtectedRoute path="/invoices" component={InvoicesPage} />
+      <ProtectedRoute path="/training" component={TrainingManagement} />
+      <ProtectedRoute path="/exercise-library" component={ExerciseLibrary} />
       <Route path="/auth" component={AuthPage} />
-      <Route>
-        <DashboardLayout>
-          <Switch>
-            <ProtectedRoute path="/" component={Dashboard} />
-            <ProtectedRoute path="/invoices" component={InvoicesPage} />
-            <ProtectedRoute path="/training" component={TrainingManagement} />
-            <ProtectedRoute path="/exercise-library" component={ExerciseLibrary} />
-            <Route component={NotFound} />
-          </Switch>
-        </DashboardLayout>
-      </Route>
+      <Route component={NotFound} />
     </Switch>
   );
 }
