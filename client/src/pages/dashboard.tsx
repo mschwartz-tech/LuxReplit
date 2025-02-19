@@ -22,14 +22,13 @@ export default function Dashboard() {
   });
 
   const updatePackageMutation = useMutation({
-    mutationFn: async (data: Partial<TrainingPackage>) => {
-      const res = await apiRequest("PATCH", `/api/training-packages/${data.id}`, {
-        ...data,
-        // Convert string values to numbers for the API
+    mutationFn: async ({ id, ...data }: Partial<TrainingPackage> & { id: number }) => {
+      const res = await apiRequest("PATCH", `/api/training-packages/${id}`, {
         costPerSession: Number(data.costPerSession),
         costBiWeekly: Number(data.costBiWeekly),
         pifAmount: Number(data.pifAmount),
       });
+
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to update package");
