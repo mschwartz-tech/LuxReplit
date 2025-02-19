@@ -147,7 +147,7 @@ export default function PricingPage() {
                 <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
                   Bi-weekly
                 </th>
-                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-r">
                   PIF
                 </th>
                 <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
@@ -192,7 +192,7 @@ export default function PricingPage() {
                             }
                           />
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td className={`px-3 py-2 whitespace-nowrap ${duration === 30 ? 'border-r' : ''}`}>
                           <EditableCell
                             value={currentChanges.pifPrice ?? plan.pifPrice}
                             onChange={(value) =>
