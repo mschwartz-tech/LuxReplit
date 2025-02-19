@@ -1,7 +1,7 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign } from "@shared/schema";
 import session from "express-session";
-import { users, members, workoutPlans, schedules, invoices, marketingCampaigns } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 
@@ -22,8 +22,15 @@ export interface IStorage {
 
   // Workout plan operations
   getWorkoutPlans(): Promise<WorkoutPlan[]>;
+  getWorkoutPlansByMember(memberId: number): Promise<WorkoutPlan[]>;
   getWorkoutPlan(id: number): Promise<WorkoutPlan | undefined>;
   createWorkoutPlan(plan: InsertWorkoutPlan): Promise<WorkoutPlan>;
+  updateWorkoutPlanCompletionRate(id: number, completionRate: number): Promise<WorkoutPlan>;
+
+  // Workout log operations
+  getWorkoutLogs(workoutPlanId: number): Promise<WorkoutLog[]>;
+  getMemberWorkoutLogs(memberId: number): Promise<WorkoutLog[]>;
+  createWorkoutLog(log: InsertWorkoutLog): Promise<WorkoutLog>;
 
   // Schedule operations
   getSchedules(): Promise<Schedule[]>;
@@ -86,6 +93,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(workoutPlans);
   }
 
+  async getWorkoutPlansByMember(memberId: number): Promise<WorkoutPlan[]> {
+    return await db.select().from(workoutPlans).where(eq(workoutPlans.memberId, memberId));
+  }
+
   async getWorkoutPlan(id: number): Promise<WorkoutPlan | undefined> {
     const [plan] = await db.select().from(workoutPlans).where(eq(workoutPlans.id, id));
     return plan;
@@ -94,6 +105,28 @@ export class DatabaseStorage implements IStorage {
   async createWorkoutPlan(plan: InsertWorkoutPlan): Promise<WorkoutPlan> {
     const [newPlan] = await db.insert(workoutPlans).values(plan).returning();
     return newPlan;
+  }
+
+  async updateWorkoutPlanCompletionRate(id: number, completionRate: number): Promise<WorkoutPlan> {
+    const [updatedPlan] = await db
+      .update(workoutPlans)
+      .set({ completionRate: completionRate.toString() })
+      .where(eq(workoutPlans.id, id))
+      .returning();
+    return updatedPlan;
+  }
+
+  async getWorkoutLogs(workoutPlanId: number): Promise<WorkoutLog[]> {
+    return await db.select().from(workoutLogs).where(eq(workoutLogs.workoutPlanId, workoutPlanId));
+  }
+
+  async getMemberWorkoutLogs(memberId: number): Promise<WorkoutLog[]> {
+    return await db.select().from(workoutLogs).where(eq(workoutLogs.memberId, memberId));
+  }
+
+  async createWorkoutLog(log: InsertWorkoutLog): Promise<WorkoutLog> {
+    const [newLog] = await db.insert(workoutLogs).values(log).returning();
+    return newLog;
   }
 
   async getSchedules(): Promise<Schedule[]> {

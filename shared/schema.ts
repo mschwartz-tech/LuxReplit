@@ -25,7 +25,20 @@ export const workoutPlans = pgTable("workout_plans", {
   description: text("description").notNull(),
   trainerId: integer("trainer_id").references(() => users.id),
   memberId: integer("member_id").references(() => members.id),
-  status: text("status", { enum: ["active", "completed", "cancelled"] }).notNull()
+  status: text("status", { enum: ["active", "completed", "cancelled"] }).notNull(),
+  frequencyPerWeek: integer("frequency_per_week").notNull(),
+  completionRate: numeric("completion_rate"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const workoutLogs = pgTable("workout_logs", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  workoutPlanId: integer("workout_plan_id").references(() => workoutPlans.id).notNull(),
+  completedAt: timestamp("completed_at").notNull(),
+  duration: integer("duration").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
 export const schedules = pgTable("schedules", {
@@ -60,6 +73,7 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
 export const insertUserSchema = createInsertSchema(users);
 export const insertMemberSchema = createInsertSchema(members);
 export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans);
+export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
 export const insertScheduleSchema = createInsertSchema(schedules);
 export const insertInvoiceSchema = createInsertSchema(invoices);
 export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns);
@@ -70,6 +84,8 @@ export type Member = typeof members.$inferSelect;
 export type InsertMember = z.infer<typeof insertMemberSchema>;
 export type WorkoutPlan = typeof workoutPlans.$inferSelect;
 export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
+export type WorkoutLog = typeof workoutLogs.$inferSelect;
+export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
 export type Schedule = typeof schedules.$inferSelect;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type Invoice = typeof invoices.$inferSelect;
