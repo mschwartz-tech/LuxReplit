@@ -24,9 +24,9 @@ export function Logo({ size = "md", type = "banner", className, ...props }: Logo
     return (
       <div className={cn("relative", className)} {...props}>
         <img
-          src="/assets/branding/icon.png"
+          src="/assets/branding/logoinvisicon.svg"
           alt="Company Icon"
-          className={cn(dimensions[size], "object-contain")}
+          className={cn(dimensions[size], "object-contain text-foreground")}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';
@@ -44,9 +44,9 @@ export function Logo({ size = "md", type = "banner", className, ...props }: Logo
     <div className={cn("relative", className)} {...props}>
       <div className="flex items-center gap-2">
         <img
-          src="/assets/branding/logo.png"
+          src="/assets/branding/logobanner.svg"
           alt="Company Logo"
-          className={cn(bannerDimensions[size], "w-full object-contain")}
+          className={cn(bannerDimensions[size], "w-full object-contain text-foreground")}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';

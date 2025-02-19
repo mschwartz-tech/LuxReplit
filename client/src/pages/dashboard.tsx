@@ -22,7 +22,7 @@ export default function Dashboard() {
         <div 
           className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
           style={{
-            backgroundImage: 'url("/assets/branding/logo.png")',
+            backgroundImage: 'url("/assets/branding/logobanner.svg")',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
             backgroundSize: '90% auto',
