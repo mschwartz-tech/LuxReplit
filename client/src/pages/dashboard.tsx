@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
-import { Loader2, Users, Calendar, DollarSign, BarChart, Edit2 } from "lucide-react";
+import { Loader2, Users, Calendar, DollarSign, BarChart } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -149,39 +149,14 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2 font-bold">SESSIONS PER WEEK</th>
-                          <th className="text-left py-2 font-bold">COST PER SESSION</th>
-                          <th className="text-left py-2 font-bold">COST BI-WEEKLY</th>
-                          <th className="text-left py-2 font-bold">PIF</th>
-                          <th className="text-left py-2 w-20">EDIT</th>
+                          <th className="text-left py-2 font-medium text-sm">SESSIONS PER WEEK</th>
+                          <th className="text-left py-2 font-medium text-sm">COST PER SESSION</th>
+                          <th className="text-left py-2 font-medium text-sm">COST BI-WEEKLY</th>
+                          <th className="text-left py-2 font-medium text-sm">PIF</th>
+                          <th className="text-left py-2 font-medium text-sm">EDIT</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {[1, 2, 3, 4].map((sessionsPerWeek) => {
-                          const pkg = packages60Min.find(p => p.sessionsPerWeek === sessionsPerWeek);
-                          if (!pkg) return null;
-                          return (
-                            <tr key={pkg.id} className="border-b hover:bg-muted/50">
-                              <td className="py-4 font-medium">{sessionsPerWeek}X</td>
-                              <td className="py-4">${pkg.costPerSession}</td>
-                              <td className="py-4">${pkg.costBiWeekly}</td>
-                              <td className="py-4">${pkg.pifAmount}</td>
-                              <td className="py-4">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedPackage(pkg);
-                                    setIsEditDialogOpen(true);
-                                  }}
-                                  className="w-full"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
                       </tbody>
                     </table>
                   </div>
@@ -198,39 +173,14 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left py-2 font-bold">SESSIONS PER WEEK</th>
-                          <th className="text-left py-2 font-bold">COST PER SESSION</th>
-                          <th className="text-left py-2 font-bold">COST BI-WEEKLY</th>
-                          <th className="text-left py-2 font-bold">PIF</th>
-                          <th className="text-left py-2 w-20">EDIT</th>
+                          <th className="text-left py-2 font-medium text-sm">SESSIONS PER WEEK</th>
+                          <th className="text-left py-2 font-medium text-sm">COST PER SESSION</th>
+                          <th className="text-left py-2 font-medium text-sm">COST BI-WEEKLY</th>
+                          <th className="text-left py-2 font-medium text-sm">PIF</th>
+                          <th className="text-left py-2 font-medium text-sm">EDIT</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {[1, 2, 3, 4].map((sessionsPerWeek) => {
-                          const pkg = packages30Min.find(p => p.sessionsPerWeek === sessionsPerWeek);
-                          if (!pkg) return null;
-                          return (
-                            <tr key={pkg.id} className="border-b hover:bg-muted/50">
-                              <td className="py-4 font-medium">{sessionsPerWeek}X</td>
-                              <td className="py-4">${pkg.costPerSession}</td>
-                              <td className="py-4">${pkg.costBiWeekly}</td>
-                              <td className="py-4">${pkg.pifAmount}</td>
-                              <td className="py-4">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedPackage(pkg);
-                                    setIsEditDialogOpen(true);
-                                  }}
-                                  className="w-full"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
                       </tbody>
                     </table>
                   </div>
