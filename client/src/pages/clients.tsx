@@ -57,9 +57,9 @@ export default function ClientsPage() {
         className="absolute inset-0 pointer-events-none opacity-[0.15] dark:opacity-[0.08]"
         style={{
           backgroundImage: 'url("/assets/branding/logoinvisicon.svg")',
-          backgroundPosition: 'center 40%',
+          backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',
-          backgroundSize: '200% auto',
+          backgroundSize: 'contain',
           filter: 'grayscale(0.5)'
         }}
       />
