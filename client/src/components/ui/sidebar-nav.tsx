@@ -13,6 +13,7 @@ import {
   LogOut,
   FileText,
   Dumbbell,
+  UserPlus,
 } from "lucide-react";
 
 export function SidebarNav() {
@@ -27,9 +28,15 @@ export function SidebarNav() {
       roles: ["admin", "trainer", "member"],
     },
     {
-      title: "Clients",
+      title: "Gym Members",
       icon: Users,
-      href: "/clients",
+      href: "/gym-members",
+      roles: ["admin"],
+    },
+    {
+      title: "Training Clients",
+      icon: UserPlus,
+      href: "/training-clients",
       roles: ["admin", "trainer"],
     },
     {
