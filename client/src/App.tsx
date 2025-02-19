@@ -7,6 +7,7 @@ import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import InvoicesPage from "@/pages/invoices";
 import TrainingManagement from "@/pages/training-management";
+import ExerciseLibrary from "@/pages/exercise-library";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 
@@ -16,6 +17,7 @@ function Router() {
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/training" component={TrainingManagement} />
+      <ProtectedRoute path="/exercises" component={ExerciseLibrary} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

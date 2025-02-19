@@ -70,6 +70,39 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
   createdBy: integer("created_by").references(() => users.id)
 });
 
+export const muscleGroups = pgTable("muscle_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull(),
+  bodyRegion: text("body_region", { enum: ["upper", "lower", "core"] }).notNull()
+});
+
+export const movementPatterns = pgTable("movement_patterns", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull(),
+  type: text("type", { 
+    enum: ["push", "pull", "squat", "hinge", "lunge", "rotation", "gait"] 
+  }).notNull()
+});
+
+export const exercises = pgTable("exercises", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull(),
+  difficulty: text("difficulty", { 
+    enum: ["beginner", "intermediate", "advanced"] 
+  }).notNull(),
+  movementPatternId: integer("movement_pattern_id").references(() => movementPatterns.id).notNull(),
+  primaryMuscleGroupId: integer("primary_muscle_group_id").references(() => muscleGroups.id).notNull(),
+  secondaryMuscleGroupIds: integer("secondary_muscle_group_ids").array().notNull(),
+  instructions: text("instructions").array().notNull(),
+  tips: text("tips").array(),
+  equipment: text("equipment").array(),
+  videoUrl: text("video_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 export const insertUserSchema = createInsertSchema(users);
 export const insertMemberSchema = createInsertSchema(members);
 export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans)
@@ -87,6 +120,15 @@ export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
 export const insertScheduleSchema = createInsertSchema(schedules);
 export const insertInvoiceSchema = createInsertSchema(invoices);
 export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns);
+export const insertMuscleGroupSchema = createInsertSchema(muscleGroups);
+export const insertMovementPatternSchema = createInsertSchema(movementPatterns);
+export const insertExerciseSchema = createInsertSchema(exercises)
+  .extend({
+    name: z.string().min(3, "Name must be at least 3 characters"),
+    description: z.string().min(10, "Description must be at least 10 characters"),
+    instructions: z.array(z.string()).min(1, "Must include at least one instruction"),
+    difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+  });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -102,3 +144,9 @@ export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+export type MuscleGroup = typeof muscleGroups.$inferSelect;
+export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
+export type MovementPattern = typeof movementPatterns.$inferSelect;
+export type InsertMovementPattern = z.infer<typeof insertMovementPatternSchema>;
+export type Exercise = typeof exercises.$inferSelect;
+export type InsertExercise = z.infer<typeof insertExerciseSchema>;

@@ -1,7 +1,12 @@
 import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign } from "@shared/schema";
 import session from "express-session";
-import { users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
+  exercises, muscleGroups, movementPatterns,
+  type Exercise, type InsertExercise,
+  type MuscleGroup, type InsertMuscleGroup,
+  type MovementPattern, type InsertMovementPattern
+} from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 
@@ -46,6 +51,21 @@ export interface IStorage {
   getMarketingCampaigns(): Promise<MarketingCampaign[]>;
   getMarketingCampaign(id: number): Promise<MarketingCampaign | undefined>;
   createMarketingCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign>;
+
+  // Exercise Library operations
+  getMuscleGroups(): Promise<MuscleGroup[]>;
+  getMuscleGroup(id: number): Promise<MuscleGroup | undefined>;
+  createMuscleGroup(group: InsertMuscleGroup): Promise<MuscleGroup>;
+
+  getMovementPatterns(): Promise<MovementPattern[]>;
+  getMovementPattern(id: number): Promise<MovementPattern | undefined>;
+  createMovementPattern(pattern: InsertMovementPattern): Promise<MovementPattern>;
+
+  getExercises(): Promise<Exercise[]>;
+  getExercise(id: number): Promise<Exercise | undefined>;
+  getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]>;
+  getExercisesByMovementPattern(movementPatternId: number): Promise<Exercise[]>;
+  createExercise(exercise: InsertExercise): Promise<Exercise>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -169,6 +189,61 @@ export class DatabaseStorage implements IStorage {
   async createMarketingCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign> {
     const [newCampaign] = await db.insert(marketingCampaigns).values(campaign).returning();
     return newCampaign;
+  }
+
+  async getMuscleGroups(): Promise<MuscleGroup[]> {
+    return await db.select().from(muscleGroups);
+  }
+
+  async getMuscleGroup(id: number): Promise<MuscleGroup | undefined> {
+    const [group] = await db.select().from(muscleGroups).where(eq(muscleGroups.id, id));
+    return group;
+  }
+
+  async createMuscleGroup(group: InsertMuscleGroup): Promise<MuscleGroup> {
+    const [newGroup] = await db.insert(muscleGroups).values(group).returning();
+    return newGroup;
+  }
+
+  async getMovementPatterns(): Promise<MovementPattern[]> {
+    return await db.select().from(movementPatterns);
+  }
+
+  async getMovementPattern(id: number): Promise<MovementPattern | undefined> {
+    const [pattern] = await db.select().from(movementPatterns).where(eq(movementPatterns.id, id));
+    return pattern;
+  }
+
+  async createMovementPattern(pattern: InsertMovementPattern): Promise<MovementPattern> {
+    const [newPattern] = await db.insert(movementPatterns).values(pattern).returning();
+    return newPattern;
+  }
+
+  async getExercises(): Promise<Exercise[]> {
+    return await db.select().from(exercises);
+  }
+
+  async getExercise(id: number): Promise<Exercise | undefined> {
+    const [exercise] = await db.select().from(exercises).where(eq(exercises.id, id));
+    return exercise;
+  }
+
+  async getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]> {
+    return await db.select()
+      .from(exercises)
+      .where(eq(exercises.primaryMuscleGroupId, muscleGroupId))
+      .orWhere(sql`${exercises.secondaryMuscleGroupIds} @> ARRAY[${muscleGroupId}]`);
+  }
+
+  async getExercisesByMovementPattern(movementPatternId: number): Promise<Exercise[]> {
+    return await db.select()
+      .from(exercises)
+      .where(eq(exercises.movementPatternId, movementPatternId));
+  }
+
+  async createExercise(exercise: InsertExercise): Promise<Exercise> {
+    const [newExercise] = await db.insert(exercises).values(exercise).returning();
+    return newExercise;
   }
 }
 
