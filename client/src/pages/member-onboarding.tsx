@@ -141,8 +141,18 @@ export default function MemberOnboardingPage() {
       firstName: "",
       middleInitial: "",
       lastName: "",
+      email: "",
       membershipType: undefined,
       gymLocationId: undefined,
+      gender: "",
+      address: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      phoneNumber: "",
+      birthMonth: undefined,
+      birthDay: undefined,
+      birthYear: undefined,
       liabilityWaiverSigned: false,
       photoReleaseWaiverSigned: false,
       marketingOptIn: false,
@@ -150,10 +160,12 @@ export default function MemberOnboardingPage() {
       healthConditions: [],
       medications: [],
       injuries: [],
-      preferredContactMethod: "email",
-      birthMonth: undefined,
-      birthDay: undefined,
-      birthYear: undefined,
+      preferredLocation: "",
+      height: "",
+      weight: "",
+      emergencyContactName: "",
+      emergencyContactPhone: "",
+      emergencyContactRelation: ""
     },
   });
 
@@ -752,18 +764,27 @@ export default function MemberOnboardingPage() {
   }
 
   const handleNext = async () => {
-    // Validate the current step
     try {
       const currentFields = form.getValues();
+      console.log('Current form values:', currentFields); // Debug log
 
       if (currentStep === 1) {
-        await step1Schema.parseAsync(currentFields);
+        // Ensure numeric fields are properly typed
+        const validationFields = {
+          ...currentFields,
+          birthMonth: Number(currentFields.birthMonth),
+          birthDay: Number(currentFields.birthDay),
+          birthYear: Number(currentFields.birthYear),
+          gymLocationId: Number(currentFields.gymLocationId),
+        };
+
+        await step1Schema.parseAsync(validationFields);
       }
       // Add validation for other steps as needed
 
       setCurrentStep((prev) => prev + 1);
     } catch (error) {
-      // This will trigger the form's error display
+      console.error('Validation error:', error); // Debug log
       if (error instanceof z.ZodError) {
         error.errors.forEach((err) => {
           form.setError(err.path[0] as any, {

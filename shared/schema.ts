@@ -24,7 +24,7 @@ export const members = pgTable("members", {
   membershipStatus: text("membership_status", {
     enum: ["active", "inactive", "suspended"]
   }).notNull(),
-  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id),
+  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id).notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
