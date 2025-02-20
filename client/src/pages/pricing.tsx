@@ -8,10 +8,8 @@ import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useCallback, Fragment } from "react";
 
-// Rest of the imports remain unchanged...
-
 interface EditableCellProps {
-  value: string;
+  value: string | number;
   onChange: (value: string) => void;
   type?: "number";
 }
@@ -21,7 +19,7 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
     <span className="text-gray-500 mr-1">$</span>
     <Input
       type={type}
-      value={value}
+      value={value?.toString() ?? ""}
       onChange={(e) => {
         const val = e.target.value;
         if (type === "number" && !/^\d*\.?\d*$/.test(val)) return;
@@ -32,6 +30,7 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
     />
   </div>
 );
+
 
 export default function PricingPage() {
   const { user } = useAuth();
@@ -427,25 +426,19 @@ export default function PricingPage() {
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
-                      value={
-                        (gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice).toString()
-                      }
+                      value={gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice}
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
                     />
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
-                      value={
-                        (gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice).toString()
-                      }
+                      value={gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice}
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
                     />
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
-                      value={
-                        (gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice).toString()
-                      }
+                      value={gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice}
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
                     />
                   </td>
