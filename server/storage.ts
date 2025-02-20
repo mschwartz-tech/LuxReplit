@@ -394,12 +394,12 @@ export class DatabaseStorage implements IStorage {
   async createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing> {
     const [newPricing] = await db.insert(gymMembershipPricing)
       .values({
-        ...pricing,
+        gymName: pricing.gymName,
         luxeEssentialsPrice: pricing.luxeEssentialsPrice.toString(),
         luxeStrivePrice: pricing.luxeStrivePrice.toString(),
         luxeAllAccessPrice: pricing.luxeAllAccessPrice.toString(),
-        updatedAt: new Date(),
-        isactive: true
+        isactive: true,
+        updatedAt: new Date()
       })
       .returning();
     return newPricing;
@@ -409,7 +409,11 @@ export class DatabaseStorage implements IStorage {
     id: number,
     pricing: Partial<InsertGymMembershipPricing>
   ): Promise<GymMembershipPricing> {
-    const updateData: any = { ...pricing };
+    const updateData: any = { 
+      ...pricing,
+      updatedAt: new Date()
+    };
+
     if (pricing.luxeEssentialsPrice !== undefined) {
       updateData.luxeEssentialsPrice = pricing.luxeEssentialsPrice.toString();
     }
@@ -419,7 +423,6 @@ export class DatabaseStorage implements IStorage {
     if (pricing.luxeAllAccessPrice !== undefined) {
       updateData.luxeAllAccessPrice = pricing.luxeAllAccessPrice.toString();
     }
-    updateData.updatedAt = new Date();
 
     const [updatedPricing] = await db.update(gymMembershipPricing)
       .set(updateData)
