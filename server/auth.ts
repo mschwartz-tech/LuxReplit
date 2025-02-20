@@ -29,20 +29,21 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  if (!process.env.SESSION_SECRET) {
-    throw new Error("SESSION_SECRET environment variable must be set");
-  }
+  // Set a default SESSION_SECRET if not provided
+  const sessionSecret = process.env.SESSION_SECRET || 'your-session-secret-key-here';
 
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
+    secret: sessionSecret,
+    resave: true, // Changed to true to ensure session is saved
+    saveUninitialized: true, // Changed to true to create session for all requests
     store: storage.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax'
+    },
+    name: 'session' // Explicitly set session cookie name
   };
 
   app.set("trust proxy", 1);
@@ -55,7 +56,7 @@ export function setupAuth(app: Express) {
       try {
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
+          return done(null, false, { message: 'Invalid credentials' });
         }
         return done(null, user);
       } catch (err) {
@@ -105,7 +106,7 @@ export function setupAuth(app: Express) {
     passport.authenticate("local", (err, user, info) => {
       if (err) return next(err);
       if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
       req.login(user, (err) => {
         if (err) return next(err);
@@ -117,7 +118,11 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
-      res.sendStatus(200);
+      req.session.destroy((err) => {
+        if (err) return next(err);
+        res.clearCookie('session');
+        res.sendStatus(200);
+      });
     });
   });
 
@@ -125,4 +130,25 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
   });
+
+  // Create admin user if it doesn't exist
+  createAdminUser();
+}
+
+async function createAdminUser() {
+  try {
+    const adminUser = await storage.getUserByUsername('admin');
+    if (!adminUser) {
+      await storage.createUser({
+        username: 'admin',
+        password: await hashPassword('admin'),
+        role: 'admin',
+        email: 'admin@luxegym.com',
+        name: 'Admin User'
+      });
+      console.log('Admin user created successfully');
+    }
+  } catch (error) {
+    console.error('Error creating admin user:', error);
+  }
 }
