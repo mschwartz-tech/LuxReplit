@@ -119,7 +119,7 @@ import { initializeDatabase } from './db';
     logInfo("Starting server initialization", {
     
     // Initialize database connection
-    await initializeDatabase();
+    await initializeDatabase()();
       nodeEnv: process.env.NODE_ENV,
       processId: process.pid
     });
