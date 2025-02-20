@@ -176,8 +176,8 @@ export default function MemberOnboardingPage() {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-6 gap-3">
+          <div className="space-y-3">
+            <div className="grid grid-cols-6 gap-2">
               <FormField
                 control={form.control}
                 name="firstName"
@@ -220,8 +220,8 @@ export default function MemberOnboardingPage() {
             </div>
 
             <div>
-              <FormLabel className="text-sm font-medium">Date of Birth</FormLabel>
-              <div className="grid grid-cols-3 gap-3 mt-1.5">
+              <FormLabel className="text-sm font-medium block mb-1.5">Date of Birth</FormLabel>
+              <div className="grid grid-cols-3 gap-2">
                 <FormField
                   control={form.control}
                   name="birthMonth"
@@ -229,7 +229,7 @@ export default function MemberOnboardingPage() {
                     <FormItem>
                       <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Month" />
                           </SelectTrigger>
                         </FormControl>
@@ -250,10 +250,9 @@ export default function MemberOnboardingPage() {
                   name="birthDay"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Day</FormLabel>
                       <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Day" />
                           </SelectTrigger>
                         </FormControl>
@@ -274,10 +273,9 @@ export default function MemberOnboardingPage() {
                   name="birthYear"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Year</FormLabel>
                       <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Year" />
                           </SelectTrigger>
                         </FormControl>
@@ -296,7 +294,7 @@ export default function MemberOnboardingPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <FormField
                 control={form.control}
                 name="email"
@@ -325,7 +323,7 @@ export default function MemberOnboardingPage() {
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <FormField
                 control={form.control}
                 name="address"
@@ -339,7 +337,7 @@ export default function MemberOnboardingPage() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <FormField
                   control={form.control}
                   name="city"
@@ -382,9 +380,9 @@ export default function MemberOnboardingPage() {
               </div>
             </div>
 
-            <div className="space-y-3 pt-3 border-t">
+            <div className="space-y-2 pt-2 border-t">
               <h3 className="text-sm font-semibold">Location and Membership</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <FormField
                   control={form.control}
                   name="gymLocationId"
@@ -396,7 +394,7 @@ export default function MemberOnboardingPage() {
                         value={field.value?.toString()}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Select gym location" />
                           </SelectTrigger>
                         </FormControl>
@@ -424,7 +422,7 @@ export default function MemberOnboardingPage() {
                         disabled={!form.getValues("gymLocationId")}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Select membership type" />
                           </SelectTrigger>
                         </FormControl>
@@ -769,9 +767,9 @@ export default function MemberOnboardingPage() {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto p-4">
+    <div className="container max-w-3xl mx-auto p-4">
       <Card className="border-none shadow-md">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-2">
           <div className="flex items-center gap-3">
             <Link href="/gym-members">
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -788,10 +786,9 @@ export default function MemberOnboardingPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {renderStep()}
-
-              <div className="flex justify-between pt-4 border-t">
+              <div className="flex justify-between pt-3 border-t">
                 {currentStep > 1 && (
                   <Button
                     type="button"
@@ -801,7 +798,6 @@ export default function MemberOnboardingPage() {
                     Previous
                   </Button>
                 )}
-
                 {currentStep < 4 ? (
                   <Button
                     type="button"
