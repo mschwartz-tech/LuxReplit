@@ -65,14 +65,25 @@ export default function PricingPage() {
           luxeAllAccessPrice: parseFloat(pricing.luxeAllAccessPrice),
         }),
       });
+
       if (!response.ok) {
         const error = await response.text();
         throw new Error(`Failed to create gym pricing: ${error}`);
       }
-      return response.json();
+
+      const data = await response.json();
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Immediately update the local query cache with the new gym
+      queryClient.setQueryData<GymMembershipPricing[]>(
+        ["/api/gym-membership-pricing"],
+        (old) => [...(old || []), data]
+      );
+
+      // Then invalidate to ensure we're in sync with the server
       queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+
       setShowNewGymForm(false);
       setNewGym({
         gymName: "",
@@ -80,6 +91,7 @@ export default function PricingPage() {
         luxeStrivePrice: "",
         luxeAllAccessPrice: "",
       });
+
       toast({
         title: "Success",
         description: "New gym pricing added successfully",
