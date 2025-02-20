@@ -51,49 +51,75 @@ export const AddressAutocomplete = forwardRef<
   const [autocompleteService, setAutocompleteService] = useState<any>(null);
   const [placesService, setPlacesService] = useState<any>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if the script is already loaded
+    const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      console.error("Google Places API key is missing");
+      setError("API configuration error");
+      return;
+    }
+
+    // Check if script is already loaded
     if (window.google?.maps?.places) {
+      console.log("Google Maps script already loaded");
       initializeServices();
       return;
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
 
     script.onload = () => {
+      console.log("Google Maps script loaded successfully");
       setScriptLoaded(true);
       initializeServices();
     };
 
-    script.onerror = () => {
-      console.error("Failed to load Google Places script");
+    script.onerror = (e) => {
+      console.error("Failed to load Google Places script:", e);
+      setError("Failed to load address service");
     };
 
     document.body.appendChild(script);
 
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
   const initializeServices = () => {
-    if (window.google?.maps?.places) {
-      const autoService = new window.google.maps.places.AutocompleteService();
-      const placeService = new window.google.maps.places.PlacesService(
-        document.createElement("div")
-      );
-      setAutocompleteService(autoService);
-      setPlacesService(placeService);
+    try {
+      if (window.google?.maps?.places) {
+        console.log("Initializing Google Places services");
+        const autoService = new window.google.maps.places.AutocompleteService();
+        const placeService = new window.google.maps.places.PlacesService(
+          document.createElement("div")
+        );
+        setAutocompleteService(autoService);
+        setPlacesService(placeService);
+        setError(null);
+      } else {
+        console.error("Google Maps places library not available");
+        setError("Address service not available");
+      }
+    } catch (err) {
+      console.error("Error initializing services:", err);
+      setError("Failed to initialize address service");
     }
   };
 
   const getPlacePredictions = async (input: string) => {
     if (!input || !autocompleteService) return;
+
+    console.log("Fetching predictions for:", input);
     setIsLoading(true);
+    setError(null);
 
     try {
       autocompleteService.getPlacePredictions(
@@ -103,23 +129,33 @@ export const AddressAutocomplete = forwardRef<
           types: ["address"],
         },
         (predictions: Array<{ description: string; place_id: string }> | null, status: string) => {
+          console.log("Predictions status:", status, "Count:", predictions?.length);
           if (status === "OK" && predictions) {
             setSuggestions(predictions);
           } else {
+            console.error("Prediction error:", status);
             setSuggestions([]);
+            if (status !== "ZERO_RESULTS") {
+              setError("Failed to get address suggestions");
+            }
           }
           setIsLoading(false);
         }
       );
     } catch (error) {
       console.error("Error fetching address suggestions:", error);
+      setError("Failed to get address suggestions");
       setIsLoading(false);
     }
   };
 
   const handleAddressSelect = (placeId: string, description: string) => {
-    if (!placesService) return;
+    if (!placesService) {
+      console.error("Places service not initialized");
+      return;
+    }
 
+    console.log("Getting details for place:", placeId);
     setValue(description);
     setOpen(false);
 
@@ -129,6 +165,7 @@ export const AddressAutocomplete = forwardRef<
         fields: ["address_components", "formatted_address"],
       },
       (place: PlaceResult | null, status: string) => {
+        console.log("Place details status:", status);
         if (status === "OK" && place?.address_components) {
           const addressData = {
             address: place.formatted_address || "",
@@ -148,7 +185,11 @@ export const AddressAutocomplete = forwardRef<
             }
           });
 
+          console.log("Parsed address data:", addressData);
           onAddressSelect(addressData);
+        } else {
+          console.error("Error getting place details:", status);
+          setError("Failed to get address details");
         }
       }
     );
@@ -165,9 +206,9 @@ export const AddressAutocomplete = forwardRef<
             "w-full justify-between h-9 font-normal",
             !value && "text-muted-foreground"
           )}
-          disabled={!scriptLoaded}
+          disabled={!scriptLoaded || !!error}
         >
-          {value || "Enter address..."}
+          {value || (error ? error : "Enter address...")}
           {isLoading ? (
             <Loader2 className="ml-2 h-4 w-4 animate-spin" />
           ) : (
@@ -185,7 +226,9 @@ export const AddressAutocomplete = forwardRef<
               getPlacePredictions(value);
             }}
           />
-          <CommandEmpty>No address found.</CommandEmpty>
+          <CommandEmpty>
+            {error ? error : "No address found."}
+          </CommandEmpty>
           <CommandGroup>
             {suggestions.map((suggestion) => (
               <CommandItem
