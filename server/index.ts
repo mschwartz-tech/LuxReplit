@@ -53,45 +53,62 @@ app.use((req, res, next) => {
   next();
 });
 
+// Custom error types
+class ValidationError extends Error {
+  constructor(public details: any[]) {
+    super('Validation Error');
+    this.name = 'ValidationError';
+  }
+}
+
+class AuthorizationError extends Error {
+  constructor(message: string = 'Unauthorized') {
+    super(message);
+    this.name = 'AuthorizationError';
+  }
+}
+
+// Global error handler
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  const errorResponse: any = {
+    message: err.message || "Internal Server Error",
+    status: err.status || err.statusCode || 500,
+  };
+
+  // Handle specific error types
+  if (err instanceof ZodError) {
+    const validationError = fromZodError(err);
+    errorResponse.status = 400;
+    errorResponse.message = "Validation Error";
+    errorResponse.details = validationError.details;
+  } else if (err instanceof ValidationError) {
+    errorResponse.status = 400;
+    errorResponse.details = err.details;
+  } else if (err instanceof AuthorizationError) {
+    errorResponse.status = 403;
+  }
+
+  // Log error with context
+  logError(err.message || "Internal Server Error", {
+    path: req.path,
+    method: req.method,
+    userId: (req.user as any)?.id,
+    statusCode: errorResponse.status,
+    details: errorResponse.details,
+    stack: process.env.NODE_ENV !== "production" ? err.stack : undefined
+  });
+
+  // Send error response
+  res.status(errorResponse.status).json({
+    message: errorResponse.message,
+    details: errorResponse.details,
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
+  });
+});
+
 // Initialize server
 (async () => {
   const server = await registerRoutes(app);
-
-  // Global error handler
-  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    // Handle Zod validation errors
-    if (err instanceof ZodError) {
-      const validationError = fromZodError(err);
-      logError("Validation Error", {
-        path: req.path,
-        method: req.method,
-        errors: validationError.details,
-      });
-      return res.status(400).json({
-        message: "Validation Error",
-        errors: validationError.details,
-      });
-    }
-
-    // Log the error with additional context
-    logError(err, {
-      path: req.path,
-      method: req.method,
-      userId: (req.user as any)?.id,
-      body: req.body,
-      query: req.query,
-      statusCode: status,
-    });
-
-    // Send error response
-    res.status(status).json({
-      message,
-      ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
-    });
-  });
 
   // Setup Vite or static serving based on environment
   if (app.get("env") === "development") {

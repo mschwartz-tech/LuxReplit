@@ -9,37 +9,43 @@ import {
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
   insertGymMembershipPricingSchema
 } from "@shared/schema";
-import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 import { logError, logInfo } from "./services/logger";
 
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
+// Authentication middleware
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated()) return res.sendStatus(401);
+  next();
+};
+
+const requireRole = (roles: string[]) => (req: any, res: any, next: any) => {
+  if (!req.isAuthenticated() || !roles.includes(req.user.role)) {
+    logError("Unauthorized access attempt", {
+      userId: req.user?.id,
+      role: req.user?.role,
+      requiredRoles: roles
+    });
+    return res.sendStatus(403);
+  }
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
-  // Members Routes
-  app.get("/api/members", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  // Member Management Routes
+  app.get("/api/members", requireAuth, asyncHandler(async (req, res) => {
     const members = await storage.getMembers();
     logInfo("Members retrieved", { count: members.length });
     res.json(members);
   }));
 
-  app.post("/api/members", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized member creation attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
-
+  app.post("/api/members", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const parsed = insertMemberSchema.safeParse(req.body);
     if (!parsed.success) {
-      logError("Member creation validation failed", {
-        errors: parsed.error.errors,
-      });
+      logError("Member creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
@@ -48,31 +54,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(member);
   }));
 
-  // Member Profile
-  app.get("/api/members/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  // Member Profile Routes
+  app.get("/api/members/:id", requireAuth, asyncHandler(async (req, res) => {
     const member = await storage.getMember(parseInt(req.params.id));
     if (!member) return res.sendStatus(404);
     logInfo("Member retrieved", { memberId: member.id });
     res.json(member);
   }));
 
-  app.get("/api/members/:id/profile", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/members/:id/profile", requireAuth, asyncHandler(async (req, res) => {
     const profile = await storage.getMemberProfile(parseInt(req.params.id));
     if (!profile) return res.sendStatus(404);
     logInfo("Member profile retrieved", { memberId: req.params.id });
     res.json(profile);
   }));
 
-  app.post("/api/members/:id/profile", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized profile creation attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
+  app.post("/api/members/:id/profile", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const parsed = insertMemberProfileSchema.safeParse({ ...req.body, memberId: parseInt(req.params.id) });
     if (!parsed.success) {
       logError("Profile creation validation failed", { errors: parsed.error.errors });
@@ -83,11 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(profile);
   }));
 
-  app.patch("/api/members/:id/profile", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized member profile update attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.patch("/api/members/:id/profile", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const memberId = parseInt(req.params.id);
     const profile = await storage.getMemberProfile(memberId);
     if (!profile) return res.sendStatus(404);
@@ -103,21 +96,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Member Assessments
-  app.get("/api/members/:id/assessments", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/members/:id/assessments", requireAuth, asyncHandler(async (req, res) => {
     const assessments = await storage.getMemberAssessments(parseInt(req.params.id));
     logInfo("Assessments retrieved", { memberId: req.params.id, count: assessments.length });
     res.json(assessments);
   }));
 
-  app.post("/api/members/:id/assessments", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized assessment creation attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
+  app.post("/api/members/:id/assessments", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const parsed = insertMemberAssessmentSchema.safeParse({ ...req.body, memberId: parseInt(req.params.id) });
     if (!parsed.success) {
       logError("Assessment creation validation failed", { errors: parsed.error.errors });
@@ -128,8 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(assessment);
   }));
 
-  app.get("/api/members/:id/assessments/:assessmentId", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/members/:id/assessments/:assessmentId", requireAuth, asyncHandler(async (req, res) => {
     const assessment = await storage.getMemberAssessment(parseInt(req.params.assessmentId));
     if (!assessment) return res.sendStatus(404);
     if (assessment.memberId !== parseInt(req.params.id)) return res.sendStatus(403);
@@ -139,15 +123,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Member Progress Photo Routes
-  app.get("/api/members/:id/progress-photos", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/members/:id/progress-photos", requireAuth, asyncHandler(async (req, res) => {
     const photos = await storage.getMemberProgressPhotos(parseInt(req.params.id));
     logInfo("Member progress photos retrieved", { memberId: req.params.id, count: photos.length });
     res.json(photos);
   }));
 
-  app.get("/api/members/:id/progress-photos/:photoId", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/members/:id/progress-photos/:photoId", requireAuth, asyncHandler(async (req, res) => {
     const photo = await storage.getMemberProgressPhoto(parseInt(req.params.photoId));
     if (!photo) return res.sendStatus(404);
     if (photo.memberId !== parseInt(req.params.id)) return res.sendStatus(403);
@@ -155,11 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(photo);
   }));
 
-  app.post("/api/members/:id/progress-photos", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized member progress photo creation attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.post("/api/members/:id/progress-photos", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const parsed = insertMemberProgressPhotoSchema.safeParse({ ...req.body, memberId: parseInt(req.params.id) });
     if (!parsed.success) {
       logError("Member progress photo creation validation failed", { errors: parsed.error.errors });
@@ -170,26 +148,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(photo);
   }));
 
-  // Workout Plans
-  app.get("/api/workout-plans", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  // Training Management Routes
+  app.get("/api/workout-plans", requireAuth, asyncHandler(async (req, res) => {
     const plans = await storage.getWorkoutPlans();
     logInfo("Workout plans retrieved", { count: plans.length });
     res.json(plans);
   }));
 
-  app.get("/api/workout-plans/member/:memberId", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/workout-plans/member/:memberId", requireAuth, asyncHandler(async (req, res) => {
     const plans = await storage.getWorkoutPlansByMember(parseInt(req.params.memberId));
     logInfo("Workout plans by member retrieved", { memberId: req.params.memberId, count: plans.length });
     res.json(plans);
   }));
 
-  app.post("/api/workout-plans", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized workout plan creation attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.post("/api/workout-plans", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const parsed = insertWorkoutPlanSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Workout plan creation validation failed", { errors: parsed.error.errors });
@@ -200,11 +172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(plan);
   }));
 
-  app.patch("/api/workout-plans/:id/completion", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized workout plan completion update attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.patch("/api/workout-plans/:id/completion", requireRole(["admin", "trainer"]), asyncHandler(async (req, res) => {
     const { completionRate } = req.body;
     if (typeof completionRate !== 'number' || completionRate < 0 || completionRate > 100) {
       logError("Invalid completion rate provided", { completionRate });
@@ -215,23 +183,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(plan);
   }));
 
-  // Workout Logs
-  app.get("/api/workout-logs/plan/:planId", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  // Workout Tracking Routes
+  app.get("/api/workout-logs/plan/:planId", requireAuth, asyncHandler(async (req, res) => {
     const logs = await storage.getWorkoutLogs(parseInt(req.params.planId));
     logInfo("Workout logs retrieved for plan", { planId: req.params.planId, count: logs.length });
     res.json(logs);
   }));
 
-  app.get("/api/workout-logs/member/:memberId", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/workout-logs/member/:memberId", requireAuth, asyncHandler(async (req, res) => {
     const logs = await storage.getMemberWorkoutLogs(parseInt(req.params.memberId));
     logInfo("Workout logs retrieved for member", { memberId: req.params.memberId, count: logs.length });
     res.json(logs);
   }));
 
-  app.post("/api/workout-logs", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/workout-logs", requireAuth, asyncHandler(async (req, res) => {
     const parsed = insertWorkoutLogSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Workout log creation validation failed", { errors: parsed.error.errors });
@@ -242,16 +207,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(log);
   }));
 
-  // Schedules
-  app.get("/api/schedules", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  // Scheduling Routes
+  app.get("/api/schedules", requireAuth, asyncHandler(async (req, res) => {
     const schedules = await storage.getSchedules();
     logInfo("Schedules retrieved", { count: schedules.length });
     res.json(schedules);
   }));
 
-  app.post("/api/schedules", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.post("/api/schedules", requireAuth, asyncHandler(async (req, res) => {
     const parsed = insertScheduleSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Schedule creation validation failed", { errors: parsed.error.errors });
@@ -262,33 +225,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(schedule);
   }));
 
-  // Invoices
-  app.get("/api/invoices", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized invoice retrieval attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+
+  // Billing Routes
+  app.get("/api/invoices", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const invoices = await storage.getInvoices();
     logInfo("Invoices retrieved", { count: invoices.length });
     res.json(invoices);
   }));
 
-  app.get("/api/invoices/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized invoice retrieval attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.get("/api/invoices/:id", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const invoice = await storage.getInvoice(parseInt(req.params.id));
     if (!invoice) return res.sendStatus(404);
     logInfo("Invoice retrieved", { invoiceId: req.params.id });
     res.json(invoice);
   }));
 
-  app.post("/api/invoices", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized invoice creation attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.post("/api/invoices", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const parsed = insertInvoiceSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Invoice creation validation failed", { errors: parsed.error.errors });
@@ -299,33 +251,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(invoice);
   }));
 
-  // Marketing Campaigns
-  app.get("/api/marketing-campaigns", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized marketing campaign retrieval attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  // Marketing Routes
+  app.get("/api/marketing-campaigns", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const campaigns = await storage.getMarketingCampaigns();
     logInfo("Marketing campaigns retrieved", { count: campaigns.length });
     res.json(campaigns);
   }));
 
-  app.get("/api/marketing-campaigns/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized marketing campaign retrieval attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.get("/api/marketing-campaigns/:id", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const campaign = await storage.getMarketingCampaign(parseInt(req.params.id));
     if (!campaign) return res.sendStatus(404);
     logInfo("Marketing campaign retrieved", { campaignId: req.params.id });
     res.json(campaign);
   }));
 
-  app.post("/api/marketing-campaigns", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized marketing campaign creation attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
+  app.post("/api/marketing-campaigns", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const parsed = insertMarketingCampaignSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Marketing campaign creation validation failed", { errors: parsed.error.errors });
@@ -336,37 +276,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(campaign);
   }));
 
-
   // Pricing Plans
-  app.get("/api/pricing-plans", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/pricing-plans", requireAuth, asyncHandler(async (req, res) => {
     const plans = await storage.getPricingPlans();
     logInfo("Pricing plans retrieved", { count: plans.length });
     res.json(plans);
   }));
 
-  app.get("/api/pricing-plans/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/pricing-plans/:id", requireAuth, asyncHandler(async (req, res) => {
     const plan = await storage.getPricingPlan(parseInt(req.params.id));
     if (!plan) return res.sendStatus(404);
     logInfo("Pricing plan retrieved", { planId: req.params.id });
     res.json(plan);
   }));
 
-  app.post("/api/pricing-plans", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized pricing plan creation attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
-
+  app.post("/api/pricing-plans", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const parsed = insertPricingPlanSchema.safeParse(req.body);
     if (!parsed.success) {
-      logError("Pricing plan creation validation failed", {
-        errors: parsed.error.errors,
-      });
+      logError("Pricing plan creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
@@ -375,24 +302,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(plan);
   }));
 
-  app.patch("/api/pricing-plans/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized pricing plan update attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
-
+  app.patch("/api/pricing-plans/:id", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const planId = parseInt(req.params.id);
     const plan = await storage.getPricingPlan(planId);
     if (!plan) return res.sendStatus(404);
 
     const parsed = insertPricingPlanSchema.partial().safeParse(req.body);
     if (!parsed.success) {
-      logError("Pricing plan update validation failed", {
-        errors: parsed.error.errors,
-      });
+      logError("Pricing plan update validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
@@ -402,27 +319,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Gym Membership Pricing Routes
-  app.get("/api/gym-membership-pricing", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+  app.get("/api/gym-membership-pricing", requireAuth, asyncHandler(async (req, res) => {
     const pricing = await storage.getGymMembershipPricing();
     logInfo("Gym membership pricing retrieved", { count: pricing.length });
     res.json(pricing);
   }));
 
-  app.post("/api/gym-membership-pricing", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized gym membership pricing creation attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
-
+  app.post("/api/gym-membership-pricing", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const parsed = insertGymMembershipPricingSchema.safeParse(req.body);
     if (!parsed.success) {
-      logError("Gym membership pricing creation validation failed", {
-        errors: parsed.error.errors,
-      });
+      logError("Gym membership pricing creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
@@ -431,24 +337,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(pricing);
   }));
 
-  app.patch("/api/gym-membership-pricing/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      logError("Unauthorized gym membership pricing update attempt", {
-        userId: (req.user as any)?.id,
-        role: (req.user as any)?.role,
-      });
-      return res.sendStatus(403);
-    }
-
+  app.patch("/api/gym-membership-pricing/:id", requireRole(["admin"]), asyncHandler(async (req, res) => {
     const pricingId = parseInt(req.params.id);
     const pricing = await storage.getGymMembershipPricingById(pricingId);
     if (!pricing) return res.sendStatus(404);
 
     const parsed = insertGymMembershipPricingSchema.partial().safeParse(req.body);
     if (!parsed.success) {
-      logError("Gym membership pricing update validation failed", {
-        errors: parsed.error.errors,
-      });
+      logError("Gym membership pricing update validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
