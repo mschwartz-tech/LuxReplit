@@ -395,7 +395,7 @@ export default function MemberOnboardingPage() {
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={!form.getValues("gymLocationId")}
+                        disabled={form.getValues("gymLocationId") === undefined}
                       >
                         <FormControl>
                           <SelectTrigger className="h-9">
