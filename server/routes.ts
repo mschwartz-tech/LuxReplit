@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
+import { errorHandler } from "./middleware/error";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -30,6 +31,8 @@ const requireRole = (roles: string[]) => (req: Request, res: Response, next: Nex
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register error handling middleware
+  app.use(errorHandler);
   setupAuth(app);
 
   app.get("/health", asyncHandler(async (req: Request, res: Response) => {

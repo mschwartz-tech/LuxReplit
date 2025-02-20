@@ -1,12 +1,23 @@
-
 import { Router } from "express";
 import { storage } from "../storage";
 import { insertUserSchema } from "@shared/schema";
 import { requireRole } from "../middleware/auth";
 import { asyncHandler } from "../middleware/async";
 import { logError, logInfo } from "../services/logger";
+import type { Express, Request, Response, NextFunction } from "express";
+import { ZodError } from "zod";
 
 const router = Router();
+
+const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof ZodError) {
+    logError("Validation error", { error: err });
+    return res.status(400).json({ message: "Validation error", errors: err.issues });
+  }
+  logError("Internal server error", { error: err });
+  return res.status(500).json({ message: "Internal server error" });
+};
+
 
 router.post("/register", asyncHandler(async (req, res, next) => {
   if (!req.body.username || !req.body.password) {
@@ -20,7 +31,7 @@ router.post("/register", asyncHandler(async (req, res, next) => {
 
   const user = await storage.createUser(req.body);
   logInfo("New user created", { userId: user.id });
-  
+
   req.login(user, (err) => {
     if (err) return next(err);
     const { password, ...userWithoutPassword } = user;
@@ -62,5 +73,7 @@ router.get("/user", (req, res) => {
   const { password, ...userWithoutPassword } = req.user;
   res.json(userWithoutPassword);
 });
+
+router.use(errorHandler);
 
 export default router;
