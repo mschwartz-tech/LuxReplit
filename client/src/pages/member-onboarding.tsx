@@ -99,8 +99,8 @@ const step1Schema = z.object({
 });
 
 const onboardingSchema = z.object({
-  gymLocationId: z.coerce.number(),
-  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]).optional(),
+  gymLocationId: z.coerce.number().optional(),
+  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   middleInitial: z.string().max(1, "Middle initial should be a single character").optional(),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
@@ -977,8 +977,9 @@ export default function MemberOnboardingPage() {
 
       let newMember;
       try {
-        newMember = JSON.parse(await memberResponse.json());
+        newMember = await memberResponse.json();
       } catch (e) {
+        console.error("Member creation error:", e);
         throw new Error("Invalid response from server when creating member");
       }
 
