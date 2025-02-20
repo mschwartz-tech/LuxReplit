@@ -17,15 +17,23 @@ const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${derivedKey.toString("hex")}.${salt}`;
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  try {
+    const [hashedPassword, salt] = stored.split(".");
+    if (!hashedPassword || !salt) {
+      return false;
+    }
+    const hashedSuppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    const hashedStoredBuf = Buffer.from(hashedPassword, "hex");
+    return timingSafeEqual(hashedSuppliedBuf, hashedStoredBuf);
+  } catch (error) {
+    console.error("Error comparing passwords:", error);
+    return false;
+  }
 }
 
 export function setupAuth(app: Express) {
@@ -52,11 +60,15 @@ export function setupAuth(app: Express) {
   app.use(passport.session());
 
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
+    new LocalStrategy(async (username: string, password: string, done) => {
       try {
         const user = await storage.getUserByUsername(username);
-        if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false, { message: 'Invalid credentials' });
+        if (!user) {
+          return done(null, false, { message: "Invalid username or password" });
+        }
+        const isValidPassword = await comparePasswords(password, user.password);
+        if (!isValidPassword) {
+          return done(null, false, { message: "Invalid username or password" });
         }
         return done(null, user);
       } catch (err) {
@@ -88,14 +100,17 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
+      const hashedPassword = await hashPassword(req.body.password);
       const user = await storage.createUser({
         ...req.body,
-        password: await hashPassword(req.body.password),
+        password: hashedPassword,
       });
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        // Don't send password back to client
+        const { password, ...userWithoutPassword } = user;
+        res.status(201).json(userWithoutPassword);
       });
     } catch (err) {
       next(err);
@@ -103,14 +118,20 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    if (!req.body.username || !req.body.password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) return next(err);
       if (!user) {
         return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(200).json(user);
+        // Don't send password back to client
+        const { password, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
   });
@@ -128,7 +149,9 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    // Don't send password back to client
+    const { password, ...userWithoutPassword } = req.user;
+    res.json(userWithoutPassword);
   });
 
   // Create admin user if it doesn't exist
@@ -139,9 +162,10 @@ async function createAdminUser() {
   try {
     const adminUser = await storage.getUserByUsername('admin');
     if (!adminUser) {
+      const hashedPassword = await hashPassword('admin');
       await storage.createUser({
         username: 'admin',
-        password: await hashPassword('admin'),
+        password: hashedPassword,
         role: 'admin',
         email: 'admin@luxegym.com',
         name: 'Admin User'
