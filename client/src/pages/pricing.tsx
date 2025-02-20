@@ -1,6 +1,7 @@
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Save, Plus } from "lucide-react";
+import { ArrowLeft, Save, Plus, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
@@ -31,6 +32,7 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
 );
 
 export default function PricingPage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [changes, setChanges] = useState<Record<number, Partial<PricingPlan>>>({});
@@ -43,15 +45,133 @@ export default function PricingPage() {
     luxeAllAccessPrice: "",
   });
 
-  const { data: pricingPlans = [], isLoading } = useQuery({
+  const { data: pricingPlans = [], isLoading: plansLoading } = useQuery<PricingPlan[]>({
     queryKey: ["/api/pricing-plans"],
-    select: (data: PricingPlan[]) => data,
   });
 
-  const { data: gymPricing = [], isLoading: isLoadingGym } = useQuery({
+  const { data: gymPricing = [], isLoading: locationsLoading } = useQuery<GymMembershipPricing[]>({
     queryKey: ["/api/gym-membership-pricing"],
-    select: (data: GymMembershipPricing[]) => data,
   });
+
+  const createGymMutation = useMutation({
+    mutationFn: async (pricing: typeof newGym) => {
+      const response = await fetch("/api/gym-membership-pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...pricing,
+          luxeEssentialsPrice: parseFloat(pricing.luxeEssentialsPrice),
+          luxeStrivePrice: parseFloat(pricing.luxeStrivePrice),
+          luxeAllAccessPrice: parseFloat(pricing.luxeAllAccessPrice),
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to create gym pricing: ${error}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      setShowNewGymForm(false);
+      setNewGym({
+        gymName: "",
+        luxeEssentialsPrice: "",
+        luxeStrivePrice: "",
+        luxeAllAccessPrice: "",
+      });
+      toast({
+        title: "Success",
+        description: "New gym pricing added successfully",
+      });
+    },
+    onError: (error) => {
+      console.error("Error creating gym:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add new gym pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateGymMutation = useMutation({
+    mutationFn: async (updates: Record<number, Partial<GymMembershipPricing>>) => {
+      const promises = Object.entries(updates).map(([id, pricing]) =>
+        fetch(`/api/gym-membership-pricing/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...pricing,
+            luxeEssentialsPrice: pricing.luxeEssentialsPrice ? parseFloat(pricing.luxeEssentialsPrice.toString()) : undefined,
+            luxeStrivePrice: pricing.luxeStrivePrice ? parseFloat(pricing.luxeStrivePrice.toString()) : undefined,
+            luxeAllAccessPrice: pricing.luxeAllAccessPrice ? parseFloat(pricing.luxeAllAccessPrice.toString()) : undefined,
+          }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const error = await res.text();
+            throw new Error(`Failed to update gym pricing ${id}: ${error}`);
+          }
+          return res.json();
+        })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      setGymChanges({});
+      toast({
+        title: "Success",
+        description: "Gym membership pricing updated successfully",
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating gym pricing:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update gym membership pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleGymPriceChange = useCallback((
+    pricingId: number,
+    field: keyof GymMembershipPricing,
+    value: string
+  ) => {
+    setGymChanges(prev => ({
+      ...prev,
+      [pricingId]: {
+        ...prev[pricingId],
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  const handleCreateGym = () => {
+    if (!newGym.gymName || !newGym.luxeEssentialsPrice || !newGym.luxeStrivePrice || !newGym.luxeAllAccessPrice) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    createGymMutation.mutate(newGym);
+  };
+
+  const handleSaveGymChanges = () => {
+    updateGymMutation.mutate(gymChanges);
+  };
+
+  if (plansLoading || locationsLoading) {
+    return (
+      <div className="flex h-[200px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Record<number, Partial<PricingPlan>>) => {
@@ -84,79 +204,6 @@ export default function PricingPage() {
     },
   });
 
-  const updateGymMutation = useMutation({
-    mutationFn: async (updates: Record<number, Partial<GymMembershipPricing>>) => {
-      const promises = Object.entries(updates).map(([id, pricing]) =>
-        fetch(`/api/gym-membership-pricing/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...pricing,
-            luxeEssentialsPrice: pricing.luxeEssentialsPrice ? parseFloat(pricing.luxeEssentialsPrice as string) : undefined,
-            luxeStrivePrice: pricing.luxeStrivePrice ? parseFloat(pricing.luxeStrivePrice as string) : undefined,
-            luxeAllAccessPrice: pricing.luxeAllAccessPrice ? parseFloat(pricing.luxeAllAccessPrice as string) : undefined,
-          }),
-        }).then(res => {
-          if (!res.ok) throw new Error(`Failed to update gym pricing ${id}`);
-          return res.json();
-        })
-      );
-      return Promise.all(promises);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
-      setGymChanges({});
-      toast({
-        title: "Success",
-        description: "All gym membership pricing updated successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update gym membership pricing",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const createGymMutation = useMutation({
-    mutationFn: async (pricing: typeof newGym) => {
-      const response = await fetch("/api/gym-membership-pricing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...pricing,
-          luxeEssentialsPrice: parseFloat(pricing.luxeEssentialsPrice),
-          luxeStrivePrice: parseFloat(pricing.luxeStrivePrice),
-          luxeAllAccessPrice: parseFloat(pricing.luxeAllAccessPrice),
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to create gym pricing");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
-      setShowNewGymForm(false);
-      setNewGym({
-        gymName: "",
-        luxeEssentialsPrice: "",
-        luxeStrivePrice: "",
-        luxeAllAccessPrice: "",
-      });
-      toast({
-        title: "Success",
-        description: "New gym pricing added successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add new gym pricing",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handlePriceChange = useCallback((
     planId: number,
@@ -172,43 +219,9 @@ export default function PricingPage() {
     }));
   }, []);
 
-  const handleGymPriceChange = useCallback((
-    pricingId: number,
-    field: keyof GymMembershipPricing,
-    value: string
-  ) => {
-    setGymChanges(prev => ({
-      ...prev,
-      [pricingId]: {
-        ...prev[pricingId],
-        [field]: value,
-      },
-    }));
-  }, []);
-
   const handleSaveChanges = () => {
     updateMutation.mutate(changes);
   };
-
-  const handleSaveGymChanges = () => {
-    updateGymMutation.mutate(gymChanges);
-  };
-
-  const handleCreateGym = () => {
-    if (!newGym.gymName || !newGym.luxeEssentialsPrice || !newGym.luxeStrivePrice || !newGym.luxeAllAccessPrice) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    createGymMutation.mutate(newGym);
-  };
-
-  if (isLoading || isLoadingGym) {
-    return <div>Loading...</div>;
-  }
 
   const hasChanges = Object.keys(changes).length > 0;
   const hasGymChanges = Object.keys(gymChanges).length > 0;
@@ -293,7 +306,7 @@ export default function PricingPage() {
                       <>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <EditableCell
-                            value={currentChanges.costPerSession ?? plan.costPerSession}
+                            value={currentChanges.costPerSession ?? plan.costPerSession.toString()}
                             onChange={(value) =>
                               handlePriceChange(plan.id, "costPerSession", value)
                             }
@@ -301,7 +314,7 @@ export default function PricingPage() {
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <EditableCell
-                            value={currentChanges.biweeklyPrice ?? plan.biweeklyPrice}
+                            value={currentChanges.biweeklyPrice ?? plan.biweeklyPrice.toString()}
                             onChange={(value) =>
                               handlePriceChange(plan.id, "biweeklyPrice", value)
                             }
@@ -309,7 +322,7 @@ export default function PricingPage() {
                         </td>
                         <td className={`px-3 py-2 whitespace-nowrap ${duration === 30 ? 'border-r' : ''}`}>
                           <EditableCell
-                            value={currentChanges.pifPrice ?? plan.pifPrice}
+                            value={currentChanges.pifPrice ?? plan.pifPrice.toString()}
                             onChange={(value) =>
                               handlePriceChange(plan.id, "pifPrice", value)
                             }
@@ -390,26 +403,35 @@ export default function PricingPage() {
                   </td>
                 </tr>
               )}
-              {gymPricing?.map((pricing: GymMembershipPricing) => (
+              {gymPricing?.map((pricing) => (
                 <tr key={pricing.id}>
                   <td className="px-3 py-2 text-sm font-medium text-gray-900">
                     {pricing.gymName}
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
-                      value={gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice}
+                      value={
+                        gymChanges[pricing.id]?.luxeEssentialsPrice?.toString() ?? 
+                        pricing.luxeEssentialsPrice.toString()
+                      }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
                     />
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
-                      value={gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice}
+                      value={
+                        gymChanges[pricing.id]?.luxeStrivePrice?.toString() ?? 
+                        pricing.luxeStrivePrice.toString()
+                      }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
                     />
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
-                      value={gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice}
+                      value={
+                        gymChanges[pricing.id]?.luxeAllAccessPrice?.toString() ?? 
+                        pricing.luxeAllAccessPrice.toString()
+                      }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
                     />
                   </td>
