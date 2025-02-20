@@ -227,7 +227,7 @@ export default function PricingPage() {
       </div>
 
       <div className="flex justify-center">
-        <div className="overflow-x-auto rounded-lg border border-gray-200 max-w-4xl">
+        <div className="rounded-lg border border-gray-200 max-w-4xl">
           <h2 className="text-lg font-medium text-gray-900 p-4 border-b bg-gray-50">
             Personal Training Pricing Index
           </h2>
@@ -316,7 +316,7 @@ export default function PricingPage() {
 
       {/* Gym Membership Pricing Table */}
       <div className="flex justify-center mt-8">
-        <div className="overflow-x-auto rounded-lg border border-gray-200 max-w-4xl">
+        <div className="rounded-lg border border-gray-200 w-full max-w-4xl">
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <h2 className="text-lg font-medium text-gray-900">
               Gym Membership Pricing Index
@@ -334,16 +334,16 @@ export default function PricingPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                   Gym Location
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                   Luxe Essentials
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                   Luxe Strive
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                   Luxe All-Access
                 </th>
               </tr>
@@ -351,7 +351,7 @@ export default function PricingPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {showNewGymForm && (
                 <tr>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <Input
                       value={newGym.gymName}
                       onChange={(e) => setNewGym(prev => ({ ...prev, gymName: e.target.value }))}
@@ -359,19 +359,19 @@ export default function PricingPage() {
                       placeholder="Gym Name"
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <EditableCell
                       value={newGym.luxeEssentialsPrice}
                       onChange={(value) => setNewGym(prev => ({ ...prev, luxeEssentialsPrice: value }))}
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <EditableCell
                       value={newGym.luxeStrivePrice}
                       onChange={(value) => setNewGym(prev => ({ ...prev, luxeStrivePrice: value }))}
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <EditableCell
                       value={newGym.luxeAllAccessPrice}
                       onChange={(value) => setNewGym(prev => ({ ...prev, luxeAllAccessPrice: value }))}
@@ -381,22 +381,22 @@ export default function PricingPage() {
               )}
               {gymPricing?.map((pricing: GymMembershipPricing) => (
                 <tr key={pricing.id}>
-                  <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-3 py-2 text-sm font-medium text-gray-900">
                     {pricing.gymName}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <EditableCell
                       value={gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice}
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <EditableCell
                       value={gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice}
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
                     />
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2">
                     <EditableCell
                       value={gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice}
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
