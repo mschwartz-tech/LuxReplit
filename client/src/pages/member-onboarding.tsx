@@ -400,12 +400,12 @@ export default function MemberOnboardingPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="emergencyContactPhone"
+                  name="emergencyContactRelation"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contact Phone</FormLabel>
+                      <FormLabel>Relationship</FormLabel>
                       <FormControl>
-                        <Input placeholder="(555) 555-5555" {...field} />
+                        <Input placeholder="Spouse" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -413,12 +413,12 @@ export default function MemberOnboardingPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="emergencyContactRelation"
+                  name="emergencyContactPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Relationship</FormLabel>
+                      <FormLabel>Contact Phone</FormLabel>
                       <FormControl>
-                        <Input placeholder="Spouse" {...field} />
+                        <Input placeholder="(555) 555-5555" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
