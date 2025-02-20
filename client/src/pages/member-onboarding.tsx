@@ -354,7 +354,7 @@ export default function MemberOnboardingPage() {
       // Create user account
       const userResponse = await fetch("/api/users", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
@@ -374,7 +374,7 @@ export default function MemberOnboardingPage() {
 
       let newUser;
       try {
-        newUser = JSON.parse(errorText);
+        newUser = JSON.parse(await userResponse.json());
       } catch (e) {
         throw new Error("Invalid response from server when creating user");
       }
@@ -394,7 +394,7 @@ export default function MemberOnboardingPage() {
       // Create member record
       const memberResponse = await fetch("/api/members", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
@@ -414,7 +414,7 @@ export default function MemberOnboardingPage() {
 
       let newMember;
       try {
-        newMember = JSON.parse(memberResponseText);
+        newMember = JSON.parse(await memberResponse.json());
       } catch (e) {
         throw new Error("Invalid response from server when creating member");
       }
@@ -450,7 +450,7 @@ export default function MemberOnboardingPage() {
       // Create member profile
       const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
@@ -938,7 +938,7 @@ export default function MemberOnboardingPage() {
                     {field.value && (
                       <div className="space-y-2">
                         <FormLabel>Signature</FormLabel>
-                        <div className="border rounded-lg bgwhite">
+                        <div className="border rounded-lg bg-white">
                           <SignaturePad
                             ref={photoReleaseSignaturePad}
                             canvasProps={{
