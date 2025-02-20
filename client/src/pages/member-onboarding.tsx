@@ -526,19 +526,19 @@ export default function MemberOnboardingPage() {
             <FormField
               control={form.control}
               name="healthConditions"
-              render={({ field }) => (
+              render={({ field: { onChange, value } }) => (
                 <FormItem>
                   <FormLabel>Health Conditions</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Enter any health conditions (one per line)"
-                      value={(field.value || []).join('\n')}
+                      value={Array.isArray(value) ? value.join('\n') : ''}
                       onChange={(e) => {
                         const conditions = e.target.value
                           .split('\n')
                           .map(condition => condition.trim())
                           .filter(Boolean);
-                        field.onChange(conditions);
+                        onChange(conditions);
                       }}
                     />
                   </FormControl>
