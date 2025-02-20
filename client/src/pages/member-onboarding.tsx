@@ -184,7 +184,6 @@ export default function MemberOnboardingPage() {
     },
   });
 
-
   if (!user || !isAdmin) {
     return <div className="p-8">Not authorized to view this page</div>;
   }
@@ -383,6 +382,50 @@ export default function MemberOnboardingPage() {
                 </FormItem>
               )}
             />
+            <div className="space-y-2 pt-2 border-t">
+              <h3 className="text-sm font-semibold">Emergency Contact</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="emergencyContactName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jane Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="emergencyContactPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(555) 555-5555" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="emergencyContactRelation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Relationship</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Spouse" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
             <div className="space-y-2 pt-2 border-t">
               <h3 className="text-sm font-semibold">Location and Membership</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -606,53 +649,6 @@ export default function MemberOnboardingPage() {
             />
           </div>
         );
-      case 3:
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Emergency Contact</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="emergencyContactName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Jane Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="emergencyContactPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="(555) 555-5555" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="emergencyContactRelation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Relationship</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Spouse" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </div>
-        );
       case 4:
         return (
           <div className="space-y-4">
@@ -830,13 +826,22 @@ export default function MemberOnboardingPage() {
           "state",
           "zipCode",
           "gymLocationId",
-          "membershipType"
+          "membershipType",
+          "emergencyContactName",
+          "emergencyContactPhone",
+          "emergencyContactRelation"
         ]);
 
         const hasErrors = await form.formState.errors;
         if (Object.keys(hasErrors).length > 0) {
           return;
         }
+      }
+
+      // Skip step 3 when going from step 2 to 4
+      if (currentStep === 2) {
+        setCurrentStep(4);
+        return;
       }
 
       setCurrentStep((prev) => prev + 1);
