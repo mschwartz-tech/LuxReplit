@@ -773,6 +773,33 @@ const PackageSelectionStep = ({ form, gymLocations }: StepProps) => (
 );
 
 // Main Component
+// Validation middleware
+const validateFormData = (data: OnboardingForm) => {
+  const errors: Partial<Record<keyof OnboardingForm, string>> = {};
+  
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(data.email)) {
+    errors.email = "Invalid email format";
+  }
+
+  // Phone validation
+  const phoneRegex = /^\d{10}$/;
+  if (!phoneRegex.test(data.phoneNumber.replace(/\D/g, ''))) {
+    errors.phoneNumber = "Phone number must be 10 digits";
+  }
+
+  // Date validation
+  const birthDate = new Date(data.birthYear, data.birthMonth - 1, data.birthDay);
+  if (birthDate > new Date() || birthDate.getFullYear() < 1900) {
+    errors.birthYear = "Invalid birth date";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    throw new Error(JSON.stringify(errors));
+  }
+};
+
 export default function MemberOnboardingPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -901,6 +928,17 @@ export default function MemberOnboardingPage() {
     try {
       setIsSubmitting(true);
       console.log('Form submission started');
+      
+      // Validate form data
+      try {
+        validateFormData(data);
+      } catch (error) {
+        const errors = JSON.parse((error as Error).message);
+        Object.entries(errors).forEach(([field, message]) => {
+          form.setError(field as any, { message: message as string });
+        });
+        throw new Error("Form validation failed");
+      }
       console.log('Submitting form data:', data);
 
       // Prepare user data
@@ -912,8 +950,36 @@ export default function MemberOnboardingPage() {
         name: `${data.firstName} ${data.middleInitial ? data.middleInitial + ' ' : ''}${data.lastName}`,
       };
 
-      // Create user account
-      const userResponse = await fetch("/api/users", {
+      // Create user account with timeout and retry
+      const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 5000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      };
+
+      const retryFetch = async (url: string, options: RequestInit, maxRetries = 3) => {
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            return await fetchWithTimeout(url, options);
+          } catch (error) {
+            if (i === maxRetries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+          }
+        }
+      };
+
+      const userResponse = await retryFetch("/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1065,7 +1131,8 @@ export default function MemberOnboardingPage() {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto p-8">
+    <ErrorBoundary>
+      <div className="container max-w-4xl mx-auto p-8">
       {/* Header */}
       <div className="mb-8">
         <Link href="/gym-members">
