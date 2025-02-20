@@ -266,7 +266,7 @@ export default function PricingPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {[1, 2, 3, 4].map((sessions, index) => (
+              {[1, 2, 3, 4, 5].map((sessions, index) => (
                 <tr key={sessions} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 text-center">
                     {sessions}
