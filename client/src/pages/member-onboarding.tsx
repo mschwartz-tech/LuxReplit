@@ -1134,64 +1134,63 @@ export default function MemberOnboardingPage() {
   return (
     <ErrorBoundary>
       <div className="container max-w-4xl mx-auto p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <Link href="/gym-members">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <h1 className="text-3xl font-bold tracking-tight">Member Onboarding</h1>
-        <p className="text-muted-foreground">Complete the member registration process</p>
-      </div>
+        {/* Header */}
+        <div className="mb-8">
+          <Link href="/gym-members">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold tracking-tight">Member Onboarding</h1>
+          <p className="text-muted-foreground">Complete the member registration process</p>
+        </div>
 
-      {/* Form */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Step {currentStep} of 4</CardTitle>
-            <CardDescription>
-              {currentStep === 1 && "Personal Information"}
-              {currentStep === 2 && "Physical Information & Health"}
-              {currentStep === 3 && "Waivers & Agreements"}
-              {currentStep === 4 && "Training & Membership"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-                {renderStep()}
+        {/* Form */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Step {currentStep} of 4</CardTitle>
+              <CardDescription>
+                {currentStep === 1 && "Personal Information"}
+                {currentStep === 2 && "Physical Information & Health"}
+                {currentStep === 3 && "Waivers & Agreements"}
+                {currentStep === 4 && "Training & Membership"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+                  {renderStep()}
 
-                {/* Navigation Buttons */}
-                <div className="flex items-center justify-between mt-6 pt-6 border-t">
-                  {currentStep > 1 && (
-                    <Button type="button" variant="outline" onClick={handlePrevious}>
-                      Previous
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                    className={cn("ml-auto", { "ml-0": currentStep === 1 })}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {currentStep === 4 ? "Submitting..." : "Next"}
-                      </>
-                    ) : (
-                      currentStep === 4 ? "Complete Onboarding" : "Next"
+                  {/* Navigation Buttons */}
+                  <div className="flex items-center justify-between mt-6 pt-6 border-t">
+                    {currentStep > 1 && (
+                      <Button type="button" variant="outline" onClick={handlePrevious}>
+                        Previous
+                      </Button>
                     )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                    <Button
+                      type="button"
+                      onClick={handleNext}
+                      className={cn("ml-auto", { "ml-0": currentStep === 1 })}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {currentStep === 4 ? "Submitting..." : "Next"}
+                        </>
+                      ) : (
+                        currentStep === 4 ? "Complete Onboarding" : "Next"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </ErrorBoundary>
   );
-};
-
-export default MemberOnboardingPage;
+}
