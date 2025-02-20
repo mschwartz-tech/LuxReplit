@@ -5,7 +5,7 @@ import { requireRole } from "../middleware/auth";
 import { asyncHandler } from "../middleware/async";
 import { logError, logInfo } from "../services/logger";
 import type { Express, Request, Response, NextFunction } from "express";
-import { ZodError } from "zod";
+import { ZodError, ZodSchema } from "zod";
 
 const router = Router();
 
@@ -18,12 +18,17 @@ const errorHandler = (err: any, req: Request, res: Response, next: NextFunction)
   return res.status(500).json({ message: "Internal server error" });
 };
 
-
-router.post("/register", asyncHandler(async (req, res, next) => {
-  if (!req.body.username || !req.body.password) {
-    return res.status(400).json({ message: "Username and password are required" });
+const validateRequest = (schema: ZodSchema) => (req: Request, res: Response, next: NextFunction) => {
+  try {
+    schema.parse(req.body);
+    next();
+  } catch (error) {
+    next(error);
   }
+};
 
+
+router.post("/register", validateRequest(insertUserSchema), asyncHandler(async (req, res, next) => {
   const existingUser = await storage.getUserByUsername(req.body.username);
   if (existingUser) {
     return res.status(400).json({ message: "Username already exists" });
