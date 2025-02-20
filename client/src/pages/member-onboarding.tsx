@@ -6,6 +6,7 @@ import { insertMemberSchema, insertMemberProfileSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import {
   Form,
   FormControl,
@@ -43,12 +44,18 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
-// Combine member and profile schemas for the form
-const onboardingSchema = z.object({
-  // Member Information
-  membershipType: z.enum(["standard", "premium", "vip"]),
+// Step 1: Location and Membership Selection
+const locationMembershipSchema = z.object({
+  gymLocationId: z.number(),
+  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
+});
 
-  // Personal Information
+// Combine all schemas for the complete form
+const onboardingSchema = z.object({
+  // Location and Membership (Step 1)
+  ...locationMembershipSchema.shape,
+
+  // Personal Information (Step 2)
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   birthDate: z.date(),
@@ -59,26 +66,22 @@ const onboardingSchema = z.object({
   state: z.string(),
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
 
-  // Physical Information
+  // Physical Information and Goals (Step 3)
   height: z.string(),
   weight: z.string(),
-
-  // Goals and Health
   fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
   healthConditions: z.array(z.string()).optional(),
   medications: z.array(z.string()).optional(),
   injuries: z.array(z.string()).optional(),
 
-  // Emergency Contact
+  // Emergency Contact (Step 4)
   emergencyContactName: z.string(),
   emergencyContactPhone: z.string(),
   emergencyContactRelation: z.string(),
 
-  // Waivers
+  // Waivers and Preferences (Step 5)
   liabilityWaiverSigned: z.boolean(),
   photoReleaseWaiverSigned: z.boolean(),
-
-  // Preferences
   preferredContactMethod: z.enum(["email", "phone", "text"]),
   preferredLocation: z.string().optional(),
   marketingOptIn: z.boolean(),
@@ -90,13 +93,22 @@ export default function MemberOnboardingPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdmin = user?.role === "admin";
+
+  // Fetch gym locations and their pricing
+  const { data: gymLocations, isLoading: isLoadingLocations } = useQuery({
+    queryKey: ["/api/gym-membership-pricing"],
+    // Add a query function here to fetch data from your API endpoint.  This is a placeholder.
+    queryFn: () => fetch("/api/gym-membership-pricing").then((res) => res.json()),
+  });
 
   const form = useForm<OnboardingForm>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      membershipType: "standard",
+      membershipType: undefined,
+      gymLocationId: undefined,
       liabilityWaiverSigned: false,
       photoReleaseWaiverSigned: false,
       marketingOptIn: false,
@@ -111,6 +123,489 @@ export default function MemberOnboardingPage() {
   if (!user || !isAdmin) {
     return <div className="p-8">Not authorized to view this page</div>;
   }
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Location and Membership Selection</h3>
+            <FormField
+              control={form.control}
+              name="gymLocationId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gym Location</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                    value={field.value?.toString()}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gym location" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {gymLocations?.map((location: {id: number, gymName: string}) => (
+                        <SelectItem key={location.id} value={location.id.toString()}>
+                          {location.gymName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="membershipType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Membership Type</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!form.getValues("gymLocationId")}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select membership type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {form.getValues("gymLocationId") && (
+                        <>
+                          <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
+                          <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
+                          <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
+                          <SelectItem value="training_only">Training Only</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        );
+      case 2:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Personal Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="john@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="birthDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Date of Birth</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gender</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Contact Information */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(555) 555-5555" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="preferredContactMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preferred Contact Method</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select contact method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="phone">Phone</SelectItem>
+                        <SelectItem value="text">Text</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Address */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="123 Main St" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input placeholder="City" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State</FormLabel>
+                    <FormControl>
+                      <Input placeholder="State" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="zipCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ZIP Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="12345" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        );
+      case 3:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Physical Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="height"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Height</FormLabel>
+                    <FormControl>
+                      <Input placeholder="5'10&quot;" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="weight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Weight (lbs)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="150" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <h3 className="text-lg font-semibold">Health Information</h3>
+            <FormField
+              control={form.control}
+              name="fitnessGoals"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fitness Goals</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter your fitness goals (one per line)"
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value
+                            .split("\n")
+                            .filter((goal) => goal.trim() !== "")
+                        )
+                      }
+                      value={field.value?.join("\n") || ""}
+                    />
+                  </FormControl>
+                  <FormDescription>Enter each goal on a new line</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="healthConditions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Health Conditions</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter any health conditions (one per line)"
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value
+                            .split("\n")
+                            .filter((condition) => condition.trim() !== "")
+                        )
+                      }
+                      value={field.value?.join("\n") || ""}
+                    />
+                  </FormControl>
+                  <FormDescription>Optional</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        );
+      case 4:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Emergency Contact</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="emergencyContactName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Jane Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="emergencyContactPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Phone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(555) 555-5555" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="emergencyContactRelation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Relationship</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Spouse" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        );
+      case 5:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Waivers and Agreements</h3>
+            <FormField
+              control={form.control}
+              name="liabilityWaiverSigned"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Liability Waiver</FormLabel>
+                    <FormDescription>I agree to the terms of the liability waiver</FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="photoReleaseWaiverSigned"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Photo Release</FormLabel>
+                    <FormDescription>I agree to the terms of the photo release waiver</FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="marketingOptIn"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Marketing Communications</FormLabel>
+                    <FormDescription>
+                      I would like to receive marketing communications
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="preferredContactMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preferred Contact Method</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select contact method" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="phone">Phone</SelectItem>
+                      <SelectItem value="text">Text</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="preferredLocation"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preferred Location</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Preferred Location" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   async function onSubmit(data: OnboardingForm) {
     setIsSubmitting(true);
@@ -141,6 +636,7 @@ export default function MemberOnboardingPage() {
           membershipType: data.membershipType,
           membershipStatus: "active",
           startDate: new Date(),
+          gymLocationId: data.gymLocationId, // Added gymLocationId
         }),
       });
 
@@ -210,445 +706,36 @@ export default function MemberOnboardingPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              {/* Membership Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Membership Details</h3>
-                <FormField
-                  control={form.control}
-                  name="membershipType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Membership Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select membership type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="standard">Standard</SelectItem>
-                          <SelectItem value="premium">Premium</SelectItem>
-                          <SelectItem value="vip">VIP</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {renderStep()}
 
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Personal Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="john@example.com"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="birthDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Date of Birth</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) =>
-                                date > new Date() || date < new Date("1900-01-01")
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                            <SelectItem value="prefer-not-to-say">
-                              Prefer not to say
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Contact Information */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="(555) 555-5555" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="preferredContactMethod"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Preferred Contact Method</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select contact method" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="email">Email</SelectItem>
-                            <SelectItem value="phone">Phone</SelectItem>
-                            <SelectItem value="text">Text</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Address */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem className="col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="123 Main St" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input placeholder="City" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <Input placeholder="State" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="zipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="12345" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Physical Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Physical Information</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="height"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Height</FormLabel>
-                        <FormControl>
-                          <Input placeholder="5'10&quot;" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="weight"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Weight (lbs)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="150" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Health Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Health Information</h3>
-                <FormField
-                  control={form.control}
-                  name="fitnessGoals"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fitness Goals</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter your fitness goals (one per line)"
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value
-                                .split("\n")
-                                .filter((goal) => goal.trim() !== "")
-                            )
-                          }
-                          value={field.value?.join("\n") || ""}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Enter each goal on a new line
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="healthConditions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Health Conditions</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter any health conditions (one per line)"
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value
-                                .split("\n")
-                                .filter((condition) => condition.trim() !== "")
-                            )
-                          }
-                          value={field.value?.join("\n") || ""}
-                        />
-                      </FormControl>
-                      <FormDescription>Optional</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Emergency Contact */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Emergency Contact</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="emergencyContactName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Jane Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="emergencyContactPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact Phone</FormLabel>
-                        <FormControl>
-                          <Input placeholder="(555) 555-5555" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="emergencyContactRelation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Relationship</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Spouse" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Waivers and Agreements */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Waivers and Agreements</h3>
-                <FormField
-                  control={form.control}
-                  name="liabilityWaiverSigned"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Liability Waiver</FormLabel>
-                        <FormDescription>
-                          I agree to the terms of the liability waiver
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="photoReleaseWaiverSigned"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Photo Release</FormLabel>
-                        <FormDescription>
-                          I agree to the terms of the photo release waiver
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="marketingOptIn"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Marketing Communications</FormLabel>
-                        <FormDescription>
-                          I would like to receive marketing communications
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <div className="flex justify-between">
+                {currentStep > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentStep((prev) => prev - 1)}
+                  >
+                    Previous
+                  </Button>
                 )}
-                Complete Onboarding
-              </Button>
+
+                {currentStep < 5 ? (
+                  <Button
+                    type="button"
+                    onClick={() => setCurrentStep((prev) => prev + 1)}
+                    disabled={!form.getValues("gymLocationId") || !form.getValues("membershipType")}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Complete Onboarding
+                  </Button>
+                )}
+              </div>
             </form>
           </Form>
         </CardContent>

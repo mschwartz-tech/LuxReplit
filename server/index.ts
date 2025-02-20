@@ -87,7 +87,7 @@ app.use((req, res, next) => {
     });
 
     // Send error response
-    res.status(status).json({ 
+    res.status(status).json({
       message,
       ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
     });
@@ -101,12 +101,12 @@ app.use((req, res, next) => {
   }
 
   // Start server
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 5000;
   const MAX_RETRIES = 3;
   let currentRetry = 0;
 
   const startServer = () => {
-    server.listen(PORT, "0.0.0.0", () => {
+    server.listen(PORT, () => {
       logInfo(`Server started on port ${PORT}`, {
         env: process.env.NODE_ENV,
         port: PORT,

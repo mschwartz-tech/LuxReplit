@@ -19,16 +19,16 @@ export const members = pgTable("members", {
   userId: integer("user_id").references(() => users.id).notNull(),
   assignedTrainerId: integer("assigned_trainer_id").references(() => users.id),
   membershipType: text("membership_type", {
-    enum: ["standard", "premium", "vip"]
+    enum: ["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]
   }).notNull(),
   membershipStatus: text("membership_status", {
     enum: ["active", "inactive", "suspended"]
   }).notNull(),
+  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
-
 
 export const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
@@ -192,7 +192,12 @@ export const gymMembershipPricing = pgTable("gym_membership_pricing", {
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
-export const insertMemberSchema = createInsertSchema(members).omit({ createdAt: true });
+export const insertMemberSchema = createInsertSchema(members)
+  .extend({
+    membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
+    gymLocationId: z.number(),
+  })
+  .omit({ createdAt: true });
 export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
   .extend({
     fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
