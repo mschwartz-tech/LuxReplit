@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMemberSchema, insertMemberProfileSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -33,14 +33,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-//import { Calendar } from "@/components/ui/calendar"; // Removed Calendar import
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format, setYear, setMonth, setDate } from "date-fns";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 
@@ -799,10 +798,19 @@ export default function MemberOnboardingPage() {
     <div className="container mx-auto p-8">
       <Card>
         <CardHeader>
-          <CardTitle>New Member Onboarding</CardTitle>
-          <CardDescription>
-            Complete the form below to register a new member
-          </CardDescription>
+          <div className="flex items-center gap-4">
+            <Link href="/gym-members">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div>
+              <CardTitle>New Member Onboarding</CardTitle>
+              <CardDescription>
+                Complete the form below to register a new member
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Form {...form}>
