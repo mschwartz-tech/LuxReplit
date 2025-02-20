@@ -362,6 +362,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedPricing);
   }));
 
+  app.delete("/api/gym-membership-pricing/:id", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
+    const pricingId = parseInt(req.params.id);
+    const pricing = await storage.getGymMembershipPricingById(pricingId);
+    if (!pricing) return res.sendStatus(404);
+
+    await storage.deleteGymMembershipPricing(pricingId);
+    logInfo("Gym membership pricing deleted", { pricingId });
+    res.sendStatus(200);
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }

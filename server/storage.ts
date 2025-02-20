@@ -409,11 +409,13 @@ export class DatabaseStorage implements IStorage {
     id: number,
     pricing: Partial<InsertGymMembershipPricing>
   ): Promise<GymMembershipPricing> {
-    const updateData: any = { 
-      ...pricing,
+    const updateData: Record<string, any> = { 
       updatedAt: new Date()
     };
 
+    if (pricing.gymName !== undefined) {
+      updateData.gymName = pricing.gymName;
+    }
     if (pricing.luxeEssentialsPrice !== undefined) {
       updateData.luxeEssentialsPrice = pricing.luxeEssentialsPrice.toString();
     }
