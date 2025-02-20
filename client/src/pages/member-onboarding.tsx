@@ -67,13 +67,15 @@ const step1Schema = z.object({
   state: z.string(),
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
   gymLocationId: z.number(),
-  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]).refine((val) => {
+  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"], {
+    required_error: "Membership type is required"
+  }).refine((val) => {
     const gymLocationId = form.getValues("gymLocationId");
     if (gymLocationId === 0) {
-      return val === "training_only"; // Require training_only for No Gym
+      return val === "training_only";
     }
-    return ["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"].includes(val); // Any valid type for gym locations
-  }, { message: "Invalid membership type selection" }),
+    return true;
+  }, { message: "Training Only membership is required when No Gym is selected" }),
 });
 
 // Update the schema
