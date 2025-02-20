@@ -1189,6 +1189,6 @@ export default function MemberOnboardingPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
