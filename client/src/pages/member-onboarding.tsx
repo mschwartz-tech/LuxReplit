@@ -177,8 +177,7 @@ export default function MemberOnboardingPage() {
       case 1:
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Personal Information</h3>
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-6 gap-3">
               <FormField
                 control={form.control}
                 name="firstName"
@@ -220,15 +219,14 @@ export default function MemberOnboardingPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <FormLabel className="text-base">Date of Birth</FormLabel>
-              <div className="grid grid-cols-3 gap-4">
+            <div>
+              <FormLabel className="text-sm font-medium">Date of Birth</FormLabel>
+              <div className="grid grid-cols-3 gap-3 mt-1.5">
                 <FormField
                   control={form.control}
                   name="birthMonth"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Month</FormLabel>
                       <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
                         <FormControl>
                           <SelectTrigger>
@@ -296,33 +294,9 @@ export default function MemberOnboardingPage() {
                   )}
                 />
               </div>
-              <FormDescription>Please select your date of birth</FormDescription>
             </div>
-            <FormField
-              control={form.control}
-              name="gender"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gender</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                      <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {/* Contact Information */}
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
                 name="email"
@@ -351,13 +325,12 @@ export default function MemberOnboardingPage() {
               />
             </div>
 
-            {/* Address */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3">
               <FormField
                 control={form.control}
                 name="address"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
+                  <FormItem>
                     <FormLabel>Address</FormLabel>
                     <FormControl>
                       <Input placeholder="123 Main St" {...field} />
@@ -366,109 +339,111 @@ export default function MemberOnboardingPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>City</FormLabel>
-                    <FormControl>
-                      <Input placeholder="City" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                      <Input placeholder="State" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="zipCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ZIP Code</FormLabel>
-                    <FormControl>
-                      <Input placeholder="12345" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-3 gap-3">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="City" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State</FormLabel>
+                      <FormControl>
+                        <Input placeholder="State" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="zipCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ZIP Code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="12345" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
-            {/* Location and Membership Selection moved here */}
-            <div className="space-y-4 border-t pt-4 mt-4">
-              <h3 className="text-lg font-semibold">Location and Membership Selection</h3>
-              <FormField
-                control={form.control}
-                name="gymLocationId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gym Location</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                      value={field.value?.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gym location" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {gymLocations?.map((location: { id: number; gymName: string }) => (
-                          <SelectItem key={location.id} value={location.id.toString()}>
-                            {location.gymName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="membershipType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Membership Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!form.getValues("gymLocationId")}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select membership type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {form.getValues("gymLocationId") && (
-                          <>
-                            <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
-                            <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
-                            <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
-                            <SelectItem value="training_only">Training Only</SelectItem>
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="space-y-3 pt-3 border-t">
+              <h3 className="text-sm font-semibold">Location and Membership</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="gymLocationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Gym Location</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select gym location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {gymLocations?.map((location: { id: number; gymName: string }) => (
+                            <SelectItem key={location.id} value={location.id.toString()}>
+                              {location.gymName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="membershipType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Membership Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={!form.getValues("gymLocationId")}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select membership type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {form.getValues("gymLocationId") && (
+                            <>
+                              <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
+                              <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
+                              <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
+                              <SelectItem value="training_only">Training Only</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
           </div>
         );
@@ -794,18 +769,18 @@ export default function MemberOnboardingPage() {
   };
 
   return (
-    <div className="container mx-auto p-8">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
+    <div className="container max-w-4xl mx-auto p-4">
+      <Card className="border-none shadow-md">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
             <Link href="/gym-members">
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
             <div>
-              <CardTitle>New Member Onboarding</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-xl">New Member Onboarding</CardTitle>
+              <CardDescription className="text-sm">
                 Complete the form below to register a new member
               </CardDescription>
             </div>
@@ -813,10 +788,10 @@ export default function MemberOnboardingPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {renderStep()}
 
-              <div className="flex justify-between">
+              <div className="flex justify-between pt-4 border-t">
                 {currentStep > 1 && (
                   <Button
                     type="button"
@@ -831,7 +806,7 @@ export default function MemberOnboardingPage() {
                   <Button
                     type="button"
                     onClick={handleNext}
-                    className="ml-auto"
+                    className={cn("ml-auto", { "ml-0": currentStep === 1 })}
                   >
                     Next
                   </Button>
