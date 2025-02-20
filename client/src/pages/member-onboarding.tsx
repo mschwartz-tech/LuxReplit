@@ -86,7 +86,6 @@ const onboardingSchema = z.object({
   // Waivers and Preferences (Step 5)
   liabilityWaiverSigned: z.boolean(),
   photoReleaseWaiverSigned: z.boolean(),
-  preferredContactMethod: z.enum(["email", "phone", "text"]),
   preferredLocation: z.string().optional(),
   marketingOptIn: z.boolean(),
 });
@@ -296,12 +295,12 @@ export default function MemberOnboardingPage() {
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="phoneNumber"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="(555) 555-5555" {...field} />
+                      <Input type="email" placeholder="john@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -309,22 +308,13 @@ export default function MemberOnboardingPage() {
               />
               <FormField
                 control={form.control}
-                name="preferredContactMethod"
+                name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Preferred Contact Method</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select contact method" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="email">Email</SelectItem>
-                        <SelectItem value="phone">Phone</SelectItem>
-                        <SelectItem value="text">Text</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(555) 555-5555" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -635,28 +625,6 @@ export default function MemberOnboardingPage() {
             />
             <FormField
               control={form.control}
-              name="preferredContactMethod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preferred Contact Method</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select contact method" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="phone">Phone</SelectItem>
-                      <SelectItem value="text">Text</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="preferredLocation"
               render={({ field }) => (
                 <FormItem>
@@ -741,7 +709,6 @@ export default function MemberOnboardingPage() {
           liabilityWaiverSignedDate: new Date(),
           photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
           photoReleaseWaiverSignedDate: new Date(),
-          preferredContactMethod: data.preferredContactMethod,
           marketingOptIn: data.marketingOptIn,
         }),
       });
