@@ -942,17 +942,9 @@ export default function MemberOnboardingPage() {
       }
       console.log('Submitting form data:', data);
 
-      // Prepare user data with generated username
-      const generateUsername = () => {
-        const base = data.firstName.toLowerCase() + 
-                    (data.middleInitial ? data.middleInitial.toLowerCase() : '') + 
-                    data.lastName.toLowerCase();
-        const timestamp = new Date().getTime().toString().slice(-4);
-        return (base + timestamp).replace(/[^a-z0-9]/g, '');
-      };
-
+      // Prepare user data
       const userData = {
-        username: generateUsername(),
+        username: data.email,
         password: "temporary123", // This should be changed on first login
         role: "user",
         email: data.email,
