@@ -188,7 +188,7 @@ export const gymMembershipPricing = pgTable("gym_membership_pricing", {
   luxeEssentialsPrice: numeric("luxe_essentials_price").notNull(),
   luxeStrivePrice: numeric("luxe_strive_price").notNull(),
   luxeAllAccessPrice: numeric("luxe_all_access_price").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
+  isactive: boolean("isactive").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -249,13 +249,13 @@ export const insertPricingPlanSchema = createInsertSchema(pricingPlans)
 export const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
   .extend({
     gymName: z.string().min(1, "Gym name is required"),
-    luxeEssentialsPrice: z.number().or(z.string()).transform(val => 
+    luxeEssentialsPrice: z.number().or(z.string()).transform(val =>
       typeof val === 'string' ? parseFloat(val) : val
     ),
-    luxeStrivePrice: z.number().or(z.string()).transform(val => 
+    luxeStrivePrice: z.number().or(z.string()).transform(val =>
       typeof val === 'string' ? parseFloat(val) : val
     ),
-    luxeAllAccessPrice: z.number().or(z.string()).transform(val => 
+    luxeAllAccessPrice: z.number().or(z.string()).transform(val =>
       typeof val === 'string' ? parseFloat(val) : val
     ),
   })
