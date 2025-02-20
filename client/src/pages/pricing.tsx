@@ -422,7 +422,8 @@ export default function PricingPage() {
                 className="h-8"
                 size="sm"
               >
-                Add Gym
+                <Save className="h-4 w-4 mr-2" />
+                Save
               </Button>
             </div>
           )}
