@@ -165,7 +165,7 @@ export default function GymMembersPage() {
                     )}
 
                     <div className="grid grid-cols-2 gap-2">
-                      <Link href={`/member/${member.id}/profile`}>
+                      <Link href={`/member/${member.userId}/profile`}>
                         <Button variant="outline" size="sm" className="w-full gap-2">
                           <User className="h-4 w-4" />
                           Profile
