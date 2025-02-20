@@ -234,6 +234,7 @@ export default function MemberOnboardingPage() {
     }
   };
 
+  // Update the handleNext function for step 4 validation
   const handleNext = async () => {
     const fields = getFieldsForStep(currentStep);
     const stepData = Object.fromEntries(
@@ -243,10 +244,11 @@ export default function MemberOnboardingPage() {
     try {
       if (currentStep === 1) {
         await step1Schema.parseAsync(stepData);
-      }
-      // Add validation for other steps as needed
+      } else if (currentStep === 2) {
+        await getSchemaForStep(2).parseAsync(stepData);
+      } else if (currentStep === 3) {
+        await getSchemaForStep(3).parseAsync(stepData);
 
-      if (currentStep === 3) {
         if (stepData.liabilityWaiverSigned && !liabilitySignaturePad.current?.toData().length) {
           toast({
             title: "Signature Required",
@@ -263,14 +265,15 @@ export default function MemberOnboardingPage() {
           });
           return;
         }
+      } else if (currentStep === 4) {
+        const finalData = form.getValues();
+        await onSubmit(finalData);
+        return;
       }
 
-      if (currentStep === 4) {
-        await onSubmit(form.getValues());
-      } else {
-        setCurrentStep((prev) => prev + 1);
-      }
+      setCurrentStep((prev) => prev + 1);
     } catch (error) {
+      console.error("Validation error:", error);
       if (error instanceof z.ZodError) {
         error.errors.forEach((err) => {
           if (err.path) {
@@ -278,6 +281,12 @@ export default function MemberOnboardingPage() {
               message: err.message,
             });
           }
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "An unexpected error occurred",
+          variant: "destructive",
         });
       }
     }
@@ -287,53 +296,57 @@ export default function MemberOnboardingPage() {
     setCurrentStep((prev) => prev - 1);
   };
 
+  // Update the onSubmit function with proper error handling and data transformation
   const onSubmit = async (data: OnboardingForm) => {
     try {
       setIsSubmitting(true);
 
+      // Create user account
       const userResponse = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: data.email,
-          password: "temporary123",
-          role: "user",
+          password: "temporary123", // This should be changed on first login
+          role: "member",
           email: data.email,
-          name: `${data.firstName} ${data.lastName}`,
+          name: `${data.firstName} ${data.middleInitial ? data.middleInitial + ' ' : ''}${data.lastName}`,
         }),
       });
 
       if (!userResponse.ok) {
-        throw new Error("Failed to create user account");
+        throw new Error(`Failed to create user account: ${userResponse.statusText}`);
       }
       const newUser = await userResponse.json();
 
+      // Create member record
       const memberResponse = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: newUser.id,
-          membershipType: data.membershipType,
+          membershipType: data.membershipType || "training_only",
           membershipStatus: "active",
-          startDate: new Date(),
+          startDate: new Date().toISOString(),
           gymLocationId: data.gymLocationId,
           sessionDuration: data.sessionDuration,
-          sessionsPerWeek: data.sessionsPerWeek,
+          sessionsPerWeek: parseInt(data.sessionsPerWeek || "0"),
           paymentType: data.paymentType,
         }),
       });
 
       if (!memberResponse.ok) {
-        throw new Error("Failed to create member record");
+        throw new Error(`Failed to create member record: ${memberResponse.statusText}`);
       }
       const newMember = await memberResponse.json();
 
+      // Create member profile
       const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: newUser.id,
-          birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay),
+          birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay).toISOString(),
           gender: data.gender,
           height: `${data.heightFeet}'${data.heightInches}"`,
           weight: data.weight,
@@ -342,7 +355,7 @@ export default function MemberOnboardingPage() {
           state: data.state,
           zipCode: data.zipCode,
           phoneNumber: data.phoneNumber,
-          fitnessGoals: data.fitnessGoals,
+          fitnessGoals: data.fitnessGoals || [],
           healthConditions: data.healthConditions || [],
           medications: data.medications || [],
           injuries: data.injuries || [],
@@ -350,17 +363,17 @@ export default function MemberOnboardingPage() {
           emergencyContactPhone: data.emergencyContactPhone,
           emergencyContactRelation: data.emergencyContactRelation,
           liabilityWaiverSigned: data.liabilityWaiverSigned,
-          liabilityWaiverSignedDate: new Date(),
+          liabilityWaiverSignedDate: new Date().toISOString(),
           liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL(),
           photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
-          photoReleaseWaiverSignedDate: new Date(),
+          photoReleaseWaiverSignedDate: new Date().toISOString(),
           photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL(),
           marketingOptIn: data.marketingOptIn,
         }),
       });
 
       if (!profileResponse.ok) {
-        throw new Error("Failed to create member profile");
+        throw new Error(`Failed to create member profile: ${profileResponse.statusText}`);
       }
 
       toast({
@@ -918,8 +931,7 @@ export default function MemberOnboardingPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="1">1 Session</SelectItem>
-                        <SelectItem value="2">2 Sessions</SelectItem>
-                        <SelectItem value="3">3 Sessions</SelectItem>
+                        <SelectItem value="2">2 Sessions</SelectItem><SelectItem value="3">3 Sessions</SelectItem>
                         <SelectItem value="4">4 Sessions</SelectItem>
                       </SelectContent>
                     </Select>
