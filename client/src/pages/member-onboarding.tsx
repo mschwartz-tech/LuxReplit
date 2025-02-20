@@ -512,7 +512,7 @@ export default function MemberOnboardingPage() {
                           .filter(goal => goal.trim() !== "");
                         field.onChange(goals);
                       }}
-                      value={field.value ? (Array.isArray(field.value) ? field.value.join("\n") : field.value) : ""}
+                      value={Array.isArray(field.value) ? field.value.join("\n") : ""}
                     />
                   </FormControl>
                   <FormDescription>Enter each goal on a new line</FormDescription>
