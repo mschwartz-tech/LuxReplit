@@ -937,7 +937,7 @@ export default function MemberOnboardingPage() {
 
       let newUser;
       try {
-        newUser = JSON.parse(await userResponse.json());
+        newUser = await userResponse.json();
       } catch (e) {
         throw new Error("Invalid response from server when creating user");
       }
