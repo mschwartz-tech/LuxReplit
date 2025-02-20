@@ -42,6 +42,42 @@ import SignaturePad from 'react-signature-canvas';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
+// Add debug mode constants at the top
+const DEBUG_MODE = process.env.NODE_ENV === 'development';
+const TEST_DATA: Partial<OnboardingForm> = {
+  firstName: "John",
+  middleInitial: "A",
+  lastName: "Doe",
+  email: "test@example.com",
+  birthMonth: 9,
+  birthDay: 15,
+  birthYear: 1990,
+  gender: "male",
+  phoneNumber: "5551234567",
+  address: "123 Test St",
+  city: "Test City",
+  state: "FL",
+  zipCode: "12345",
+  heightFeet: 5,
+  heightInches: 10,
+  weight: "170",
+  fitnessGoals: ["weight_loss", "muscle_gain"],
+  healthConditions: [],
+  medications: [],
+  injuries: [],
+  emergencyContactName: "Jane Doe",
+  emergencyContactPhone: "5559876543",
+  emergencyContactRelation: "Spouse",
+  liabilityWaiverSigned: true,
+  photoReleaseWaiverSigned: true,
+  marketingOptIn: true,
+  sessionDuration: "30",
+  sessionsPerWeek: "2",
+  paymentType: "biweekly",
+  gymLocationId: 1,
+  membershipType: "luxe_essentials"
+};
+
 // Step-specific schemas
 const step1Schema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -301,79 +337,135 @@ export default function MemberOnboardingPage() {
     try {
       setIsSubmitting(true);
 
+      // For development, log the data being sent
+      if (DEBUG_MODE) {
+        console.log('Submitting form data:', data);
+      }
+
+      // Prepare user data
+      const userData = {
+        username: data.email,
+        password: "temporary123", // This should be changed on first login
+        role: "member",
+        email: data.email,
+        name: `${data.firstName} ${data.middleInitial ? data.middleInitial + ' ' : ''}${data.lastName}`,
+      };
+
       // Create user account
       const userResponse = await fetch("/api/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: data.email,
-          password: "temporary123", // This should be changed on first login
-          role: "member",
-          email: data.email,
-          name: `${data.firstName} ${data.middleInitial ? data.middleInitial + ' ' : ''}${data.lastName}`,
-        }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(userData),
       });
 
-      if (!userResponse.ok) {
-        throw new Error(`Failed to create user account: ${userResponse.statusText}`);
+      let errorText;
+      try {
+        errorText = await userResponse.text();
+      } catch (e) {
+        errorText = "Unknown error occurred";
       }
-      const newUser = await userResponse.json();
+
+      if (!userResponse.ok) {
+        throw new Error(`Failed to create user account: ${errorText}`);
+      }
+
+      let newUser;
+      try {
+        newUser = JSON.parse(errorText);
+      } catch (e) {
+        throw new Error("Invalid response from server when creating user");
+      }
+
+      // Prepare member data
+      const memberData = {
+        userId: newUser.id,
+        membershipType: data.membershipType || "training_only",
+        membershipStatus: "active",
+        startDate: new Date().toISOString(),
+        gymLocationId: data.gymLocationId,
+        sessionDuration: data.sessionDuration,
+        sessionsPerWeek: parseInt(data.sessionsPerWeek || "0"),
+        paymentType: data.paymentType,
+      };
 
       // Create member record
       const memberResponse = await fetch("/api/members", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: newUser.id,
-          membershipType: data.membershipType || "training_only",
-          membershipStatus: "active",
-          startDate: new Date().toISOString(),
-          gymLocationId: data.gymLocationId,
-          sessionDuration: data.sessionDuration,
-          sessionsPerWeek: parseInt(data.sessionsPerWeek || "0"),
-          paymentType: data.paymentType,
-        }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(memberData),
       });
 
-      if (!memberResponse.ok) {
-        throw new Error(`Failed to create member record: ${memberResponse.statusText}`);
+      let memberResponseText;
+      try {
+        memberResponseText = await memberResponse.text();
+      } catch (e) {
+        memberResponseText = "Unknown error occurred";
       }
-      const newMember = await memberResponse.json();
+
+      if (!memberResponse.ok) {
+        throw new Error(`Failed to create member record: ${memberResponseText}`);
+      }
+
+      let newMember;
+      try {
+        newMember = JSON.parse(memberResponseText);
+      } catch (e) {
+        throw new Error("Invalid response from server when creating member");
+      }
+
+      // Prepare profile data
+      const profileData = {
+        userId: newUser.id,
+        birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay).toISOString(),
+        gender: data.gender,
+        height: `${data.heightFeet}'${data.heightInches}"`,
+        weight: data.weight,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zipCode: data.zipCode,
+        phoneNumber: data.phoneNumber,
+        fitnessGoals: data.fitnessGoals || [],
+        healthConditions: data.healthConditions || [],
+        medications: data.medications || [],
+        injuries: data.injuries || [],
+        emergencyContactName: data.emergencyContactName,
+        emergencyContactPhone: data.emergencyContactPhone,
+        emergencyContactRelation: data.emergencyContactRelation,
+        liabilityWaiverSigned: data.liabilityWaiverSigned,
+        liabilityWaiverSignedDate: new Date().toISOString(),
+        liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL() || null,
+        photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
+        photoReleaseWaiverSignedDate: new Date().toISOString(),
+        photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL() || null,
+        marketingOptIn: data.marketingOptIn,
+      };
 
       // Create member profile
       const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: newUser.id,
-          birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay).toISOString(),
-          gender: data.gender,
-          height: `${data.heightFeet}'${data.heightInches}"`,
-          weight: data.weight,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zipCode: data.zipCode,
-          phoneNumber: data.phoneNumber,
-          fitnessGoals: data.fitnessGoals || [],
-          healthConditions: data.healthConditions || [],
-          medications: data.medications || [],
-          injuries: data.injuries || [],
-          emergencyContactName: data.emergencyContactName,
-          emergencyContactPhone: data.emergencyContactPhone,
-          emergencyContactRelation: data.emergencyContactRelation,
-          liabilityWaiverSigned: data.liabilityWaiverSigned,
-          liabilityWaiverSignedDate: new Date().toISOString(),
-          liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL(),
-          photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
-          photoReleaseWaiverSignedDate: new Date().toISOString(),
-          photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL(),
-          marketingOptIn: data.marketingOptIn,
-        }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(profileData),
       });
 
+      let profileResponseText;
+      try {
+        profileResponseText = await profileResponse.text();
+      } catch (e) {
+        profileResponseText = "Unknown error occurred";
+      }
+
       if (!profileResponse.ok) {
-        throw new Error(`Failed to create member profile: ${profileResponse.statusText}`);
+        throw new Error(`Failed to create member profile: ${profileResponseText}`);
       }
 
       toast({
@@ -846,7 +938,7 @@ export default function MemberOnboardingPage() {
                     {field.value && (
                       <div className="space-y-2">
                         <FormLabel>Signature</FormLabel>
-                        <div className="border rounded-lg bg-white">
+                        <div className="border rounded-lg bgwhite">
                           <SignaturePad
                             ref={photoReleaseSignaturePad}
                             canvasProps={{
