@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMemberSchema, insertMemberProfileSchema } from "@shared/schema";
@@ -42,6 +42,8 @@ import { format, setYear, setMonth, setDate } from "date-fns";
 import { CalendarIcon, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+
 
 // Step 1: Location and Membership Selection
 const locationMembershipSchema = z.object({
@@ -167,6 +169,18 @@ export default function MemberOnboardingPage() {
       emergencyContactRelation: ""
     },
   });
+
+  // Add Google Places script
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places`;
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   if (!user || !isAdmin) {
     return <div className="p-8">Not authorized to view this page</div>;
@@ -331,7 +345,16 @@ export default function MemberOnboardingPage() {
                   <FormItem>
                     <FormLabel>Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="123 Main St" {...field} />
+                      <AddressAutocomplete
+                        onAddressSelect={(addressData) => {
+                          // Update all address-related fields
+                          form.setValue("address", addressData.address);
+                          form.setValue("city", addressData.city);
+                          form.setValue("state", addressData.state);
+                          form.setValue("zipCode", addressData.zipCode);
+                        }}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
