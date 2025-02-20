@@ -42,6 +42,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logError("User creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
+
+    // Check if username already exists
+    const existingUser = await storage.getUserByUsername(parsed.data.username);
+    if (existingUser) {
+      return res.status(400).json({ error: "Username already exists" });
+    }
+
     const user = await storage.createUser(parsed.data);
     logInfo("New user created", { userId: user.id });
     res.status(201).json(user);
