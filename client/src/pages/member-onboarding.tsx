@@ -358,7 +358,14 @@ export default function MemberOnboardingPage() {
                     <FormItem>
                       <FormLabel>Gym Location</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                        onValueChange={(value) => {
+                          const intValue = parseInt(value, 10);
+                          field.onChange(intValue);
+                          // If No Gym (0) is selected, set membership type to training_only
+                          if (intValue === 0) {
+                            form.setValue("membershipType", "training_only");
+                          }
+                        }}
                         value={field.value?.toString()}
                       >
                         <FormControl>
@@ -367,6 +374,7 @@ export default function MemberOnboardingPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="0">No Gym</SelectItem>
                           {gymLocations?.map((location: { id: number; gymName: string }) => (
                             <SelectItem key={location.id} value={location.id.toString()}>
                               {location.gymName}
@@ -387,7 +395,7 @@ export default function MemberOnboardingPage() {
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={!form.getValues("gymLocationId")}
+                        disabled={!form.getValues("gymLocationId") || form.getValues("gymLocationId") === 0}
                       >
                         <FormControl>
                           <SelectTrigger className="h-9">
