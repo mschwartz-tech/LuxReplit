@@ -47,8 +47,8 @@ import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 // Step 1: Location and Membership Selection
 const locationMembershipSchema = z.object({
-  gymLocationId: z.number(),
-  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
+  gymLocationId: z.coerce.number(),
+  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]).optional(),
 });
 
 // Step-specific schemas
@@ -68,8 +68,9 @@ const step1Schema = z.object({
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
   gymLocationId: z.number(),
   membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]).optional().refine((val, ctx) => {
-    const gymLocationId = (ctx.path[0] as any).gymLocationId;
-    if (gymLocationId === 0) return true; // Allow empty membership type for No Gym
+    if (form.getValues("gymLocationId") === 0) {
+      return true; // Allow empty membership type for No Gym
+    }
     return val !== undefined; // Require membership type for other locations
   }, { message: "Membership type is required for gym locations" }),
 });
