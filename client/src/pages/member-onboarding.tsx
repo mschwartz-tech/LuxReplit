@@ -965,19 +965,13 @@ export default function MemberOnboardingPage() {
                   <Button
                     type="button"
                     onClick={handleNext}
-                    className={cn("ml-auto", { "ml-0": currentStep === 1 })}
+                    className="ml-auto"
                   >
                     Next
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isSubmitting} className="ml-auto w-32">{isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Submitting
-                      </>
-                    ) : (
-                      "Complete Onboarding"
-                    )}
+                  <Button type="button" onClick={() => navigate("/member-checkout")} className="ml-auto">
+                    Next
                   </Button>
                 )}
               </div>
