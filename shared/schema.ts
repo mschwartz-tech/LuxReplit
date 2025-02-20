@@ -60,8 +60,10 @@ export const memberProfiles = pgTable("member_profiles", {
   // Liability and Agreements
   liabilityWaiverSigned: boolean("liability_waiver_signed"),
   liabilityWaiverSignedDate: timestamp("liability_waiver_signed_date"),
+  liabilityWaiverSignature: text("liability_waiver_signature"),
   photoReleaseWaiverSigned: boolean("photo_release_waiver_signed"),
   photoReleaseWaiverSignedDate: timestamp("photo_release_waiver_signed_date"),
+  photoReleaseSignature: text("photo_release_signature"),
   // Preferences
   preferredContactMethod: text("preferred_contact_method", {
     enum: ["email", "phone", "text"]

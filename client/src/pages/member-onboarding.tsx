@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMemberSchema, insertMemberProfileSchema } from "@shared/schema";
@@ -43,7 +43,7 @@ import { CalendarIcon, Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
-
+import SignaturePad from 'react-signature-canvas';
 
 // Step 1: Location and Membership Selection
 const locationMembershipSchema = z.object({
@@ -119,7 +119,6 @@ const onboardingSchema = z.object({
   // Waivers and Preferences (Step 5)
   liabilityWaiverSigned: z.boolean(),
   photoReleaseWaiverSigned: z.boolean(),
-  preferredLocation: z.string().optional(),
   marketingOptIn: z.boolean(),
 });
 
@@ -141,6 +140,10 @@ export default function MemberOnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdmin = user?.role === "admin";
+
+  // Add signature refs
+  const liabilitySignaturePad = useRef<SignaturePad>(null);
+  const photoReleaseSignaturePad = useRef<SignaturePad>(null);
 
   // Fetch gym locations and their pricing
   const { data: gymLocations, isLoading: isLoadingLocations } = useQuery({
@@ -170,11 +173,10 @@ export default function MemberOnboardingPage() {
       liabilityWaiverSigned: false,
       photoReleaseWaiverSigned: false,
       marketingOptIn: false,
-      fitnessGoals: [], // Initialize as empty array
-      healthConditions: [], // Initialize as empty array
-      medications: [], // Initialize as empty array
-      injuries: [], // Initialize as empty array
-      preferredLocation: "",
+      fitnessGoals: [],
+      healthConditions: [],
+      medications: [],
+      injuries: [],
       heightFeet: undefined,
       heightInches: undefined,
       weight: "",
@@ -653,36 +655,97 @@ export default function MemberOnboardingPage() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Waivers and Agreements</h3>
-            <FormField
-              control={form.control}
-              name="liabilityWaiverSigned"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Liability Waiver</FormLabel>
-                    <FormDescription>I agree to the terms of the liability waiver</FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="photoReleaseWaiverSigned"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Photo Release</FormLabel>
-                    <FormDescription>I agree to the terms of the photo release waiver</FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
+
+            {/* Liability Waiver */}
+            <div className="space-y-4 p-4 border rounded-lg">
+              <FormField
+                control={form.control}
+                name="liabilityWaiverSigned"
+                render={({ field }) => (
+                  <FormItem className="space-y-4">
+                    <div className="flex flex-row items-start space-x-3">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Liability Waiver</FormLabel>
+                        <FormDescription>
+                          I have read and agree to the terms of the liability waiver
+                        </FormDescription>
+                      </div>
+                    </div>
+                    {field.value && (
+                      <div className="space-y-2">
+                        <FormLabel>Signature</FormLabel>
+                        <div className="border rounded-lg bg-white">
+                          <SignaturePad
+                            ref={liabilitySignaturePad}
+                            canvasProps={{
+                              className: "w-full h-40"
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => liabilitySignaturePad.current?.clear()}
+                        >
+                          Clear Signature
+                        </Button>
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Photo Release Waiver */}
+            <div className="space-y-4 p-4 border rounded-lg">
+              <FormField
+                control={form.control}
+                name="photoReleaseWaiverSigned"
+                render={({ field }) => (
+                  <FormItem className="space-y-4">
+                    <div className="flex flex-row items-start space-x-3">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Photo Release</FormLabel>
+                        <FormDescription>
+                          I agree to the terms of the photo release waiver
+                        </FormDescription>
+                      </div>
+                    </div>
+                    {field.value && (
+                      <div className="space-y-2">
+                        <FormLabel>Signature</FormLabel>
+                        <div className="border rounded-lg bg-white">
+                          <SignaturePad
+                            ref={photoReleaseSignaturePad}
+                            canvasProps={{
+                              className: "w-full h-40"
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => photoReleaseSignaturePad.current?.clear()}
+                        >
+                          Clear Signature
+                        </Button>
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="marketingOptIn"
@@ -697,19 +760,6 @@ export default function MemberOnboardingPage() {
                       I would like to receive marketing communications
                     </FormDescription>
                   </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="preferredLocation"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preferred Location</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Preferred Location" {...field} />
-                  </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -765,15 +815,14 @@ export default function MemberOnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: newUser.id,
-          birthDate: birthDate.toISOString(), // Use the combined date
+          birthDate: birthDate.toISOString(),
           gender: data.gender,
           address: data.address,
           city: data.city,
           state: data.state,
           zipCode: data.zipCode,
           phoneNumber: data.phoneNumber,
-          preferredLocation: data.preferredLocation,
-          height: `${data.heightFeet}'${data.heightInches}"`, //Combine height for api
+          height: `${data.heightFeet}'${data.heightInches}"`,
           weight: data.weight,
           fitnessGoals: data.fitnessGoals,
           healthConditions: data.healthConditions,
@@ -784,8 +833,10 @@ export default function MemberOnboardingPage() {
           emergencyContactRelation: data.emergencyContactRelation,
           liabilityWaiverSigned: data.liabilityWaiverSigned,
           liabilityWaiverSignedDate: new Date(),
+          liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL(),
           photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
           photoReleaseWaiverSignedDate: new Date(),
+          photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL(),
           marketingOptIn: data.marketingOptIn,
         }),
       });
