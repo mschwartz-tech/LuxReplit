@@ -948,7 +948,7 @@ export default function MemberOnboardingPage() {
         password: "temporary123", // This should be changed on first login
         role: "user",
         email: data.email,
-        name: `${data.firstName} ${data.middleInitial ?`data.middleInitial + ' ' : ''}${data.lastName}`,
+        name: `${data.firstName}${data.middleInitial ? ` ${data.middleInitial}` : ''} ${data.lastName}`,
       };
 
       // Create user account with timeout and retry
