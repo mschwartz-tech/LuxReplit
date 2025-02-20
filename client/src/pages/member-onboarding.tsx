@@ -42,47 +42,30 @@ import SignaturePad from 'react-signature-canvas';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
-// Step 1: Location and Membership Selection
-const locationMembershipSchema = z.object({
-  gymLocationId: z.coerce.number(),
-  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]).optional(),
-});
-
 // Step-specific schemas
 const step1Schema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
-  middleInitial: z.string().max(1, "Middle initial should be a single character").optional(),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  birthMonth: z.number().min(1).max(12),
-  birthDay: z.number().min(1).max(31),
-  birthYear: z.number().min(1900).max(new Date().getFullYear()),
-  gender: z.string(),
+  birthMonth: z.coerce.number().min(1).max(12),
+  birthDay: z.coerce.number().min(1).max(31),
+  birthYear: z.coerce.number().min(1900).max(new Date().getFullYear()),
+  gender: z.string().min(1, "Gender is required"),
   phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-  address: z.string(),
-  city: z.string(),
-  state: z.string(),
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
-  gymLocationId: z.coerce.number({
-    required_error: "Gym location is required"
-  }),
-  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"], {
-    required_error: "Membership type is required"
-  }).superRefine((val, ctx) => {
-    const data = ctx.parent as { gymLocationId?: number };
-    if (data.gymLocationId === 0 && val !== "training_only") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Training Only membership is required when No Gym is selected"
-      });
-    }
-  }),
+  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
+  emergencyContactPhone: z.string().min(10, "Emergency contact phone must be at least 10 digits"),
+  emergencyContactRelation: z.string().min(1, "Emergency contact relation is required"),
 });
 
 // Update the schema
 const onboardingSchema = z.object({
   // Location and Membership (Step 1)
-  ...locationMembershipSchema.shape,
+  gymLocationId: z.coerce.number(),
+  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]).optional(),
 
   // Personal Information (Step 2)
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -189,7 +172,7 @@ export default function MemberOnboardingPage() {
     },
   });
 
-  const getFieldsForStep = (step: number) => {
+  const getFieldsForStep = (step: number): Array<keyof OnboardingForm> => {
     switch (step) {
       case 1:
         return [
@@ -221,23 +204,7 @@ export default function MemberOnboardingPage() {
   const getSchemaForStep = (step: number) => {
     switch (step) {
       case 1:
-        return z.object({
-          firstName: z.string().min(2, "First name must be at least 2 characters"),
-          lastName: z.string().min(2, "Last name must be at least 2 characters"),
-          email: z.string().email("Invalid email address"),
-          birthMonth: z.number().min(1).max(12),
-          birthDay: z.number().min(1).max(31),
-          birthYear: z.number().min(1900).max(new Date().getFullYear()),
-          gender: z.string(),
-          phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-          address: z.string(),
-          city: z.string(),
-          state: z.string(),
-          zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
-          emergencyContactName: z.string().min(1, "Emergency contact name is required"),
-          emergencyContactPhone: z.string().min(10, "Emergency contact phone must be at least 10 digits"),
-          emergencyContactRelation: z.string().min(1, "Emergency contact relation is required"),
-        });
+        return step1Schema;
       case 2:
         return z.object({
           heightFeet: z.number().min(1).max(9),
@@ -269,11 +236,15 @@ export default function MemberOnboardingPage() {
 
   const handleNext = async () => {
     const fields = getFieldsForStep(currentStep);
-    const stepData = form.getValues(fields);
-    const stepSchema = getSchemaForStep(currentStep);
+    const stepData = Object.fromEntries(
+      fields.map(field => [field, form.getValues(field)])
+    );
 
     try {
-      await stepSchema.parseAsync(stepData);
+      if (currentStep === 1) {
+        await step1Schema.parseAsync(stepData);
+      }
+      // Add validation for other steps as needed
 
       if (currentStep === 3) {
         if (stepData.liabilityWaiverSigned && !liabilitySignaturePad.current?.toData().length) {
@@ -302,9 +273,11 @@ export default function MemberOnboardingPage() {
     } catch (error) {
       if (error instanceof z.ZodError) {
         error.errors.forEach((err) => {
-          form.setError(err.path[0] as any, {
-            message: err.message,
-          });
+          if (err.path) {
+            form.setError(err.path[0] as any, {
+              message: err.message,
+            });
+          }
         });
       }
     }
