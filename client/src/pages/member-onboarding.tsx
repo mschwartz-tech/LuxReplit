@@ -100,7 +100,6 @@ export default function MemberOnboardingPage() {
   // Fetch gym locations and their pricing
   const { data: gymLocations, isLoading: isLoadingLocations } = useQuery({
     queryKey: ["/api/gym-membership-pricing"],
-    // Add a query function here to fetch data from your API endpoint.  This is a placeholder.
     queryFn: () => fetch("/api/gym-membership-pricing").then((res) => res.json()),
   });
 
@@ -127,71 +126,6 @@ export default function MemberOnboardingPage() {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Location and Membership Selection</h3>
-            <FormField
-              control={form.control}
-              name="gymLocationId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gym Location</FormLabel>
-                  <Select
-                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                    value={field.value?.toString()}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gym location" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {gymLocations?.map((location: {id: number, gymName: string}) => (
-                        <SelectItem key={location.id} value={location.id.toString()}>
-                          {location.gymName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="membershipType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Membership Type</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={!form.getValues("gymLocationId")}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select membership type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {form.getValues("gymLocationId") && (
-                        <>
-                          <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
-                          <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
-                          <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
-                          <SelectItem value="training_only">Training Only</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        );
-      case 2:
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Personal Information</h3>
@@ -382,9 +316,73 @@ export default function MemberOnboardingPage() {
                 )}
               />
             </div>
+
+            {/* Location and Membership Selection moved here */}
+            <div className="space-y-4 border-t pt-4 mt-4">
+              <h3 className="text-lg font-semibold">Location and Membership Selection</h3>
+              <FormField
+                control={form.control}
+                name="gymLocationId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gym Location</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select gym location" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {gymLocations?.map((location: {id: number, gymName: string}) => (
+                          <SelectItem key={location.id} value={location.id.toString()}>
+                            {location.gymName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="membershipType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Membership Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!form.getValues("gymLocationId")}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select membership type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {form.getValues("gymLocationId") && (
+                          <>
+                            <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
+                            <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
+                            <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
+                            <SelectItem value="training_only">Training Only</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
         );
-      case 3:
+      case 2:
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Physical Information</h3>
@@ -467,7 +465,7 @@ export default function MemberOnboardingPage() {
             />
           </div>
         );
-      case 4:
+      case 3:
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Emergency Contact</h3>
@@ -514,7 +512,7 @@ export default function MemberOnboardingPage() {
             </div>
           </div>
         );
-      case 5:
+      case 4:
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Waivers and Agreements</h3>
@@ -610,7 +608,6 @@ export default function MemberOnboardingPage() {
   async function onSubmit(data: OnboardingForm) {
     setIsSubmitting(true);
     try {
-      // First create the user account
       const userResponse = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -619,7 +616,6 @@ export default function MemberOnboardingPage() {
           email: data.email,
           role: "user",
           username: data.email,
-          // Generate a temporary password that the user must change
           password: Math.random().toString(36).slice(-8),
         }),
       });
@@ -627,7 +623,6 @@ export default function MemberOnboardingPage() {
       if (!userResponse.ok) throw new Error("Failed to create user");
       const newUser = await userResponse.json();
 
-      // Create the member record
       const memberResponse = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -636,14 +631,13 @@ export default function MemberOnboardingPage() {
           membershipType: data.membershipType,
           membershipStatus: "active",
           startDate: new Date(),
-          gymLocationId: data.gymLocationId, // Added gymLocationId
+          gymLocationId: data.gymLocationId,
         }),
       });
 
       if (!memberResponse.ok) throw new Error("Failed to create member");
       const newMember = await memberResponse.json();
 
-      // Create the member profile
       const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -719,16 +713,16 @@ export default function MemberOnboardingPage() {
                   </Button>
                 )}
 
-                {currentStep < 5 ? (
+                {currentStep < 4 ? (
                   <Button
                     type="button"
                     onClick={() => setCurrentStep((prev) => prev + 1)}
-                    disabled={!form.getValues("gymLocationId") || !form.getValues("membershipType")}
+                    className="ml-auto"
                   >
                     Next
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" disabled={isSubmitting} className="ml-auto">
                     {isSubmitting && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
