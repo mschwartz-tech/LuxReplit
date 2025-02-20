@@ -52,6 +52,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use('/static', express.static(join(__dirname, '../client/public')));
 
 // Request logging middleware
 app.use((req, res, next) => {
