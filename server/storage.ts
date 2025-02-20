@@ -125,7 +125,7 @@ export class DatabaseStorage implements IStorage {
   async getMembersByTrainer(trainerId: number): Promise<Member[]> {
     return await db.select()
       .from(members)
-      .where(eq(members.assigned_trainer_id, trainerId));
+      .where(eq(members.assignedTrainerId, trainerId));
   }
 
   async getMember(id: number): Promise<Member | undefined> {
@@ -431,7 +431,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS members (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
-  assigned_trainer_id INTEGER REFERENCES users(id),
+  assignedTrainerId INTEGER REFERENCES users(id),
   membership_type VARCHAR(50),
   membership_status VARCHAR(50),
   gym_location_id INTEGER,
