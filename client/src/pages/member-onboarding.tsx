@@ -505,20 +505,48 @@ export default function MemberOnboardingPage() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Fitness Goals</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter your fitness goals (one per line)"
-                      value={(field.value || []).join('\n')}
-                      onChange={(e) => {
-                        const goals = e.target.value
-                          .split('\n')
-                          .map(goal => goal.trim())
-                          .filter(Boolean);
-                        field.onChange(goals);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>Enter each goal on a new line</FormDescription>
+                  <FormDescription>Select your primary fitness objectives</FormDescription>
+                  <div className="grid md:grid-cols-2 gap-2 mt-2">
+                    {[
+                      { id: "weight_loss", label: "Weight Loss" },
+                      { id: "muscle_gain", label: "Muscle Gain" },
+                      { id: "strength_training", label: "Strength Training" },
+                      { id: "cardiovascular_fitness", label: "Cardiovascular Fitness" },
+                      { id: "flexibility_mobility", label: "Flexibility & Mobility" },
+                      { id: "endurance", label: "Endurance Building" },
+                      { id: "body_toning", label: "Body Toning" },
+                      { id: "athletic_performance", label: "Athletic Performance" },
+                      { id: "general_fitness", label: "General Fitness" },
+                      { id: "stress_reduction", label: "Stress Reduction" },
+                    ].map((goal) => (
+                      <FormField
+                        key={goal.id}
+                        control={form.control}
+                        name="fitnessGoals"
+                        render={({ field }) => (
+                          <FormItem
+                            key={goal.id}
+                            className="flex flex-row items-start space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(goal.id)}
+                                onCheckedChange={(checked) => {
+                                  const updatedGoals = checked
+                                    ? [...(field.value || []), goal.id]
+                                    : (field.value || []).filter((value: string) => value !== goal.id);
+                                  field.onChange(updatedGoals);
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              {goal.label}
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
