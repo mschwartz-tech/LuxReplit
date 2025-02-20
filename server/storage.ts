@@ -125,7 +125,7 @@ export class DatabaseStorage implements IStorage {
   async getMembersByTrainer(trainerId: number): Promise<Member[]> {
     return await db.select()
       .from(members)
-      .where(eq(members.assignedTrainerId, trainerId));
+      .where(eq(members.assigned_trainer_id, trainerId));
   }
 
   async getMember(id: number): Promise<Member | undefined> {
@@ -415,3 +415,151 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+// Database schema queries
+const INIT_DB = `
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS members (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  assigned_trainer_id INTEGER REFERENCES users(id),
+  membership_type VARCHAR(50),
+  membership_status VARCHAR(50),
+  gym_location_id INTEGER,
+  birth_date DATE,
+  start_date TIMESTAMP WITH TIME ZONE,
+  end_date TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS workout_plans (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id),
+  trainer_id INTEGER REFERENCES users(id),
+  name VARCHAR(255),
+  description TEXT,
+  frequency_per_week INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS member_assessments (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id),
+  trainer_id INTEGER REFERENCES users(id),
+  assessment_date TIMESTAMP WITH TIME ZONE,
+  weight DECIMAL,
+  body_fat_percentage DECIMAL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS gym_membership_pricing (
+  id SERIAL PRIMARY KEY,
+  gym_name VARCHAR(255) NOT NULL,
+  luxe_essentials_price DECIMAL(10,2) NOT NULL,
+  luxe_strive_price DECIMAL(10,2) NOT NULL,
+  luxe_all_access_price DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS workout_logs (
+  id SERIAL PRIMARY KEY,
+  workout_plan_id INTEGER REFERENCES workout_plans(id),
+  member_id INTEGER REFERENCES members(id),
+  exercise_id INTEGER REFERENCES exercises(id),
+  sets INTEGER,
+  reps INTEGER,
+  weight DECIMAL,
+  notes TEXT,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS schedules (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id),
+  trainer_id INTEGER REFERENCES users(id),
+  day VARCHAR(10),
+  time TIME,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id),
+  invoice_date TIMESTAMP WITH TIME ZONE,
+  amount DECIMAL,
+  status VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS marketing_campaigns (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  description TEXT,
+  start_date TIMESTAMP WITH TIME ZONE,
+  end_date TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS member_profiles (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  height VARCHAR(10),
+  weight VARCHAR(10),
+  emergency_contact_name VARCHAR(255),
+  emergency_contact_phone VARCHAR(20),
+  allergies TEXT,
+  medical_conditions TEXT,
+  goals TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS member_progress_photos (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id),
+  photo_date TIMESTAMP WITH TIME ZONE,
+  photo_url VARCHAR(255),
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pricing_plans (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
+  description TEXT,
+  sessions_per_week INTEGER,
+  duration VARCHAR(50),
+  price DECIMAL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS exercises (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  primary_muscle_group_id INTEGER REFERENCES muscle_groups(id),
+  secondary_muscle_group_ids INTEGER[] DEFAULT '{}',
+  instructions TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS muscle_groups (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+`;
