@@ -51,9 +51,9 @@ export function setupAuth(app: Express) {
   app.use(passport.session());
 
   passport.use(
-    new LocalStrategy(async (usermemberId, password, done) => {
+    new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storage.getUserByUsermemberId(usermemberId);
+        const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false);
         }
@@ -82,9 +82,9 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      const existingUser = await storage.getUserByUsermemberId(req.body.usermemberId);
+      const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
-        return res.status(400).json({ message: "User member ID already exists" });
+        return res.status(400).json({ message: "Username already exists" });
       }
 
       const user = await storage.createUser({
