@@ -1,4 +1,3 @@
-
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
@@ -24,6 +23,7 @@ export const pool = new Pool({
 // Add error handling for the pool
 pool.on('error', (err, client) => {
   logError('Unexpected error on idle client', { error: err });
+  process.exit(1); // Exit on critical database errors
 });
 
 // Initialize database connection
@@ -43,4 +43,10 @@ export async function initializeDatabase() {
   }
 }
 
+// Create db instance without waiting for initialization
 export const db = drizzle(pool, { schema });
+
+// Export function to ensure database is initialized
+export async function ensureDatabaseInitialized() {
+  await initializeDatabase();
+}

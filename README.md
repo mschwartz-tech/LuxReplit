@@ -1,65 +1,18 @@
-┌─────────────────────────────────────────────────────────────────┐
-│                      Client Browser                              │
-│  • HTML/CSS/JavaScript                                          │
-│  • TypeScript Runtime                                           │
-│  • Modern Browser APIs                                          │
-└───────────────────────┬─────────────────────────────────────────┘
-                        ↓ HTTP/WebSocket
-┌───────────────────────▼─────────────────────────────────────────┐
-│                    Frontend (React + TypeScript)                 │
-│  ┌─────────────┐   ┌──────────────┐   ┌────────────────────┐   │
-│  │  UI/UX      │   │State Manager │   │ Form Validation    │   │
-│  │(Shadcn/UI)  │   │(TanStack)    │   │(React Hook Form)   │   │
-│  └─────────────┘   └──────────────┘   └────────────────────┘   │
-│  • Component Library   • Query Cache    • Schema Validation     │
-│  • Theme System       • Mutations      • Error Handling        │
-└───────────────────────┬─────────────────────────────────────────┘
-                        ↓ RESTful API
-┌───────────────────────▼─────────────────────────────────────────┐
-│                   Backend (Express.js)                           │
-│  ┌─────────────┐   ┌──────────────┐   ┌────────────────────┐   │
-│  │Auth Service │   │API Endpoints │   │ Business Logic     │   │
-│  │(Passport.js)│   │(REST)        │   │                    │   │
-│  └─────────────┘   └──────────────┘   └────────────────────┘   │
-│  • Session Mgmt     • CRUD Routes     • Data Processing        │
-│  • JWT Tokens       • Validation      • Business Rules         │
-└─────────┬───────────────────┬────────────────────┬─────────────┘
-          ↓                   ↓                    ↓
-┌─────────▼───────┐ ┌────────▼────────┐ ┌────────▼────────┐
-│   PostgreSQL    │ │    OpenAI API   │ │  Google Places  │
-│   Database      │ │    (AI/ML)      │ │     API        │
-│ • Drizzle ORM   │ │ • Exercise AI   │ │ • Location Data │
-│ • Query Builder │ │ • Insights      │ │ • Geocoding     │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
+graph TD
+    A[Client Browser] -->|HTTP/WebSocket| B[Frontend React + TypeScript]
+    B -->|RESTful API| C[Backend Express.js]
+    C -->|Query/Mutation| D[PostgreSQL Database]
+    C -->|AI Integration| E[OpenAI API]
+    C -->|Location Services| F[Google Places API]
 
-Key Features:
-- Secure authentication and authorization with Passport.js
-- Real-time state management with TanStack Query
-- Form validation and error handling with React Hook Form
-- Responsive UI components with Shadcn/UI
-- RESTful API endpoints with Express.js
-- PostgreSQL database with Drizzle ORM for type-safe queries
-- AI-powered exercise insights via OpenAI API
-- Location services with Google Places API
+    subgraph Frontend[Frontend Layer]
+        B --> B1[UI/UX - Shadcn/UI]
+        B --> B2[State - TanStack Query]
+        B --> B3[Forms - React Hook Form]
+    end
 
-Technical Stack:
-Frontend:
-- React with TypeScript for type safety
-- TanStack Query for server state management
-- Shadcn/UI for consistent design system
-- React Hook Form for form handling
-
-Backend:
-- Express.js server with TypeScript
-- Passport.js for authentication
-- Drizzle ORM for database operations
-- RESTful API architecture
-
-Database:
-- PostgreSQL for data persistence
-- Drizzle ORM for type-safe queries
-- Connection pooling for performance
-
-External Services:
-- OpenAI API for AI/ML capabilities
-- Google Places API for location services
+    subgraph Backend[Backend Layer]
+        C --> C1[Auth - Passport.js]
+        C --> C2[ORM - Drizzle]
+        C --> C3[Business Logic]
+    end
