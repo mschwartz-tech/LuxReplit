@@ -14,7 +14,6 @@ import { logError, logInfo } from "./services/logger";
 const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
-// Authentication middleware
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
   next();
@@ -35,7 +34,11 @@ const requireRole = (roles: string[]) => (req: Request, res: Response, next: Nex
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
-  // User Management Routes
+  app.get("/health", (req: Request, res: Response) => {
+    logInfo("Health check requested", { path: req.path });
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   app.post("/api/users", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
     const parsed = insertUserSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -43,7 +46,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json(parsed.error);
     }
 
-    // Check if username already exists
     const existingUser = await storage.getUserByUsername(parsed.data.username);
     if (existingUser) {
       return res.status(400).json({ error: "Username already exists" });
@@ -54,7 +56,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(user);
   }));
 
-  // Member Management Routes
   app.get("/api/members", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const members = await storage.getMembers();
     logInfo("Members retrieved", { count: members.length });
@@ -73,7 +74,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(member);
   }));
 
-  // Member Profile Routes
   app.get("/api/members/:id", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const member = await storage.getMember(parseInt(req.params.id));
     if (!member) return res.sendStatus(404);
@@ -114,7 +114,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedProfile);
   }));
 
-  // Member Assessments
   app.get("/api/members/:id/assessments", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const assessments = await storage.getMemberAssessments(parseInt(req.params.id));
     logInfo("Assessments retrieved", { memberId: req.params.id, count: assessments.length });
@@ -141,7 +140,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
 
-  // Member Progress Photo Routes
   app.get("/api/members/:id/progress-photos", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const photos = await storage.getMemberProgressPhotos(parseInt(req.params.id));
     logInfo("Member progress photos retrieved", { memberId: req.params.id, count: photos.length });
@@ -167,7 +165,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(photo);
   }));
 
-  // Training Management Routes
   app.get("/api/workout-plans", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const plans = await storage.getWorkoutPlans();
     logInfo("Workout plans retrieved", { count: plans.length });
@@ -202,7 +199,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(plan);
   }));
 
-  // Workout Tracking Routes
   app.get("/api/workout-logs/plan/:planId", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const logs = await storage.getWorkoutLogs(parseInt(req.params.planId));
     logInfo("Workout logs retrieved for plan", { planId: req.params.planId, count: logs.length });
@@ -226,7 +222,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(log);
   }));
 
-  // Scheduling Routes
   app.get("/api/schedules", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const schedules = await storage.getSchedules();
     logInfo("Schedules retrieved", { count: schedules.length });
@@ -244,7 +239,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(schedule);
   }));
 
-  // Billing Routes
   app.get("/api/invoices", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
     const invoices = await storage.getInvoices();
     logInfo("Invoices retrieved", { count: invoices.length });
@@ -269,7 +263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(invoice);
   }));
 
-  // Marketing Routes
   app.get("/api/marketing-campaigns", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
     const campaigns = await storage.getMarketingCampaigns();
     logInfo("Marketing campaigns retrieved", { count: campaigns.length });
@@ -294,7 +287,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(campaign);
   }));
 
-  // Pricing Plans
   app.get("/api/pricing-plans", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const plans = await storage.getPricingPlans();
     logInfo("Pricing plans retrieved", { count: plans.length });
@@ -336,7 +328,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedPlan);
   }));
 
-  // Gym Membership Pricing Routes
   app.get("/api/gym-membership-pricing", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const pricing = await storage.getGymMembershipPricing();
     logInfo("Gym membership pricing retrieved", { count: pricing.length });

@@ -21,15 +21,13 @@ class AuthorizationError extends Error {
 
 const app = express();
 
-// Middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
-    if (req.path.startsWith("/api")) {
+    if (req.path.startsWith("/api") || req.path === "/health") {
       const duration = Date.now() - start;
       const logData = {
         path: req.path,
@@ -51,7 +49,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handler
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   const errorResponse = {
     message: err.message || "Internal Server Error",
@@ -83,56 +80,24 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   res.status(errorResponse.status).json(errorResponse);
 });
 
-// Initialize server
 (async () => {
   try {
-    logInfo("Starting server initialization");
+    logInfo("Starting server initialization", {
+      nodeEnv: process.env.NODE_ENV,
+      processId: process.pid
+    });
 
     const server = await registerRoutes(app);
-    logInfo("Routes registered successfully");
+    logInfo("Routes registered successfully", {
+      processId: process.pid
+    });
 
-    if (app.get("env") === "development") {
-      logInfo("Setting up Vite for development");
-      await setupVite(app, server);
-      logInfo("Vite setup completed");
-    } else {
-      serveStatic(app);
-      logInfo("Static serving configured");
-    }
-
-    // Try ports starting from 5000
-    const findAvailablePort = async (startPort: number): Promise<number> => {
-      const tryPort = (port: number): Promise<number> => {
-        return new Promise((resolve, reject) => {
-          logInfo(`Attempting to bind to port ${port}`);
-
-          const testServer = server.listen(port, '0.0.0.0');
-
-          testServer.once('listening', () => {
-            testServer.close(() => {
-              logInfo(`Successfully found available port ${port}`);
-              resolve(port);
-            });
-          });
-
-          testServer.once('error', (err: NodeJS.ErrnoException) => {
-            if (err.code === 'EADDRINUSE') {
-              logInfo(`Port ${port} is in use, trying next port`);
-              // Add a small delay before trying the next port
-              setTimeout(() => {
-                tryPort(port + 1).then(resolve).catch(reject);
-              }, 100);
-            } else {
-              reject(err);
-            }
-          });
-        });
-      };
-
-      return tryPort(startPort);
-    };
-
-    const port = await findAvailablePort(5000);
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    logInfo(`Attempting to start server on port ${port}`, {
+      port,
+      env: process.env.NODE_ENV,
+      host: '0.0.0.0'
+    });
 
     server.listen(port, '0.0.0.0', () => {
       logInfo(`Server started successfully on port ${port}`, {
@@ -142,7 +107,7 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     });
 
   } catch (error) {
-    logError("Failed to initialize server", { 
+    logError("Failed to initialize server", {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
@@ -150,7 +115,6 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   }
 })();
 
-// Handle uncaught errors
 process.on("uncaughtException", (error) => {
   logError("Uncaught Exception", { error });
   process.exit(1);
