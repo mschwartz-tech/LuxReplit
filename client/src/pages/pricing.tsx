@@ -315,7 +315,7 @@ export default function PricingPage() {
 
                     const currentChanges = changes[plan.id] || {};
                     return (
-                      <>
+                      <React.Fragment key={`${sessions}-${duration}`}>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <EditableCell
                             value={currentChanges.costPerSession ?? plan.costPerSession.toString()}
@@ -340,7 +340,7 @@ export default function PricingPage() {
                             }
                           />
                         </td>
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tr>
