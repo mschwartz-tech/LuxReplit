@@ -42,18 +42,14 @@ export default function PricingPage() {
     luxeAllAccessPrice: "",
   });
 
-  const { data: pricingPlans, isLoading } = useQuery({
+  const { data: pricingPlans = [], isLoading } = useQuery({
     queryKey: ["/api/pricing-plans"],
-    select: (data: PricingPlan[]) => {
-      const plans: Record<number, PricingPlan[]> = {};
-      data.forEach(plan => {
-        if (!plans[plan.duration]) {
-          plans[plan.duration] = [];
-        }
-        plans[plan.duration].push(plan);
-      });
-      return plans;
-    }
+    select: (data: PricingPlan[]) => data,
+  });
+
+  const { data: gymPricing = [], isLoading: isLoadingGym } = useQuery({
+    queryKey: ["/api/gym-membership-pricing"],
+    select: (data: GymMembershipPricing[]) => data,
   });
 
   const updateMutation = useMutation({
@@ -85,10 +81,6 @@ export default function PricingPage() {
         variant: "destructive",
       });
     },
-  });
-
-  const { data: gymPricing, isLoading: isLoadingGym } = useQuery({
-    queryKey: ["/api/gym-membership-pricing"],
   });
 
   const updateGymMutation = useMutation({
@@ -272,8 +264,8 @@ export default function PricingPage() {
                     {sessions}
                   </td>
                   {[30, 60].map((duration) => {
-                    const plan = pricingPlans?.[duration]?.find(
-                      (p) => p.sessionsPerWeek === sessions
+                    const plan = pricingPlans?.find(
+                      (p) => p.sessionsPerWeek === sessions && p.duration === duration
                     );
                     if (!plan) return null;
 
