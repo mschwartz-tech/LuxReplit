@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMemberSchema, insertMemberProfileSchema } from "@shared/schema";
@@ -33,17 +33,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format, setYear, setMonth, setDate } from "date-fns";
-import { CalendarIcon, Loader2, ArrowLeft } from "lucide-react";
+import { format } from "date-fns";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import SignaturePad from 'react-signature-canvas';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 // Step 1: Location and Membership Selection
 const locationMembershipSchema = z.object({
@@ -120,6 +117,11 @@ const onboardingSchema = z.object({
   liabilityWaiverSigned: z.boolean(),
   photoReleaseWaiverSigned: z.boolean(),
   marketingOptIn: z.boolean(),
+  sessionDuration: z.enum(['30', '60']).optional(),
+  sessionsPerWeek: z.string().optional(),
+  paymentType: z.enum(['biweekly', 'pif']).optional(),
+  membershipType: z.enum(['luxe_essentials', 'luxe_strive', 'luxe_all_access']).optional(),
+  gymLocationId: z.number().optional(),
 });
 
 // Helper function to generate array of numbers in range
@@ -141,17 +143,14 @@ export default function MemberOnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAdmin = user?.role === "admin";
 
-  // Add signature refs
   const liabilitySignaturePad = useRef<SignaturePad>(null);
   const photoReleaseSignaturePad = useRef<SignaturePad>(null);
 
-  // Fetch gym locations and their pricing
   const { data: gymLocations, isLoading: isLoadingLocations } = useQuery({
     queryKey: ["/api/gym-membership-pricing"],
-    queryFn: () => fetch("/api/gym-membership-pricing").then((res) => res.json()),
+    enabled: !!user,
   });
 
-  // Update the form default values
   const form = useForm<OnboardingForm>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
@@ -159,8 +158,6 @@ export default function MemberOnboardingPage() {
       middleInitial: "",
       lastName: "",
       email: "",
-      membershipType: undefined,
-      gymLocationId: undefined,
       gender: "",
       address: "",
       city: "",
@@ -170,21 +167,245 @@ export default function MemberOnboardingPage() {
       birthMonth: undefined,
       birthDay: undefined,
       birthYear: undefined,
-      liabilityWaiverSigned: false,
-      photoReleaseWaiverSigned: false,
-      marketingOptIn: false,
+      heightFeet: undefined,
+      heightInches: undefined,
+      weight: "",
       fitnessGoals: [],
       healthConditions: [],
       medications: [],
       injuries: [],
-      heightFeet: undefined,
-      heightInches: undefined,
-      weight: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
-      emergencyContactRelation: ""
+      emergencyContactRelation: "",
+      liabilityWaiverSigned: false,
+      photoReleaseWaiverSigned: false,
+      marketingOptIn: false,
+      sessionDuration: undefined,
+      sessionsPerWeek: undefined,
+      paymentType: undefined,
+      gymLocationId: undefined,
+      membershipType: undefined,
     },
   });
+
+  const getFieldsForStep = (step: number) => {
+    switch (step) {
+      case 1:
+        return [
+          'firstName', 'lastName', 'email', 'birthMonth', 'birthDay',
+          'birthYear', 'gender', 'phoneNumber', 'address', 'city',
+          'state', 'zipCode', 'emergencyContactName',
+          'emergencyContactPhone', 'emergencyContactRelation'
+        ];
+      case 2:
+        return [
+          'heightFeet', 'heightInches', 'weight', 'fitnessGoals',
+          'healthConditions', 'medications', 'injuries'
+        ];
+      case 3:
+        return [
+          'liabilityWaiverSigned', 'photoReleaseWaiverSigned',
+          'marketingOptIn'
+        ];
+      case 4:
+        return [
+          'sessionDuration', 'sessionsPerWeek', 'paymentType',
+          'gymLocationId', 'membershipType'
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const getSchemaForStep = (step: number) => {
+    switch (step) {
+      case 1:
+        return z.object({
+          firstName: z.string().min(2, "First name must be at least 2 characters"),
+          lastName: z.string().min(2, "Last name must be at least 2 characters"),
+          email: z.string().email("Invalid email address"),
+          birthMonth: z.number().min(1).max(12),
+          birthDay: z.number().min(1).max(31),
+          birthYear: z.number().min(1900).max(new Date().getFullYear()),
+          gender: z.string(),
+          phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+          address: z.string(),
+          city: z.string(),
+          state: z.string(),
+          zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
+          emergencyContactName: z.string().min(1, "Emergency contact name is required"),
+          emergencyContactPhone: z.string().min(10, "Emergency contact phone must be at least 10 digits"),
+          emergencyContactRelation: z.string().min(1, "Emergency contact relation is required"),
+        });
+      case 2:
+        return z.object({
+          heightFeet: z.number().min(1).max(9),
+          heightInches: z.number().min(0).max(11),
+          weight: z.string().min(1),
+          fitnessGoals: z.array(z.string()).min(1),
+          healthConditions: z.array(z.string()).optional(),
+          medications: z.array(z.string()).optional(),
+          injuries: z.array(z.string()).optional(),
+        });
+      case 3:
+        return z.object({
+          liabilityWaiverSigned: z.boolean(),
+          photoReleaseWaiverSigned: z.boolean(),
+          marketingOptIn: z.boolean(),
+        });
+      case 4:
+        return z.object({
+          sessionDuration: z.enum(['30', '60']),
+          sessionsPerWeek: z.enum(['1', '2', '3', '4']),
+          paymentType: z.enum(['biweekly', 'pif']),
+          gymLocationId: z.number(),
+          membershipType: z.enum(['luxe_essentials', 'luxe_strive', 'luxe_all_access']),
+        });
+      default:
+        return z.object({});
+    }
+  };
+
+  const handleNext = async () => {
+    const fields = getFieldsForStep(currentStep);
+    const stepData = form.getValues(fields);
+    const stepSchema = getSchemaForStep(currentStep);
+
+    try {
+      await stepSchema.parseAsync(stepData);
+
+      if (currentStep === 3) {
+        if (stepData.liabilityWaiverSigned && !liabilitySignaturePad.current?.toData().length) {
+          toast({
+            title: "Signature Required",
+            description: "Please sign the liability waiver before proceeding.",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (stepData.photoReleaseWaiverSigned && !photoReleaseSignaturePad.current?.toData().length) {
+          toast({
+            title: "Signature Required",
+            description: "Please sign the photo release waiver before proceeding.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (currentStep === 4) {
+        await onSubmit(form.getValues());
+      } else {
+        setCurrentStep((prev) => prev + 1);
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        error.errors.forEach((err) => {
+          form.setError(err.path[0] as any, {
+            message: err.message,
+          });
+        });
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep((prev) => prev - 1);
+  };
+
+  const onSubmit = async (data: OnboardingForm) => {
+    try {
+      setIsSubmitting(true);
+
+      const userResponse = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: data.email,
+          password: "temporary123",
+          role: "user",
+          email: data.email,
+          name: `${data.firstName} ${data.lastName}`,
+        }),
+      });
+
+      if (!userResponse.ok) {
+        throw new Error("Failed to create user account");
+      }
+      const newUser = await userResponse.json();
+
+      const memberResponse = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: newUser.id,
+          membershipType: data.membershipType,
+          membershipStatus: "active",
+          startDate: new Date(),
+          gymLocationId: data.gymLocationId,
+          sessionDuration: data.sessionDuration,
+          sessionsPerWeek: data.sessionsPerWeek,
+          paymentType: data.paymentType,
+        }),
+      });
+
+      if (!memberResponse.ok) {
+        throw new Error("Failed to create member record");
+      }
+      const newMember = await memberResponse.json();
+
+      const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: newUser.id,
+          birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay),
+          gender: data.gender,
+          height: `${data.heightFeet}'${data.heightInches}"`,
+          weight: data.weight,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zipCode: data.zipCode,
+          phoneNumber: data.phoneNumber,
+          fitnessGoals: data.fitnessGoals,
+          healthConditions: data.healthConditions || [],
+          medications: data.medications || [],
+          injuries: data.injuries || [],
+          emergencyContactName: data.emergencyContactName,
+          emergencyContactPhone: data.emergencyContactPhone,
+          emergencyContactRelation: data.emergencyContactRelation,
+          liabilityWaiverSigned: data.liabilityWaiverSigned,
+          liabilityWaiverSignedDate: new Date(),
+          liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL(),
+          photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
+          photoReleaseWaiverSignedDate: new Date(),
+          photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL(),
+          marketingOptIn: data.marketingOptIn,
+        }),
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error("Failed to create member profile");
+      }
+
+      toast({
+        title: "Success",
+        description: "Member onboarding completed successfully",
+      });
+
+      navigate(`/member-checkout?memberId=${newMember.id}`);
+    } catch (error) {
+      console.error("Onboarding error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to complete member onboarding",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!user || !isAdmin) {
     return <div className="p-8">Not authorized to view this page</div>;
@@ -428,89 +649,7 @@ export default function MemberOnboardingPage() {
                 />
               </div>
             </div>
-            <div className="space-y-2 pt-2 border-t">
-              <h3 className="text-sm font-semibold">Location and Membership</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <FormField
-                  control={form.control}
-                  name="gymLocationId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Gym Location</FormLabel>
-                      <Select
-                        onValueChange={(value) => {
-                          const intValue = parseInt(value, 10);
-                          field.onChange(intValue);
-                          // If No Gym (0) is selected, set membership type to training_only
-                          if (intValue === 0) {
-                            form.setValue("membershipType", "training_only");
-                          }
-                        }}
-                        value={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Select gym location" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="0">No Gym - Training Only</SelectItem>
-                          {gymLocations?.map((location: { id: number; gymName: string }) => (
-                            <SelectItem key={location.id} value={location.id.toString()}>
-                              {location.gymName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="membershipType"
-                  render={({ field }) => {
-                    // Set membership type to training_only when No Gym is selected
-                    React.useEffect(() => {
-                      const gymLocationId = form.getValues("gymLocationId");
-                      if (gymLocationId === 0) {
-                        form.setValue("membershipType", "training_only");
-                      }
-                    }, [form.getValues("gymLocationId")]);
 
-                    return (
-                      <FormItem>
-                        <FormLabel>Membership Type</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={!form.getValues("gymLocationId") || form.getValues("gymLocationId") === 0}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Select membership type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {form.getValues("gymLocationId") === 0 ? (
-                              <SelectItem value="training_only">Training Only</SelectItem>
-                            ) : (
-                              <>
-                                <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
-                                <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
-                                <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
-                                <SelectItem value="training_only">Training Only</SelectItem>
-                              </>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
-              </div>
-            </div>
           </div>
         );
       case 2:
@@ -651,12 +790,11 @@ export default function MemberOnboardingPage() {
             />
           </div>
         );
-      case 4:
+      case 3:
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Waivers and Agreements</h3>
 
-            {/* Liability Waiver */}
             <div className="space-y-4 p-4 border rounded-lg">
               <FormField
                 control={form.control}
@@ -701,7 +839,6 @@ export default function MemberOnboardingPage() {
               />
             </div>
 
-            {/* Photo Release Waiver */}
             <div className="space-y-4 p-4 border rounded-lg">
               <FormField
                 control={form.control}
@@ -765,220 +902,351 @@ export default function MemberOnboardingPage() {
             />
           </div>
         );
+      case 4:
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Training Package</h3>
+            <div className="space-y-4 p-4 border rounded-lg">
+              <FormField
+                control={form.control}
+                name="sessionDuration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Session Duration</FormLabel>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="30" id="duration-30" />
+                        <Label htmlFor="duration-30">30 MIN</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="60" id="duration-60" />
+                        <Label htmlFor="duration-60">60 MIN</Label>
+                      </div>
+                    </RadioGroup>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sessionsPerWeek"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sessions per Week</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select number of sessions" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Session</SelectItem>
+                        <SelectItem value="2">2 Sessions</SelectItem>
+                        <SelectItem value="3">3 Sessions</SelectItem>
+                        <SelectItem value="4">4 Sessions</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="paymentType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Type</FormLabel>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="biweekly" id="payment-biweekly" />
+                        <Label htmlFor="payment-biweekly">Bi-weekly</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="pif" id="payment-pif" />
+                        <Label htmlFor="payment-pif">Paid in Full</Label>
+                      </div>
+                    </RadioGroup>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <h3 className="text-lg font-semibold mt-6">Gym Membership</h3>
+            <div className="space-y-4 p-4 border rounded-lg">
+              <FormField
+                control={form.control}
+                name="gymLocationId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString()}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gym location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {gymLocations?.map((location) => (
+                          <SelectItem
+                            key={location.id}
+                            value={location.id.toString()}
+                          >
+                            {location.gymName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="membershipType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Membership Type</FormLabel>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="space-y-2"
+                      disabled={!form.getValues("gymLocationId")}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="luxe_essentials" id="membership-essentials" />
+                        <Label htmlFor="membership-essentials">Luxe Essentials</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="luxe_strive" id="membership-strive" />
+                        <Label htmlFor="membership-strive">Luxe Strive</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="luxe_all_access" id="membership-all-access" />
+                        <Label htmlFor="membership-all-access">Luxe All Access</Label>
+                      </div>
+                    </RadioGroup>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        );
       default:
         return null;
     }
   };
 
-  // Update the submit function to combine the name fields
-  async function onSubmit(data: OnboardingForm) {
-    try {
-      // Validate signatures when waivers are checked
-      if (data.liabilityWaiverSigned && !liabilitySignaturePad.current?.toData().length) {
-        toast({
-          title: "Signature Required",
-          description: "Please sign the liability waiver before proceeding.",
-          variant: "destructive",
-        });
-        return;
-      }
+  const renderPackageSelection = () => (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Training Package</h3>
+      <div className="space-y-4 p-4 border rounded-lg">
+        <FormField
+          control={form.control}
+          name="sessionDuration"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Session Duration</FormLabel>
+              <RadioGroup
+                onValueChange={field.onChange}
+                value={field.value}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="30" id="duration-30" />
+                  <Label htmlFor="duration-30">30 MIN</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="60" id="duration-60" />
+                  <Label htmlFor="duration-60">60 MIN</Label>
+                </div>
+              </RadioGroup>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      if (data.photoReleaseWaiverSigned && !photoReleaseSignaturePad.current?.toData().length) {
-        toast({
-          title: "Signature Required",
-          description: "Please sign the photo release waiver before proceeding.",
-          variant: "destructive",
-        });
-        return;
-      }
+        <FormField
+          control={form.control}
+          name="sessionsPerWeek"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Sessions per Week</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select number of sessions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Session</SelectItem>
+                  <SelectItem value="2">2 Sessions</SelectItem>
+                  <SelectItem value="3">3 Sessions</SelectItem>
+                  <SelectItem value="4">4 Sessions</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      setIsSubmitting(true);
+        <FormField
+          control={form.control}
+          name="paymentType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Payment Type</FormLabel>
+              <RadioGroup
+                onValueChange={field.onChange}
+                value={field.value}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="biweekly" id="payment-biweekly" />
+                  <Label htmlFor="payment-biweekly">Bi-weekly</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="pif" id="payment-pif" />
+                  <Label htmlFor="payment-pif">Paid in Full</Label>
+                </div>
+              </RadioGroup>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
 
-      // Combine birth date components into a single Date object
-      const birthDate = new Date(data.birthYear, data.birthMonth - 1, data.birthDay);
+      <h3 className="text-lg font-semibold mt-6">Gym Membership</h3>
+      <div className="space-y-4 p-4 border rounded-lg">
+        <FormField
+          control={form.control}
+          name="gymLocationId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location</FormLabel>
+              <Select
+                onValueChange={(value) => field.onChange(parseInt(value))}
+                value={field.value?.toString()}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select gym location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {gymLocations?.map((location) => (
+                    <SelectItem
+                      key={location.id}
+                      value={location.id.toString()}
+                    >
+                      {location.gymName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      // Combine name components
-      const fullName = `${data.firstName}${data.middleInitial ? ` ${data.middleInitial}.` : ''} ${data.lastName}`;
-
-      const userResponse = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: fullName,
-          email: data.email,
-          role: "user",
-          username: data.email,
-          password: Math.random().toString(36).slice(-8),
-        }),
-      });
-
-      if (!userResponse.ok) {
-        throw new Error("Failed to create user account");
-      }
-      const newUser = await userResponse.json();
-
-      const memberResponse = await fetch("/api/members", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: newUser.id,
-          membershipType: data.membershipType,
-          membershipStatus: "active",
-          startDate: new Date(),
-          gymLocationId: data.gymLocationId,
-        }),
-      });
-
-      if (!memberResponse.ok) {
-        throw new Error("Failed to create member record");
-      }
-      const newMember = await memberResponse.json();
-
-      const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: newUser.id,
-          birthDate: birthDate.toISOString(),
-          gender: data.gender,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zipCode: data.zipCode,
-          phoneNumber: data.phoneNumber,
-          height: `${data.heightFeet}'${data.heightInches}"`,
-          weight: data.weight,
-          fitnessGoals: data.fitnessGoals,
-          healthConditions: data.healthConditions,
-          medications: data.medications,
-          injuries: data.injuries,
-          emergencyContactName: data.emergencyContactName,
-          emergencyContactPhone: data.emergencyContactPhone,
-          emergencyContactRelation: data.emergencyContactRelation,
-          liabilityWaiverSigned: data.liabilityWaiverSigned,
-          liabilityWaiverSignedDate: new Date(),
-          liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL(),
-          photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
-          photoReleaseWaiverSignedDate: new Date(),
-          photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL(),
-          marketingOptIn: data.marketingOptIn,
-        }),
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error("Failed to create member profile");
-      }
-
-      toast({
-        title: "Success",
-        description: "Member onboarding completed successfully",
-      });
-
-      // Navigate to checkout page with member ID
-      navigate(`/member-checkout?memberId=${newMember.id}`);
-    } catch (error) {
-      console.error("Onboarding error:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to complete member onboarding",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  const handleNext = async () => {
-    try {
-      if (currentStep === 1) {
-        await form.trigger([
-          "firstName",
-          "lastName",
-          "email",
-          "birthMonth",
-          "birthDay",
-          "birthYear",
-          "gender",
-          "phoneNumber",
-          "address",
-          "city",
-          "state",
-          "zipCode",
-          "gymLocationId",
-          "membershipType",
-          "emergencyContactName",
-          "emergencyContactPhone",
-          "emergencyContactRelation"
-        ]);
-
-        const hasErrors = await form.formState.errors;
-        if (Object.keys(hasErrors).length > 0) {
-          return;
-        }
-      }
-
-      // Skip step 3 when going from step 2 to 4
-      if (currentStep === 2) {
-        setCurrentStep(4);
-        return;
-      }
-
-      setCurrentStep((prev) => prev + 1);
-    } catch (error) {
-      console.error('Validation error:', error);
-    }
-  };
+        <FormField
+          control={form.control}
+          name="membershipType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Membership Type</FormLabel>
+              <RadioGroup
+                onValueChange={field.onChange}
+                value={field.value}
+                className="space-y-2"
+                disabled={!form.getValues("gymLocationId")}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="luxe_essentials" id="membership-essentials" />
+                  <Label htmlFor="membership-essentials">Luxe Essentials</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="luxe_strive" id="membership-strive" />
+                  <Label htmlFor="membership-strive">Luxe Strive</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="luxe_all_access" id="membership-all-access" />
+                  <Label htmlFor="membership-all-access">Luxe All Access</Label>
+                </div>
+              </RadioGroup>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+    </div>
+  );
 
   return (
-    <div className="container max-w-3xl mx-auto p-4">
-      <Card className="border-none shadow-md">
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-3">
-            <Link href="/gym-members">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <div>
-              <CardTitle className="text-xl">New Member Onboarding</CardTitle>
-              <CardDescription className="text-sm">
-                Complete the form below to register a new member
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {renderStep()}
-              <div className="flex justify-between pt-3 border-t">
-                {currentStep > 1 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setCurrentStep((prev) => prev - 1)}
-                  >
-                    Previous
-                  </Button>
-                )}
-                {currentStep < 4 ? (
+    <div className="container max-w-4xl mx-auto p-8">
+      <div className="mb-8">
+        <Link href="/gym-members">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <h1 className="text-3xl font-bold tracking-tight">Member Onboarding</h1>
+        <p className="text-muted-foreground">Complete the member registration process</p>
+      </div>
+
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Step {currentStep} of 4</CardTitle>
+            <CardDescription>
+              {currentStep === 1 && "Personal Information"}
+              {currentStep === 2 && "Physical Information & Health"}
+              {currentStep === 3 && "Waivers & Agreements"}
+              {currentStep === 4 && "Training & Membership"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+                {currentStep === 4 ? renderPackageSelection() : renderStep()}
+                <div className="flex items-center justify-between mt-6 pt-6 border-t">
+                  {currentStep > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handlePrevious}
+                    >
+                      Previous
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     onClick={handleNext}
-                    className="ml-auto"
+                    className={cn("ml-auto", { "ml-0": currentStep === 1 })}
+                    disabled={isSubmitting}
                   >
-                    Next
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {currentStep === 4 ? "Submitting..." : "Next"}
+                      </>
+                    ) : (
+                      currentStep === 4 ? "Complete Onboarding" : "Next"
+                    )}
                   </Button>
-                ) : (
-                  <Button type="button" onClick={() => navigate("/member-checkout")} className="ml-auto">
-                    Next
-                  </Button>
-                )}
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
