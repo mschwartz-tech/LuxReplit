@@ -59,7 +59,7 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...pricing,
+          gymName: pricing.gymName,
           luxeEssentialsPrice: parseFloat(pricing.luxeEssentialsPrice),
           luxeStrivePrice: parseFloat(pricing.luxeStrivePrice),
           luxeAllAccessPrice: parseFloat(pricing.luxeAllAccessPrice),
@@ -102,7 +102,7 @@ export default function PricingPage() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...pricing,
+            gymName: pricing.gymName,
             luxeEssentialsPrice: pricing.luxeEssentialsPrice ? parseFloat(pricing.luxeEssentialsPrice.toString()) : undefined,
             luxeStrivePrice: pricing.luxeStrivePrice ? parseFloat(pricing.luxeStrivePrice.toString()) : undefined,
             luxeAllAccessPrice: pricing.luxeAllAccessPrice ? parseFloat(pricing.luxeAllAccessPrice.toString()) : undefined,
@@ -415,7 +415,7 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        gymChanges[pricing.id]?.luxeEssentialsPrice?.toString() ?? 
+                        gymChanges[pricing.id]?.luxeEssentialsPrice?.toString() ??
                         pricing.luxeEssentialsPrice.toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
@@ -424,7 +424,7 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        gymChanges[pricing.id]?.luxeStrivePrice?.toString() ?? 
+                        gymChanges[pricing.id]?.luxeStrivePrice?.toString() ??
                         pricing.luxeStrivePrice.toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
@@ -433,7 +433,7 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        gymChanges[pricing.id]?.luxeAllAccessPrice?.toString() ?? 
+                        gymChanges[pricing.id]?.luxeAllAccessPrice?.toString() ??
                         pricing.luxeAllAccessPrice.toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
