@@ -11,6 +11,9 @@ import { cacheMiddleware } from "./middleware/cache";
 const app = express();
 const pgSession = connectPgSimple(session);
 
+// Enable trust proxy - needed for rate limiting behind a proxy
+app.set('trust proxy', 1);
+
 // Basic middleware setup
 app.use(express.json());
 app.use(apiLimiter);
@@ -56,7 +59,7 @@ async function startServer() {
     }
 
     // Start the server
-    const port = Number(process.env.PORT) || 5000; // Changed default port to 5000
+    const port = Number(process.env.PORT) || 5000;
     server.listen(port, () => {
       logInfo(`Server listening on port ${port}`, {
         port,
