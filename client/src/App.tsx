@@ -13,6 +13,7 @@ import TrainingManagementPage from "@/pages/training-management";
 import ExerciseLibrary from "@/pages/exercise-library";
 import PricingPage from "@/pages/pricing";
 import MemberProfilePage from "@/pages/member-profile";
+import MemberOnboardingPage from "@/pages/member-onboarding";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/gym-members" component={GymMembersPage} />
+      <ProtectedRoute path="/member-onboarding" component={MemberOnboardingPage} />
       <ProtectedRoute path="/training-clients" component={TrainingClientsPage} />
       <ProtectedRoute path="/client/:id" component={ClientProfilePage} />
       <ProtectedRoute path="/member/:id/profile" component={MemberProfilePage} />

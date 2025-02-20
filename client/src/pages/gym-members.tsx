@@ -80,10 +80,12 @@ export default function GymMembersPage() {
               Manage gym memberships and member information
             </p>
           </div>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add New Member
-          </Button>
+          <Link href="/member-onboarding">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add New Member
+            </Button>
+          </Link>
         </div>
 
         {/* Search and Filter Bar */}
