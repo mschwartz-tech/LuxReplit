@@ -66,13 +66,15 @@ const step1Schema = z.object({
   city: z.string(),
   state: z.string(),
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
-  gymLocationId: z.number(),
+  gymLocationId: z.coerce.number({
+    required_error: "Gym location is required"
+  }),
   membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"], {
     required_error: "Membership type is required"
-  }).refine((val) => {
-    const gymLocationId = form.getValues("gymLocationId");
-    if (gymLocationId === 0) {
-      return val === "training_only";
+  }).refine((val, ctx) => {
+    const gymLocationId = parseInt(ctx.path[0].toString());
+    if (gymLocationId === 0 && val !== "training_only") {
+      return false;
     }
     return true;
   }, { message: "Training Only membership is required when No Gym is selected" }),
@@ -753,33 +755,33 @@ export default function MemberOnboardingPage() {
 
   const handleNext = async () => {
     try {
-      const currentFields = form.getValues();
-      console.log('Current form values:', currentFields); // Debug log
-
       if (currentStep === 1) {
-        // Ensure numeric fields are properly typed
-        const validationFields = {
-          ...currentFields,
-          birthMonth: Number(currentFields.birthMonth),
-          birthDay: Number(currentFields.birthDay),
-          birthYear: Number(currentFields.birthYear),
-          gymLocationId: Number(currentFields.gymLocationId),
-        };
-
-        await step1Schema.parseAsync(validationFields);
+        await form.trigger([
+          "firstName",
+          "lastName",
+          "email",
+          "birthMonth",
+          "birthDay",
+          "birthYear",
+          "gender",
+          "phoneNumber",
+          "address",
+          "city",
+          "state",
+          "zipCode",
+          "gymLocationId",
+          "membershipType"
+        ]);
+        
+        const hasErrors = await form.formState.errors;
+        if (Object.keys(hasErrors).length > 0) {
+          return;
+        }
       }
-      // Add validation for other steps as needed
 
       setCurrentStep((prev) => prev + 1);
     } catch (error) {
-      console.error('Validation error:', error); // Debug log
-      if (error instanceof z.ZodError) {
-        error.errors.forEach((err) => {
-          form.setError(err.path[0] as any, {
-            message: err.message,
-          });
-        });
-      }
+      console.error('Validation error:', error);
     }
   };
 
