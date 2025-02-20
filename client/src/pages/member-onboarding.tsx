@@ -130,7 +130,8 @@ const range = (start: number, end: number) =>
 
 // Helper function to get month name
 const getMonthName = (month: number) => {
-  return format(setMonth(new Date(), month - 1), 'MMMM');
+  const date = new Date(2024, month - 1, 1); // Using a fixed year since we only need month name
+  return format(date, 'MMMM');
 };
 
 type OnboardingForm = z.infer<typeof onboardingSchema>;
