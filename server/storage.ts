@@ -380,7 +380,7 @@ export class DatabaseStorage implements IStorage {
   async getGymMembershipPricing(): Promise<GymMembershipPricing[]> {
     return await db.select()
       .from(gymMembershipPricing)
-      .where(eq(gymMembershipPricing.isActive, true))
+      .where(eq(gymMembershipPricing.isactive, true))
       .orderBy(gymMembershipPricing.gymName);
   }
 
@@ -399,7 +399,7 @@ export class DatabaseStorage implements IStorage {
         luxeStrivePrice: pricing.luxeStrivePrice.toString(),
         luxeAllAccessPrice: pricing.luxeAllAccessPrice.toString(),
         updatedAt: new Date(),
-        isActive: true
+        isactive: true
       })
       .returning();
     return newPricing;
@@ -430,7 +430,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteGymMembershipPricing(id: number): Promise<void> {
     await db.update(gymMembershipPricing)
-      .set({ isActive: false, updatedAt: new Date() })
+      .set({ isactive: false, updatedAt: new Date() })
       .where(eq(gymMembershipPricing.id, id));
   }
 }
