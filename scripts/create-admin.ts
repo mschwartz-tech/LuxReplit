@@ -11,16 +11,39 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-async function createAdmin() {
-  const hashedPassword = await hashPassword("admin123");
+async function createTestUsers() {
+  // Create admin user
+  const adminPassword = await hashPassword("password123");
   await db.insert(users).values({
-    username: "admin",
-    password: hashedPassword,
+    username: "admin_test",
+    password: adminPassword,
     role: "admin",
-    email: "admin@example.com",
-    name: "Admin User"
+    email: "admin@test.com",
+    name: "Admin Test"
   });
   console.log("Admin user created successfully");
+
+  // Create trainer user
+  const trainerPassword = await hashPassword("password123");
+  await db.insert(users).values({
+    username: "trainer_test",
+    password: trainerPassword,
+    role: "trainer",
+    email: "trainer@test.com",
+    name: "Trainer Test"
+  });
+  console.log("Trainer user created successfully");
+
+  // Create member user
+  const memberPassword = await hashPassword("password123");
+  await db.insert(users).values({
+    username: "member_test",
+    password: memberPassword,
+    role: "user",
+    email: "member@test.com",
+    name: "Member Test"
+  });
+  console.log("Member user created successfully");
 }
 
-createAdmin().catch(console.error);
+createTestUsers().catch(console.error);
