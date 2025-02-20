@@ -512,7 +512,7 @@ export default function MemberOnboardingPage() {
                           .filter(goal => goal.trim() !== "");
                         field.onChange(goals);
                       }}
-                      value={Array.isArray(field.value) ? field.value.join("\n") : ""}
+                      value={field.value ? (Array.isArray(field.value) ? field.value.join("\n") : field.value) : ""}
                     />
                   </FormControl>
                   <FormDescription>Enter each goal on a new line</FormDescription>
@@ -772,7 +772,7 @@ export default function MemberOnboardingPage() {
           "gymLocationId",
           "membershipType"
         ]);
-        
+
         const hasErrors = await form.formState.errors;
         if (Object.keys(hasErrors).length > 0) {
           return;
