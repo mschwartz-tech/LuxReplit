@@ -28,10 +28,6 @@ export const members = pgTable("members", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
-}, (table) => {
-  return {
-    gymLocationIdx: uniqueIndex("gym_location_idx").on(table.gymLocationId),
-  }
 });
 
 export const memberProfiles = pgTable("member_profiles", {
