@@ -57,7 +57,7 @@ export const AddressAutocomplete = forwardRef<
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       console.error("Google Places API key is missing");
-      setError("API configuration error");
+      setError("API configuration error - VITE_GOOGLE_PLACES_API_KEY not found");
       return;
     }
 
