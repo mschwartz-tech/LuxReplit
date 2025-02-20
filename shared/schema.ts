@@ -45,7 +45,6 @@ export const memberProfiles = pgTable("member_profiles", {
   state: text("state"),
   zipCode: text("zip_code"),
   phoneNumber: text("phone_number"),
-  preferredLocation: text("preferred_location"),
   // Physical Information
   height: text("height"),  // Store as text to handle various formats
   weight: text("weight"),  // Store as text to handle various formats
