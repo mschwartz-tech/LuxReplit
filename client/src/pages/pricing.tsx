@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type PricingPlan } from "@shared/schema";
+import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
 import { toast } from "@/hooks/use-toast";
 import { useState, useCallback } from "react";
 
@@ -33,11 +33,18 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
 export default function PricingPage() {
   const queryClient = useQueryClient();
   const [changes, setChanges] = useState<Record<number, Partial<PricingPlan>>>({});
+  const [gymChanges, setGymChanges] = useState<Record<number, Partial<GymMembershipPricing>>>({});
+  const [showNewGymForm, setShowNewGymForm] = useState(false);
+  const [newGym, setNewGym] = useState({
+    gymName: "",
+    luxeEssentialsPrice: "",
+    luxeStrivePrice: "",
+    luxeAllAccessPrice: "",
+  });
 
   const { data: pricingPlans, isLoading } = useQuery({
     queryKey: ["/api/pricing-plans"],
     select: (data: PricingPlan[]) => {
-      // Group by duration
       const plans: Record<number, PricingPlan[]> = {};
       data.forEach(plan => {
         if (!plans[plan.duration]) {
@@ -80,6 +87,74 @@ export default function PricingPage() {
     },
   });
 
+  const { data: gymPricing, isLoading: isLoadingGym } = useQuery({
+    queryKey: ["/api/gym-membership-pricing"],
+  });
+
+  const updateGymMutation = useMutation({
+    mutationFn: async (updates: Record<number, Partial<GymMembershipPricing>>) => {
+      const promises = Object.entries(updates).map(([id, pricing]) =>
+        fetch(`/api/gym-membership-pricing/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pricing),
+        }).then(res => {
+          if (!res.ok) throw new Error(`Failed to update gym pricing ${id}`);
+          return res.json();
+        })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      setGymChanges({});
+      toast({
+        title: "Success",
+        description: "All gym membership pricing updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update gym membership pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createGymMutation = useMutation({
+    mutationFn: async (pricing: typeof newGym) => {
+      const response = await fetch("/api/gym-membership-pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pricing),
+      });
+      if (!response.ok) throw new Error("Failed to create gym pricing");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      setShowNewGymForm(false);
+      setNewGym({
+        gymName: "",
+        luxeEssentialsPrice: "",
+        luxeStrivePrice: "",
+        luxeAllAccessPrice: "",
+      });
+      toast({
+        title: "Success",
+        description: "New gym pricing added successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add new gym pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handlePriceChange = useCallback((
     planId: number,
     field: "costPerSession" | "biweeklyPrice" | "pifPrice",
@@ -94,15 +169,38 @@ export default function PricingPage() {
     }));
   }, []);
 
+  const handleGymPriceChange = useCallback((
+    pricingId: number,
+    field: keyof GymMembershipPricing,
+    value: string
+  ) => {
+    setGymChanges(prev => ({
+      ...prev,
+      [pricingId]: {
+        ...prev[pricingId],
+        [field]: value,
+      },
+    }));
+  }, []);
+
   const handleSaveChanges = () => {
     updateMutation.mutate(changes);
   };
 
-  if (isLoading) {
+  const handleSaveGymChanges = () => {
+    updateGymMutation.mutate(gymChanges);
+  };
+
+  const handleCreateGym = () => {
+    createGymMutation.mutate(newGym);
+  };
+
+  if (isLoading || isLoadingGym) {
     return <div>Loading...</div>;
   }
 
   const hasChanges = Object.keys(changes).length > 0;
+  const hasGymChanges = Object.keys(gymChanges).length > 0;
 
   return (
     <div className="p-6">
@@ -213,6 +311,134 @@ export default function PricingPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Gym Membership Pricing Table */}
+      <div className="flex justify-center mt-8">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 max-w-4xl">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <h2 className="text-lg font-medium text-gray-900">
+              Gym Membership Pricing Index
+            </h2>
+            <Button
+              onClick={() => setShowNewGymForm(true)}
+              className="gap-2 h-8"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              Add Gym
+            </Button>
+          </div>
+
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Gym Location
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Luxe Essentials
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Luxe Strive
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Luxe All-Access
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {showNewGymForm && (
+                <tr>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <Input
+                      value={newGym.gymName}
+                      onChange={(e) => setNewGym(prev => ({ ...prev, gymName: e.target.value }))}
+                      className="w-full h-8 text-sm"
+                      placeholder="Gym Name"
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <EditableCell
+                      value={newGym.luxeEssentialsPrice}
+                      onChange={(value) => setNewGym(prev => ({ ...prev, luxeEssentialsPrice: value }))}
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <EditableCell
+                      value={newGym.luxeStrivePrice}
+                      onChange={(value) => setNewGym(prev => ({ ...prev, luxeStrivePrice: value }))}
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <EditableCell
+                      value={newGym.luxeAllAccessPrice}
+                      onChange={(value) => setNewGym(prev => ({ ...prev, luxeAllAccessPrice: value }))}
+                    />
+                  </td>
+                </tr>
+              )}
+              {gymPricing?.map((pricing: GymMembershipPricing) => (
+                <tr key={pricing.id}>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {pricing.gymName}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <EditableCell
+                      value={gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice}
+                      onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <EditableCell
+                      value={gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice}
+                      onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <EditableCell
+                      value={gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice}
+                      onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {showNewGymForm && (
+            <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+              <Button
+                onClick={() => setShowNewGymForm(false)}
+                variant="outline"
+                className="h-8"
+                size="sm"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateGym}
+                disabled={createGymMutation.isPending}
+                className="h-8"
+                size="sm"
+              >
+                Add Gym
+              </Button>
+            </div>
+          )}
+          {hasGymChanges && (
+            <div className="flex justify-end p-4 border-t bg-gray-50">
+              <Button
+                onClick={handleSaveGymChanges}
+                disabled={updateGymMutation.isPending}
+                className="gap-2 h-8"
+                size="sm"
+              >
+                <Save className="h-4 w-4" />
+                Save Changes
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

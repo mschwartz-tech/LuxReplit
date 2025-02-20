@@ -6,7 +6,9 @@ import {
   insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
-  insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema
+  insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
+  insertGymMembershipPricingSchema,
+  gymMembershipPricing
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 import { logError, logInfo } from "./services/logger";
@@ -416,6 +418,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const updatedPlan = await storage.updatePricingPlan(planId, parsed.data);
     logInfo("Pricing plan updated", { planId: updatedPlan.id });
     res.json(updatedPlan);
+  }));
+
+  // Gym Membership Pricing Routes
+  app.get("/api/gym-membership-pricing", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const pricing = await storage.getGymMembershipPricing();
+    logInfo("Gym membership pricing retrieved", { count: pricing.length });
+    res.json(pricing);
+  }));
+
+  app.post("/api/gym-membership-pricing", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      logError("Unauthorized gym membership pricing creation attempt", {
+        userId: (req.user as any)?.id,
+        role: (req.user as any)?.role,
+      });
+      return res.sendStatus(403);
+    }
+
+    const parsed = insertGymMembershipPricingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      logError("Gym membership pricing creation validation failed", {
+        errors: parsed.error.errors,
+      });
+      return res.status(400).json(parsed.error);
+    }
+
+    const pricing = await storage.createGymMembershipPricing(parsed.data);
+    logInfo("New gym membership pricing created", { pricingId: pricing.id });
+    res.status(201).json(pricing);
+  }));
+
+  app.patch("/api/gym-membership-pricing/:id", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      logError("Unauthorized gym membership pricing update attempt", {
+        userId: (req.user as any)?.id,
+        role: (req.user as any)?.role,
+      });
+      return res.sendStatus(403);
+    }
+
+    const pricingId = parseInt(req.params.id);
+    const pricing = await storage.getGymMembershipPricingById(pricingId);
+    if (!pricing) return res.sendStatus(404);
+
+    const parsed = insertGymMembershipPricingSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      logError("Gym membership pricing update validation failed", {
+        errors: parsed.error.errors,
+      });
+      return res.status(400).json(parsed.error);
+    }
+
+    const updatedPricing = await storage.updateGymMembershipPricing(pricingId, parsed.data);
+    logInfo("Gym membership pricing updated", { pricingId: updatedPricing.id });
+    res.json(updatedPricing);
   }));
 
   const httpServer = createServer(app);

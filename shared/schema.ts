@@ -151,6 +151,16 @@ export const pricingPlans = pgTable("pricing_plans", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
+export const gymMembershipPricing = pgTable("gym_membership_pricing", {
+  id: serial("id").primaryKey(),
+  gymName: text("gym_name").notNull(),
+  luxeEssentialsPrice: numeric("luxe_essentials_price").notNull(),
+  luxeStrivePrice: numeric("luxe_strive_price").notNull(),
+  luxeAllAccessPrice: numeric("luxe_all_access_price").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members).omit({ createdAt: true });
 export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
@@ -193,6 +203,14 @@ export const insertPricingPlanSchema = createInsertSchema(pricingPlans)
   })
   .omit({ createdAt: true, updatedAt: true });
 
+export const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
+  .extend({
+    luxeEssentialsPrice: z.string().min(1, "Luxe Essentials price is required"),
+    luxeStrivePrice: z.string().min(1, "Luxe Strive price is required"),
+    luxeAllAccessPrice: z.string().min(1, "Luxe All-Access price is required"),
+  })
+  .omit({ createdAt: true, updatedAt: true });
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;
@@ -219,3 +237,5 @@ export type Exercise = typeof exercises.$inferSelect;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type PricingPlan = typeof pricingPlans.$inferSelect;
 export type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
+export type GymMembershipPricing = typeof gymMembershipPricing.$inferSelect;
+export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;

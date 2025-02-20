@@ -1,8 +1,8 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan, GymMembershipPricing, InsertGymMembershipPricing } from "@shared/schema";
 import session from "express-session";
 import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans,
+  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, gymMembershipPricing,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
@@ -83,6 +83,12 @@ export interface IStorage {
   getPricingPlan(id: number): Promise<PricingPlan | undefined>;
   createPricingPlan(plan: InsertPricingPlan): Promise<PricingPlan>;
   updatePricingPlan(id: number, plan: Partial<InsertPricingPlan>): Promise<PricingPlan>;
+
+  // Gym Membership Pricing operations
+  getGymMembershipPricing(): Promise<GymMembershipPricing[]>;
+  getGymMembershipPricingById(id: number): Promise<GymMembershipPricing | undefined>;
+  createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing>;
+  updateGymMembershipPricing(id: number, pricing: Partial<InsertGymMembershipPricing>): Promise<GymMembershipPricing>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -337,19 +343,6 @@ export class DatabaseStorage implements IStorage {
     return newExercise;
   }
 
-  async getGymMembers(): Promise<Member[]> {
-    return await db.select().from(members);
-  }
-
-  async getGymMember(id: number): Promise<Member | undefined> {
-    const [member] = await db.select().from(members).where(eq(members.id, id));
-    return member;
-  }
-
-  async createGymMember(member: InsertMember): Promise<Member> {
-    const [newMember] = await db.insert(members).values(member).returning();
-    return newMember;
-  }
 
   async getPricingPlans(): Promise<PricingPlan[]> {
     return await db.select().from(pricingPlans)
@@ -380,6 +373,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pricingPlans.id, id))
       .returning();
     return updatedPlan;
+  }
+
+  async getGymMembershipPricing(): Promise<GymMembershipPricing[]> {
+    return await db.select()
+      .from(gymMembershipPricing)
+      .orderBy(gymMembershipPricing.gymName);
+  }
+
+  async getGymMembershipPricingById(id: number): Promise<GymMembershipPricing | undefined> {
+    const [pricing] = await db.select()
+      .from(gymMembershipPricing)
+      .where(eq(gymMembershipPricing.id, id));
+    return pricing;
+  }
+
+  async createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing> {
+    const [newPricing] = await db.insert(gymMembershipPricing)
+      .values({
+        ...pricing,
+        updatedAt: new Date(),
+      })
+      .returning();
+    return newPricing;
+  }
+
+  async updateGymMembershipPricing(
+    id: number,
+    pricing: Partial<InsertGymMembershipPricing>
+  ): Promise<GymMembershipPricing> {
+    const [updatedPricing] = await db.update(gymMembershipPricing)
+      .set({
+        ...pricing,
+        updatedAt: new Date(),
+      })
+      .where(eq(gymMembershipPricing.id, id))
+      .returning();
+    return updatedPricing;
   }
 }
 
