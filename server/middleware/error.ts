@@ -18,6 +18,13 @@ export class AuthorizationError extends Error {
   }
 }
 
+export class NotFoundError extends Error {
+  constructor(message: string = 'Resource not found') {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
 export const errorHandler = (
   err: any,
   req: Request,
@@ -27,9 +34,12 @@ export const errorHandler = (
   const errorResponse = {
     message: err.message || "Internal Server Error",
     status: err.status || err.statusCode || 500,
-    details: undefined as any
+    details: undefined as any,
+    path: req.path,
+    timestamp: new Date().toISOString()
   };
 
+  // Handle different error types
   if (err instanceof ZodError) {
     const validationError = fromZodError(err);
     errorResponse.status = 400;
@@ -40,8 +50,11 @@ export const errorHandler = (
     errorResponse.details = err.details;
   } else if (err instanceof AuthorizationError) {
     errorResponse.status = 403;
+  } else if (err instanceof NotFoundError) {
+    errorResponse.status = 404;
   }
 
+  // Log the error
   logError(err.message || "Internal Server Error", {
     path: req.path,
     method: req.method,

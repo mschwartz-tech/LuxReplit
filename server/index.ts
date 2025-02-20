@@ -6,6 +6,7 @@ import { logInfo, logError } from "./services/logger";
 import { registerRoutes } from "./routes";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { errorHandler } from './middleware/error';
 
 // Define __dirname equivalent for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,9 @@ class AuthorizationError extends Error {
 }
 
 const app = express();
+
+// Error handling middleware should be registered after all routes
+app.use(errorHandler);
 
 // Basic security headers
 app.use((req, res, next) => {
