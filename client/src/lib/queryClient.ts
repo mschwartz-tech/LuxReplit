@@ -48,7 +48,7 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 300000, // 5 minutes
-      cacheTime: 3600000, // 1 hour
+      gcTime: 3600000, // 1 hour (renamed from cacheTime in v5)
       retry: false,
       suspense: true,
     },

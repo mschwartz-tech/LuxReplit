@@ -124,13 +124,13 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   let currentRetry = 0;
 
   const startServer = () => {
-    server.listen(PORT, HOST, () => {
+    server.listen(Number(PORT), HOST, () => {
       logInfo(`Server started on port ${PORT}`, {
         env: process.env.NODE_ENV,
         port: PORT,
       });
-    }).on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
+    }).on('error', (err: Error) => {
+      if ((err as any).code === 'EADDRINUSE') {
         if (currentRetry < MAX_RETRIES) {
           currentRetry++;
           logError(`Port ${PORT} is in use, attempting to reconnect... (${currentRetry}/${MAX_RETRIES})`);
