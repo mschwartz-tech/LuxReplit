@@ -1,37 +1,55 @@
-# LuxReplit - Comprehensive Gym Management Platform
 
-A full-featured gym and personal training management platform built with modern web technologies.
+# LuxReplit - Gym & Personal Training Management Platform
+
+A comprehensive platform for managing gym operations, personal training, and client relationships.
+
+## Core Features
+- Member & Client Management
+- Training Program Design
+- Workout Exercise Library
+- Pricing & Package Management
+- Secure Authentication
+- Role-Based Access Control
+- Rate Limiting & Security
+- Error Logging & Monitoring
 
 ## Tech Stack
-- Frontend: React with TypeScript
+- Frontend: React 18 with TypeScript
 - Backend: Express.js
-- Database: PostgreSQL with Drizzle ORM
-- Authentication: Session-based with Passport.js
-- UI: Tailwind CSS with Shadcn UI
-- Mobile: React Native (planned)
+- Database: SQLite with Drizzle ORM
+- UI: Tailwind CSS + Shadcn UI
+- State Management: TanStack Query
+- Validation: Zod
+- Forms: React Hook Form
+- Navigation: Wouter
+- Analytics: Recharts
 
 ## Setup
 1. Fork this template in Replit
-2. Set up environment variables in Secrets:
-   - `DATABASE_URL`: PostgreSQL connection string
-   - `SESSION_SECRET`: Secret for session management
-   - `OPENAI_API_KEY`: For AI-powered features (optional)
-3. Install dependencies: `npm install`
-4. Initialize database: `npm run db:push`
-5. Start development server: `npm run dev`
+2. Install dependencies: `npm install`
+3. Start development server: `npm run dev`
+4. Access at: `http://0.0.0.0:5000`
 
-## Key Routes
-- `/auth`: Authentication endpoints (login, register, logout)
-- `/api/members`: Member management
-- `/api/trainers`: Trainer operations
-- `/api/workouts`: Workout plan management
-- `/api/billing`: Payment processing
+## Security Features
+- Rate limiting on authentication routes
+- Session-based authentication
+- Input validation using Zod
+- Error boundaries for resilience
+- Comprehensive error logging
 
-## Usage
-- Access the app at `0.0.0.0:3000`
-- Default admin credentials: admin@example.com / admin123
-- Member portal: Register or login as a member
-- Trainer dashboard: Access client management
-- Admin panel: Full facility management
+## API Routes
+- `/api/auth/*` - Authentication endpoints
+- `/api/members/*` - Member management
+- `/api/trainers/*` - Trainer operations
+- `/api/workouts/*` - Workout management
+- `/api/exercises/*` - Exercise library
+- `/api/pricing/*` - Package pricing
 
 ## Development
+- Organized component architecture
+- Type-safe database operations
+- Consistent error handling
+- Mobile-responsive design
+- Real-time updates
+
+For more details on specific features or configuration, check the documentation in the respective directories.
