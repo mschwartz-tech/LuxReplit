@@ -772,8 +772,28 @@ export default function MemberOnboardingPage() {
 
   // Update the submit function to combine the name fields
   async function onSubmit(data: OnboardingForm) {
-    setIsSubmitting(true);
     try {
+      // Validate signatures when waivers are checked
+      if (data.liabilityWaiverSigned && !liabilitySignaturePad.current?.toData().length) {
+        toast({
+          title: "Signature Required",
+          description: "Please sign the liability waiver before proceeding.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.photoReleaseWaiverSigned && !photoReleaseSignaturePad.current?.toData().length) {
+        toast({
+          title: "Signature Required",
+          description: "Please sign the photo release waiver before proceeding.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsSubmitting(true);
+
       // Combine birth date components into a single Date object
       const birthDate = new Date(data.birthYear, data.birthMonth - 1, data.birthDay);
 
@@ -792,7 +812,9 @@ export default function MemberOnboardingPage() {
         }),
       });
 
-      if (!userResponse.ok) throw new Error("Failed to create user");
+      if (!userResponse.ok) {
+        throw new Error("Failed to create user account");
+      }
       const newUser = await userResponse.json();
 
       const memberResponse = await fetch("/api/members", {
@@ -807,7 +829,9 @@ export default function MemberOnboardingPage() {
         }),
       });
 
-      if (!memberResponse.ok) throw new Error("Failed to create member");
+      if (!memberResponse.ok) {
+        throw new Error("Failed to create member record");
+      }
       const newMember = await memberResponse.json();
 
       const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
@@ -841,18 +865,22 @@ export default function MemberOnboardingPage() {
         }),
       });
 
-      if (!profileResponse.ok) throw new Error("Failed to create profile");
+      if (!profileResponse.ok) {
+        throw new Error("Failed to create member profile");
+      }
 
       toast({
         title: "Success",
-        description: "New member has been successfully onboarded",
+        description: "Member onboarding completed successfully",
       });
-      navigate("/gym-members");
+
+      // Navigate to checkout page with member ID
+      navigate(`/member-checkout?memberId=${newMember.id}`);
     } catch (error) {
-      console.error(error);
+      console.error("Onboarding error:", error);
       toast({
         title: "Error",
-        description: "Failed to complete member onboarding",
+        description: error instanceof Error ? error.message : "Failed to complete member onboarding",
         variant: "destructive",
       });
     } finally {
@@ -942,11 +970,14 @@ export default function MemberOnboardingPage() {
                     Next
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isSubmitting} className="ml-auto">
-                    {isSubmitting && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Button type="submit" disabled={isSubmitting} className="ml-auto w-32">{isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting
+                      </>
+                    ) : (
+                      "Complete Onboarding"
                     )}
-                    Complete Onboarding
                   </Button>
                 )}
               </div>
