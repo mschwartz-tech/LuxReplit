@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { setupVite, serveStatic } from "./vite";
+import { setupVite } from "./vite";
 import { logInfo, logError } from "./services/logger";
 import { registerRoutes } from "./routes";
 import { fileURLToPath } from 'url';
@@ -121,22 +121,27 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     });
 
     // Set up Vite middleware for development
-    if (process.env.NODE_ENV === 'development') {
-      await setupVite(app, { root: join(__dirname, '../client') });
-    }
+    if (process.env.NODE_ENV !== 'production') {
+      await setupVite(app, {
+        root: join(__dirname, '../client'),
+        server: {
+          middlewareMode: true,
+          watch: {
+            usePolling: true,
+            interval: 100
+          }
+        }
+      });
 
-    // Serve static files in production
-    if (process.env.NODE_ENV === 'production') {
-      app.use(serveStatic(join(__dirname, '../client/dist')));
-    }
-
-    // Handle SPA routing - must be after static files
-    app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api')) {
+      // In development, all requests that don't match API routes should be handled by Vite
+      app.use('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) {
+          return next();
+        }
+        // Let Vite handle all other requests
         return next();
-      }
-      res.sendFile(join(__dirname, '../client/dist/index.html'));
-    });
+      });
+    }
 
     const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
     logInfo(`Attempting to start server on port ${port}`, {
