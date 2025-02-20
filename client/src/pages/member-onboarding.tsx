@@ -50,13 +50,15 @@ const locationMembershipSchema = z.object({
   membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
 });
 
-// Add date components to the schema
+// Update the schema
 const onboardingSchema = z.object({
   // Location and Membership (Step 1)
   ...locationMembershipSchema.shape,
 
   // Personal Information (Step 2)
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  middleInitial: z.string().max(1, "Middle initial should be a single character").optional(),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   birthMonth: z.number().min(1).max(12),
   birthDay: z.number().min(1).max(31),
@@ -114,9 +116,13 @@ export default function MemberOnboardingPage() {
     queryFn: () => fetch("/api/gym-membership-pricing").then((res) => res.json()),
   });
 
+  // Update the form default values
   const form = useForm<OnboardingForm>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
+      firstName: "",
+      middleInitial: "",
+      lastName: "",
       membershipType: undefined,
       gymLocationId: undefined,
       liabilityWaiverSigned: false,
@@ -143,15 +149,15 @@ export default function MemberOnboardingPage() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Personal Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-6 gap-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="firstName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                  <FormItem className="col-span-2">
+                    <FormLabel>First Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="John" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -159,120 +165,133 @@ export default function MemberOnboardingPage() {
               />
               <FormField
                 control={form.control}
-                name="email"
+                name="middleInitial"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
+                  <FormItem className="col-span-1">
+                    <FormLabel>M.I.</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="john@example.com" {...field} />
+                      <Input placeholder="A" maxLength={1} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <div className="space-y-2">
-                <FormLabel className="text-base">Date of Birth</FormLabel>
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="birthMonth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Month</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Month" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {range(1, 12).map((month) => (
-                              <SelectItem key={month} value={month.toString()}>
-                                {getMonthName(month)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="birthDay"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Day</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Day" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {range(1, 31).map((day) => (
-                              <SelectItem key={day} value={day.toString()}>
-                                {day}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="birthYear"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Year</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Year" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {range(1900, new Date().getFullYear()).reverse().map((year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormDescription>Please select your date of birth</FormDescription>
-              </div>
               <FormField
                 control={form.control}
-                name="gender"
+                name="lastName"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                        <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <FormItem className="col-span-3">
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Doe" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
 
+            <div className="space-y-2">
+              <FormLabel className="text-base">Date of Birth</FormLabel>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="birthMonth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Month</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Month" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {range(1, 12).map((month) => (
+                            <SelectItem key={month} value={month.toString()}>
+                              {getMonthName(month)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="birthDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Day</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Day" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {range(1, 31).map((day) => (
+                            <SelectItem key={day} value={day.toString()}>
+                              {day}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="birthYear"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Year</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Year" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {range(1900, new Date().getFullYear()).reverse().map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormDescription>Please select your date of birth</FormDescription>
+            </div>
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {/* Contact Information */}
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -656,17 +675,21 @@ export default function MemberOnboardingPage() {
     }
   };
 
+  // Update the submit function to combine the name fields
   async function onSubmit(data: OnboardingForm) {
     setIsSubmitting(true);
     try {
       // Combine birth date components into a single Date object
       const birthDate = new Date(data.birthYear, data.birthMonth - 1, data.birthDay);
 
+      // Combine name components
+      const fullName = `${data.firstName}${data.middleInitial ? ` ${data.middleInitial}.` : ''} ${data.lastName}`;
+
       const userResponse = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: data.name,
+          name: fullName,
           email: data.email,
           role: "user",
           username: data.email,
