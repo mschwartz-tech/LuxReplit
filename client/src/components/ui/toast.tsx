@@ -7,6 +7,10 @@ import { cn } from "@/lib/utils"
 
 const ToastProvider = ToastPrimitives.Provider
 
+const ToastLoading = () => (
+  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+);
+
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>

@@ -52,14 +52,13 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // Utility functions for different log levels
-export const logError = (message: string, meta?: any) => {
-  const timestamp = new Date().toISOString();
-  const context = {
-    timestamp,
+export const logError = (message: string, meta?: object) => {
+  const errorMeta = {
+    timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     ...meta
   };
-  logger.error(message, context);
+  logger.error(message, errorMeta);
 };
 
 export const logInfo = (message: string, meta: object = {}) => {
