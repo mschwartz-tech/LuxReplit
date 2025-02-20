@@ -508,13 +508,14 @@ export default function MemberOnboardingPage() {
                   <FormControl>
                     <Textarea
                       placeholder="Enter your fitness goals (one per line)"
+                      value={Array.isArray(field.value) ? field.value.join('\n') : ''}
                       onChange={(e) => {
                         const goals = e.target.value
-                          .split("\n")
-                          .filter(goal => goal.trim() !== "");
+                          .split('\n')
+                          .map(goal => goal.trim())
+                          .filter(goal => goal !== '');
                         field.onChange(goals);
                       }}
-                      value={Array.isArray(field.value) ? field.value.join("\n") : ""}
                     />
                   </FormControl>
                   <FormDescription>Enter each goal on a new line</FormDescription>
@@ -534,11 +535,12 @@ export default function MemberOnboardingPage() {
                       onChange={(e) =>
                         field.onChange(
                           e.target.value
-                            .split("\n")
-                            .filter((condition) => condition.trim() !== "")
+                            .split('\n')
+                            .map(condition => condition.trim())
+                            .filter((condition) => condition !== "")
                         )
                       }
-                      value={field.value?.join("\n") || ""}
+                      value={field.value?.join('\n') || ""}
                     />
                   </FormControl>
                   <FormDescription>Optional</FormDescription>
