@@ -172,24 +172,24 @@ export function setupAuth(app: Express) {
   });
 
   // Create admin user if it doesn't exist
-  createAdminUser();
-}
-
-async function createAdminUser() {
-  try {
-    const adminUser = await storage.getUserByUsername('admin');
-    if (!adminUser) {
-      const hashedPassword = await hashPassword('admin');
-      await storage.createUser({
-        username: 'admin',
-        password: hashedPassword,
-        role: 'admin',
-        email: 'admin@luxegym.com',
-        name: 'Admin User'
-      });
-      console.log('Admin user created successfully');
+  async function createAdminUser() {
+    try {
+      const adminUser = await storage.getUserByUsername('admin');
+      if (!adminUser) {
+        const hashedPassword = await hashPassword('admin');
+        await storage.createUser({
+          username: 'admin',
+          password: hashedPassword,
+          role: 'admin',
+          email: 'admin@luxegym.com',
+          name: 'Admin User'
+        });
+        console.log('Admin user created successfully');
+      }
+    } catch (error) {
+      console.error('Error creating admin user:', error);
     }
-  } catch (error) {
-    console.error('Error creating admin user:', error);
   }
+
+  createAdminUser();
 }
