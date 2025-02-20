@@ -405,10 +405,16 @@ export default function MemberOnboardingPage() {
                         <SelectContent>
                           {form.getValues("gymLocationId") && (
                             <>
-                              <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
-                              <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
-                              <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
-                              <SelectItem value="training_only">Training Only</SelectItem>
+                              {form.getValues("gymLocationId") === 0 ? (
+                                <SelectItem value="training_only">Training Only</SelectItem>
+                              ) : (
+                                <>
+                                  <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
+                                  <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
+                                  <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
+                                  <SelectItem value="training_only">Training Only</SelectItem>
+                                </>
+                              )}
                             </>
                           )}
                         </SelectContent>
