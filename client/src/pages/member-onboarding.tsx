@@ -169,10 +169,10 @@ export default function MemberOnboardingPage() {
       liabilityWaiverSigned: false,
       photoReleaseWaiverSigned: false,
       marketingOptIn: false,
-      fitnessGoals: [], // Ensure this is initialized as an empty array
-      healthConditions: [],
-      medications: [],
-      injuries: [],
+      fitnessGoals: [], // Initialize as empty array
+      healthConditions: [], // Initialize as empty array
+      medications: [], // Initialize as empty array
+      injuries: [], // Initialize as empty array
       preferredLocation: "",
       height: "",
       weight: "",
@@ -508,12 +508,12 @@ export default function MemberOnboardingPage() {
                   <FormControl>
                     <Textarea
                       placeholder="Enter your fitness goals (one per line)"
-                      value={Array.isArray(field.value) ? field.value.join('\n') : ''}
+                      value={(field.value || []).join('\n')}
                       onChange={(e) => {
                         const goals = e.target.value
                           .split('\n')
                           .map(goal => goal.trim())
-                          .filter(goal => goal !== '');
+                          .filter(Boolean);
                         field.onChange(goals);
                       }}
                     />
@@ -532,15 +532,14 @@ export default function MemberOnboardingPage() {
                   <FormControl>
                     <Textarea
                       placeholder="Enter any health conditions (one per line)"
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value
-                            .split('\n')
-                            .map(condition => condition.trim())
-                            .filter((condition) => condition !== "")
-                        )
-                      }
-                      value={field.value?.join('\n') || ""}
+                      value={(field.value || []).join('\n')}
+                      onChange={(e) => {
+                        const conditions = e.target.value
+                          .split('\n')
+                          .map(condition => condition.trim())
+                          .filter(Boolean);
+                        field.onChange(conditions);
+                      }}
                     />
                   </FormControl>
                   <FormDescription>Optional</FormDescription>
