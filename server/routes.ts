@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import {
-  insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
+  insertUserSchema, insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
