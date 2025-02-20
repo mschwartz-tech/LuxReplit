@@ -777,7 +777,7 @@ const PackageSelectionStep = ({ form, gymLocations }: StepProps) => (
 // Validation middleware
 const validateFormData = (data: OnboardingForm) => {
   const errors: Partial<Record<keyof OnboardingForm, string>> = {};
-  
+
   // Email validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(data.email)) {
@@ -929,7 +929,7 @@ export default function MemberOnboardingPage() {
     try {
       setIsSubmitting(true);
       console.log('Form submission started');
-      
+
       // Validate form data
       try {
         validateFormData(data);
@@ -948,14 +948,14 @@ export default function MemberOnboardingPage() {
         password: "temporary123", // This should be changed on first login
         role: "user",
         email: data.email,
-        name: `${data.firstName} ${data.middleInitial ? data.middleInitial + ' ' : ''}${data.lastName}`,
+        name: `${data.firstName} ${data.middleInitial ?`data.middleInitial + ' ' : ''}${data.lastName}`,
       };
 
       // Create user account with timeout and retry
       const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 5000) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-        
+
         try {
           const response = await fetch(url, {
             ...options,
@@ -1165,19 +1165,20 @@ export default function MemberOnboardingPage() {
                   {/* Navigation Buttons */}
                   <div className="flex items-center justify-between mt-6 pt-6 border-t">
                     {currentStep > 1 && (
-                      <Button type="button" variant="outline" onClick={handlePrevious}>
+                      <Button type="button" variant="outline" onClick={handlePrevious} className="gap-2">
+                        <ArrowLeft className="h-4 w-4" />
                         Previous
                       </Button>
                     )}
                     <Button
                       type="button"
                       onClick={handleNext}
-                      className={cn("ml-auto", { "ml-0": currentStep === 1 })}
+                      className={cn("ml-auto gap-2", { "ml-0": currentStep === 1 })}
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           {currentStep === 4 ? "Submitting..." : "Next"}
                         </>
                       ) : (
