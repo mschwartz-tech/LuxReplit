@@ -6,7 +6,9 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useCallback } from "react";
+import { useState, useCallback, Fragment } from "react";
+
+// Rest of the imports remain unchanged...
 
 interface EditableCellProps {
   value: string;
@@ -75,13 +77,11 @@ export default function PricingPage() {
       return data;
     },
     onSuccess: (data) => {
-      // Immediately update the local query cache with the new gym
       queryClient.setQueryData<GymMembershipPricing[]>(
         ["/api/gym-membership-pricing"],
         (old) => [...(old || []), data]
       );
 
-      // Then invalidate to ensure we're in sync with the server
       queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
 
       setShowNewGymForm(false);
@@ -316,7 +316,7 @@ export default function PricingPage() {
 
                     const currentChanges = changes[plan.id] || {};
                     return (
-                      <React.Fragment key={`${sessions}-${duration}`}>
+                      <Fragment key={`${sessions}-${duration}`}>
                         <td className="px-3 py-2 whitespace-nowrap">
                           <EditableCell
                             value={currentChanges.costPerSession ?? plan.costPerSession.toString()}
@@ -341,7 +341,7 @@ export default function PricingPage() {
                             }
                           />
                         </td>
-                      </React.Fragment>
+                      </Fragment>
                     );
                   })}
                 </tr>
@@ -428,10 +428,7 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        (gymChanges[pricing.id]?.luxeEssentialsPrice !== undefined
-                          ? gymChanges[pricing.id]?.luxeEssentialsPrice
-                          : pricing.luxeEssentialsPrice
-                        ).toString()
+                        (gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice).toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
                     />
@@ -439,10 +436,7 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        (gymChanges[pricing.id]?.luxeStrivePrice !== undefined
-                          ? gymChanges[pricing.id]?.luxeStrivePrice
-                          : pricing.luxeStrivePrice
-                        ).toString()
+                        (gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice).toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
                     />
@@ -450,10 +444,7 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        (gymChanges[pricing.id]?.luxeAllAccessPrice !== undefined
-                          ? gymChanges[pricing.id]?.luxeAllAccessPrice
-                          : pricing.luxeAllAccessPrice
-                        ).toString()
+                        (gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice).toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
                     />
