@@ -89,7 +89,12 @@ export default function PricingPage() {
         fetch(`/api/gym-membership-pricing/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(pricing),
+          body: JSON.stringify({
+            ...pricing,
+            luxeEssentialsPrice: pricing.luxeEssentialsPrice ? parseFloat(pricing.luxeEssentialsPrice as string) : undefined,
+            luxeStrivePrice: pricing.luxeStrivePrice ? parseFloat(pricing.luxeStrivePrice as string) : undefined,
+            luxeAllAccessPrice: pricing.luxeAllAccessPrice ? parseFloat(pricing.luxeAllAccessPrice as string) : undefined,
+          }),
         }).then(res => {
           if (!res.ok) throw new Error(`Failed to update gym pricing ${id}`);
           return res.json();
@@ -119,7 +124,12 @@ export default function PricingPage() {
       const response = await fetch("/api/gym-membership-pricing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pricing),
+        body: JSON.stringify({
+          ...pricing,
+          luxeEssentialsPrice: parseFloat(pricing.luxeEssentialsPrice),
+          luxeStrivePrice: parseFloat(pricing.luxeStrivePrice),
+          luxeAllAccessPrice: parseFloat(pricing.luxeAllAccessPrice),
+        }),
       });
       if (!response.ok) throw new Error("Failed to create gym pricing");
       return response.json();
