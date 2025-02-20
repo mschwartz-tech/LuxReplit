@@ -33,13 +33,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
+//import { Calendar } from "@/components/ui/calendar"; // Removed Calendar import
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, setYear, setMonth, setDate } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
@@ -50,7 +50,7 @@ const locationMembershipSchema = z.object({
   membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
 });
 
-// Combine all schemas for the complete form
+// Add date components to the schema
 const onboardingSchema = z.object({
   // Location and Membership (Step 1)
   ...locationMembershipSchema.shape,
@@ -58,7 +58,9 @@ const onboardingSchema = z.object({
   // Personal Information (Step 2)
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  birthDate: z.date(),
+  birthMonth: z.number().min(1).max(12),
+  birthDay: z.number().min(1).max(31),
+  birthYear: z.number().min(1900).max(new Date().getFullYear()),
   gender: z.string(),
   phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
   address: z.string(),
@@ -86,6 +88,15 @@ const onboardingSchema = z.object({
   preferredLocation: z.string().optional(),
   marketingOptIn: z.boolean(),
 });
+
+// Helper function to generate array of numbers in range
+const range = (start: number, end: number) =>
+  Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
+// Helper function to get month name
+const getMonthName = (month: number) => {
+  return format(setMonth(new Date(), month - 1), 'MMMM');
+};
 
 type OnboardingForm = z.infer<typeof onboardingSchema>;
 
@@ -116,6 +127,9 @@ export default function MemberOnboardingPage() {
       medications: [],
       injuries: [],
       preferredContactMethod: "email",
+      birthMonth: undefined,
+      birthDay: undefined,
+      birthYear: undefined,
     },
   });
 
@@ -156,47 +170,80 @@ export default function MemberOnboardingPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="birthDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Date of Birth</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="birthMonth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Month</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
                         <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Month" />
+                          </SelectTrigger>
                         </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date > new Date() || date < new Date("1900-01-01")
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        <SelectContent>
+                          {range(1, 12).map((month) => (
+                            <SelectItem key={month} value={month.toString()}>
+                              {getMonthName(month)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="birthDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Day</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Day" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {range(1, 31).map((day) => (
+                            <SelectItem key={day} value={day.toString()}>
+                              {day}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="birthYear"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Year</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Year" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {range(1900, new Date().getFullYear()).reverse().map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
                 name="gender"
@@ -336,7 +383,7 @@ export default function MemberOnboardingPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {gymLocations?.map((location: {id: number, gymName: string}) => (
+                        {gymLocations?.map((location: { id: number; gymName: string }) => (
                           <SelectItem key={location.id} value={location.id.toString()}>
                             {location.gymName}
                           </SelectItem>
@@ -608,6 +655,9 @@ export default function MemberOnboardingPage() {
   async function onSubmit(data: OnboardingForm) {
     setIsSubmitting(true);
     try {
+      // Combine birth date components into a single Date object
+      const birthDate = new Date(data.birthYear, data.birthMonth - 1, data.birthDay);
+
       const userResponse = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -643,7 +693,7 @@ export default function MemberOnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: newUser.id,
-          birthDate: data.birthDate,
+          birthDate: birthDate.toISOString(), // Use the combined date
           gender: data.gender,
           address: data.address,
           city: data.city,
