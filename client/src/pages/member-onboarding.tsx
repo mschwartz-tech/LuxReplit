@@ -1039,7 +1039,7 @@ export default function MemberOnboardingPage() {
         description: "Member onboarding completed successfully",
       });
 
-      navigate(`/member-checkout?memberId=${newMember.id}`);
+      navigate(`/member-checkout?memberId=${newMember.id}&sessionDuration=${data.sessionDuration}&sessionsPerWeek=${data.sessionsPerWeek}&paymentType=${data.paymentType}&membershipType=${data.membershipType}&gymLocationId=${data.gymLocationId}`);
     } catch (error) {
       console.error("Onboarding error:", error);
       toast({

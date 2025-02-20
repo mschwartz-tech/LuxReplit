@@ -35,6 +35,18 @@ const requireRole = (roles: string[]) => (req: any, res: any, next: any) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
+  // User Management Routes
+  app.post("/api/users", requireRole(["admin"]), asyncHandler(async (req, res) => {
+    const parsed = insertUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      logError("User creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const user = await storage.createUser(parsed.data);
+    logInfo("New user created", { userId: user.id });
+    res.status(201).json(user);
+  }));
+
   // Member Management Routes
   app.get("/api/members", requireAuth, asyncHandler(async (req, res) => {
     const members = await storage.getMembers();
