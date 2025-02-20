@@ -33,13 +33,43 @@ export const members = pgTable("members", {
 export const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  // Personal Information
+  birthDate: timestamp("birth_date"),
+  gender: text("gender"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  phoneNumber: text("phone_number"),
+  preferredLocation: text("preferred_location"),
+  // Physical Information
   height: text("height"),  // Store as text to handle various formats
   weight: text("weight"),  // Store as text to handle various formats
-  goals: text("goals").array(),
+  // Goals and Health
+  fitnessGoals: text("fitness_goals").array(),
   healthConditions: text("health_conditions").array(),
+  medications: text("medications").array(),
+  injuries: text("injuries").array(),
+  // Emergency Contact
   emergencyContactName: text("emergency_contact_name"),
   emergencyContactPhone: text("emergency_contact_phone"),
   emergencyContactRelation: text("emergency_contact_relation"),
+  // Liability and Agreements
+  liabilityWaiverSigned: boolean("liability_waiver_signed"),
+  liabilityWaiverSignedDate: timestamp("liability_waiver_signed_date"),
+  photoReleaseWaiverSigned: boolean("photo_release_waiver_signed"),
+  photoReleaseWaiverSignedDate: timestamp("photo_release_waiver_signed_date"),
+  // Preferences
+  preferredContactMethod: text("preferred_contact_method", {
+    enum: ["email", "phone", "text"]
+  }),
+  marketingOptIn: boolean("marketing_opt_in"),
+  // Previous medical clearance
+  hadPhysicalLastYear: boolean("had_physical_last_year"),
+  physicianClearance: boolean("physician_clearance"),
+  physicianName: text("physician_name"),
+  physicianPhone: text("physician_phone"),
+  // Timestamps
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -165,11 +195,17 @@ export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true
 export const insertMemberSchema = createInsertSchema(members).omit({ createdAt: true });
 export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
   .extend({
-    goals: z.array(z.string()).min(1, "At least one goal is required"),
+    fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
     healthConditions: z.array(z.string()).optional(),
+    medications: z.array(z.string()).optional(),
+    injuries: z.array(z.string()).optional(),
     height: z.string().min(1, "Height must not be empty"),
     weight: z.string().min(1, "Weight must not be empty"),
-  });
+    phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+    zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
+    preferredContactMethod: z.enum(["email", "phone", "text"]),
+  })
+  .omit({ createdAt: true, updatedAt: true });
 export const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
   .extend({
     measurements: z.object({

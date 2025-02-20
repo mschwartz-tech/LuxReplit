@@ -142,7 +142,7 @@ export class DatabaseStorage implements IStorage {
     const [profile] = await db
       .select()
       .from(memberProfiles)
-      .where(eq(memberProfiles.memberId, memberId));
+      .where(eq(memberProfiles.userId, memberId));
     return profile;
   }
 
@@ -151,8 +151,9 @@ export class DatabaseStorage implements IStorage {
       .insert(memberProfiles)
       .values({
         ...profile,
-        height: profile.height.toString(),
-        weight: profile.weight.toString(),
+        height: profile.height?.toString(),
+        weight: profile.weight?.toString(),
+        updatedAt: new Date(),
       })
       .returning();
     return newProfile;
