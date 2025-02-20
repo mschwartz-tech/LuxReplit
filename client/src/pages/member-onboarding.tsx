@@ -170,79 +170,83 @@ export default function MemberOnboardingPage() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="birthMonth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Month</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Month" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {range(1, 12).map((month) => (
-                            <SelectItem key={month} value={month.toString()}>
-                              {getMonthName(month)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="birthDay"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Day</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Day" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {range(1, 31).map((day) => (
-                            <SelectItem key={day} value={day.toString()}>
-                              {day}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="birthYear"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Year</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Year" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {range(1900, new Date().getFullYear()).reverse().map((year) => (
-                            <SelectItem key={year} value={year.toString()}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="space-y-2">
+                <FormLabel className="text-base">Date of Birth</FormLabel>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="birthMonth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Month</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Month" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {range(1, 12).map((month) => (
+                              <SelectItem key={month} value={month.toString()}>
+                                {getMonthName(month)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="birthDay"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Day</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Day" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {range(1, 31).map((day) => (
+                              <SelectItem key={day} value={day.toString()}>
+                                {day}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="birthYear"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year</FormLabel>
+                        <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Year" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {range(1900, new Date().getFullYear()).reverse().map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormDescription>Please select your date of birth</FormDescription>
               </div>
               <FormField
                 control={form.control}
