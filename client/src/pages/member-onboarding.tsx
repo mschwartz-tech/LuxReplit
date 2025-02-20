@@ -222,6 +222,28 @@ export default function MemberOnboardingPage() {
               />
             </div>
 
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address</FormLabel>
+                  <FormControl>
+                    <AddressAutocomplete
+                      {...field}
+                      onAddressSelect={(data) => {
+                        form.setValue('address', data.address);
+                        form.setValue('city', data.city);
+                        form.setValue('state', data.state);
+                        form.setValue('zipCode', data.zipCode);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div>
               <FormLabel className="text-sm font-medium block mb-1.5">Date of Birth</FormLabel>
               <div className="grid grid-cols-3 gap-2">
