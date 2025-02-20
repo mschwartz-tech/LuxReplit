@@ -89,6 +89,7 @@ export interface IStorage {
   getGymMembershipPricingById(id: number): Promise<GymMembershipPricing | undefined>;
   createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing>;
   updateGymMembershipPricing(id: number, pricing: Partial<InsertGymMembershipPricing>): Promise<GymMembershipPricing>;
+  deleteGymMembershipPricing(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -379,6 +380,7 @@ export class DatabaseStorage implements IStorage {
   async getGymMembershipPricing(): Promise<GymMembershipPricing[]> {
     return await db.select()
       .from(gymMembershipPricing)
+      .where(eq(gymMembershipPricing.isActive, true))
       .orderBy(gymMembershipPricing.gymName);
   }
 
@@ -397,6 +399,7 @@ export class DatabaseStorage implements IStorage {
         luxeStrivePrice: pricing.luxeStrivePrice.toString(),
         luxeAllAccessPrice: pricing.luxeAllAccessPrice.toString(),
         updatedAt: new Date(),
+        isActive: true
       })
       .returning();
     return newPricing;
@@ -423,6 +426,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(gymMembershipPricing.id, id))
       .returning();
     return updatedPricing;
+  }
+
+  async deleteGymMembershipPricing(id: number): Promise<void> {
+    await db.update(gymMembershipPricing)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(gymMembershipPricing.id, id));
   }
 }
 
@@ -480,6 +489,7 @@ CREATE TABLE IF NOT EXISTS gym_membership_pricing (
   luxe_essentials_price DECIMAL(10,2) NOT NULL,
   luxe_strive_price DECIMAL(10,2) NOT NULL,
   luxe_all_access_price DECIMAL(10,2) NOT NULL,
+  isactive BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

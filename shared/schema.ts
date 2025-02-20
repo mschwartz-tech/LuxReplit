@@ -184,10 +184,11 @@ export const pricingPlans = pgTable("pricing_plans", {
 
 export const gymMembershipPricing = pgTable("gym_membership_pricing", {
   id: serial("id").primaryKey(),
-  gymName: text("gym_name").notNull(),
+  gymName: text("gym_name").notNull().unique(),
   luxeEssentialsPrice: numeric("luxe_essentials_price").notNull(),
   luxeStrivePrice: numeric("luxe_strive_price").notNull(),
   luxeAllAccessPrice: numeric("luxe_all_access_price").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -258,7 +259,7 @@ export const insertGymMembershipPricingSchema = createInsertSchema(gymMembership
       typeof val === 'string' ? parseFloat(val) : val
     ),
   })
-  .omit({ createdAt: true, updatedAt: true });
+  .omit({ createdAt: true, updatedAt: true, isActive: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

@@ -1,12 +1,22 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Save, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, Loader2, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useCallback, Fragment } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface EditableCellProps {
   value: string | number;
@@ -45,6 +55,7 @@ export default function PricingPage() {
     luxeStrivePrice: "",
     luxeAllAccessPrice: "",
   });
+  const [gymToDelete, setGymToDelete] = useState<number | null>(null);
 
   const { data: pricingPlans = [], isLoading: plansLoading } = useQuery<PricingPlan[]>({
     queryKey: ["/api/pricing-plans"],
@@ -174,6 +185,43 @@ export default function PricingPage() {
 
   const handleSaveGymChanges = () => {
     updateGymMutation.mutate(gymChanges);
+  };
+
+  const deleteGymMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/gym-membership-pricing/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to delete gym pricing: ${error}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      toast({
+        title: "Success",
+        description: "Gym pricing deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete gym pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteGym = (id: number) => {
+    setGymToDelete(id);
+  };
+
+  const confirmDelete = () => {
+    if (gymToDelete) {
+      deleteGymMutation.mutate(gymToDelete);
+      setGymToDelete(null);
+    }
   };
 
   if (plansLoading || locationsLoading) {
@@ -367,85 +415,100 @@ export default function PricingPage() {
             </Button>
           </div>
 
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                  Gym Location
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                  Luxe Essentials
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                  Luxe Strive
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                  Luxe All-Access
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {showNewGymForm && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td className="px-3 py-2">
-                    <Input
-                      value={newGym.gymName}
-                      onChange={(e) => setNewGym(prev => ({ ...prev, gymName: e.target.value }))}
-                      className="w-full h-8 text-sm"
-                      placeholder="Gym Name"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EditableCell
-                      value={newGym.luxeEssentialsPrice}
-                      onChange={(value) => setNewGym(prev => ({ ...prev, luxeEssentialsPrice: value }))}
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EditableCell
-                      value={newGym.luxeStrivePrice}
-                      onChange={(value) => setNewGym(prev => ({ ...prev, luxeStrivePrice: value }))}
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EditableCell
-                      value={newGym.luxeAllAccessPrice}
-                      onChange={(value) => setNewGym(prev => ({ ...prev, luxeAllAccessPrice: value }))}
-                    />
-                  </td>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gym Location
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Luxe Essentials
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Luxe Strive
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Luxe All-Access
+                  </th>
+                  <th className="px-3 py-2 w-16"></th>
                 </tr>
-              )}
-              {gymPricing?.map((pricing) => (
-                <tr key={pricing.id}>
-                  <td className="px-3 py-2">
-                    <Input
-                      value={gymChanges[pricing.id]?.gymName ?? pricing.gymName}
-                      onChange={(e) => handleGymPriceChange(pricing.id, "gymName", e.target.value)}
-                      className="w-full h-8 text-sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EditableCell
-                      value={gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice}
-                      onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EditableCell
-                      value={gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice}
-                      onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <EditableCell
-                      value={gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice}
-                      onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {showNewGymForm && (
+                  <tr>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={newGym.gymName}
+                        onChange={(e) => setNewGym(prev => ({ ...prev, gymName: e.target.value }))}
+                        className="w-full h-8 text-sm"
+                        placeholder="Gym Name"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newGym.luxeEssentialsPrice}
+                        onChange={(value) => setNewGym(prev => ({ ...prev, luxeEssentialsPrice: value }))}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newGym.luxeStrivePrice}
+                        onChange={(value) => setNewGym(prev => ({ ...prev, luxeStrivePrice: value }))}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newGym.luxeAllAccessPrice}
+                        onChange={(value) => setNewGym(prev => ({ ...prev, luxeAllAccessPrice: value }))}
+                      />
+                    </td>
+                    <td></td>
+                  </tr>
+                )}
+                {gymPricing?.map((pricing) => (
+                  <tr key={pricing.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2">
+                      <Input
+                        value={gymChanges[pricing.id]?.gymName ?? pricing.gymName}
+                        onChange={(e) => handleGymPriceChange(pricing.id, "gymName", e.target.value)}
+                        className="w-full h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={gymChanges[pricing.id]?.luxeEssentialsPrice ?? pricing.luxeEssentialsPrice}
+                        onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={gymChanges[pricing.id]?.luxeStrivePrice ?? pricing.luxeStrivePrice}
+                        onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={gymChanges[pricing.id]?.luxeAllAccessPrice ?? pricing.luxeAllAccessPrice}
+                        onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => handleDeleteGym(pricing.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {showNewGymForm && (
             <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
               <Button
@@ -482,6 +545,23 @@ export default function PricingPage() {
           )}
         </div>
       </div>
+
+      <AlertDialog open={!!gymToDelete} onOpenChange={() => setGymToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the gym pricing information.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
