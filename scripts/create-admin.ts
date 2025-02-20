@@ -2,16 +2,20 @@ import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { db } from "../server/db";
 import { users } from "../shared/schema";
+import { sql } from 'drizzle-orm';
 
 const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  const salt = randomBytes(16);
+  const derivedKey = (await scryptAsync(password, salt, 32)) as Buffer;
+  return `${derivedKey.toString('hex')}.${salt.toString('hex')}`;
 }
 
 async function createTestUsers() {
+  // First, clear existing test users
+  await db.delete(users).where(sql`username LIKE ${'%_test'}`);
+
   // Create admin user
   const adminPassword = await hashPassword("password123");
   await db.insert(users).values({

@@ -4,19 +4,28 @@ import { insertUserSchema } from "@shared/schema";
 import { requireRole } from "../middleware/auth";
 import { asyncHandler } from "../middleware/async";
 import { logError, logInfo } from "../services/logger";
+import passport from "passport";
 import type { Express, Request, Response, NextFunction } from "express";
-import { ZodError, ZodSchema } from "zod";
+import { ZodError } from "zod";
+import { fromZodError } from "zod-validation-error";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 
 const router = Router();
+const scryptAsync = promisify(scrypt);
 
-const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  if (err instanceof ZodError) {
-    logError("Validation error", { error: err });
-    return res.status(400).json({ message: "Validation error", errors: err.issues });
-  }
-  logError("Internal server error", { error: err });
-  return res.status(500).json({ message: "Internal server error" });
-};
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+async function comparePasswords(supplied: string, stored: string) {
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedBuf, suppliedBuf);
+}
 
 const validateRequest = (schema: ZodSchema) => (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -26,18 +35,12 @@ const validateRequest = (schema: ZodSchema) => (req: Request, res: Response, nex
     if (error instanceof ZodError) {
       return res.status(400).json({
         message: "Validation error",
-        details: fromZodError(error).details
-      });
-    }
-    if (error instanceof AuthorizationError) {
-      return res.status(403).json({
-        message: error.message
+        details: fromZodError(error).toString()
       });
     }
     next(error);
   }
 };
-
 
 router.post("/register", validateRequest(insertUserSchema), asyncHandler(async (req, res, next) => {
   const existingUser = await storage.getUserByUsername(req.body.username);
@@ -45,8 +48,13 @@ router.post("/register", validateRequest(insertUserSchema), asyncHandler(async (
     return res.status(400).json({ message: "Username already exists" });
   }
 
-  const user = await storage.createUser(req.body);
-  logInfo("New user created", { userId: user.id });
+  const hashedPassword = await hashPassword(req.body.password);
+  const user = await storage.createUser({
+    ...req.body,
+    password: hashedPassword
+  });
+
+  logInfo("New user registered", { username: user.username });
 
   req.login(user, (err) => {
     if (err) return next(err);
@@ -55,22 +63,31 @@ router.post("/register", validateRequest(insertUserSchema), asyncHandler(async (
   });
 }));
 
-router.post("/login", (req, res, next) => {
+router.post("/login", async (req, res, next) => {
   if (!req.body.username || !req.body.password) {
     return res.status(400).json({ message: "Username and password are required" });
   }
 
-  passport.authenticate("local", (err, user, info) => {
-    if (err) return next(err);
+  try {
+    const user = await storage.getUserByUsername(req.body.username);
     if (!user) {
-      return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid username or password" });
     }
+
+    const passwordValid = await comparePasswords(req.body.password, user.password);
+    if (!passwordValid) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
     req.login(user, (err) => {
       if (err) return next(err);
       const { password, ...userWithoutPassword } = user;
       res.status(200).json(userWithoutPassword);
     });
-  })(req, res, next);
+  } catch (error) {
+    logError("Login error", { error });
+    next(error);
+  }
 });
 
 router.post("/logout", (req, res, next) => {
@@ -78,7 +95,7 @@ router.post("/logout", (req, res, next) => {
     if (err) return next(err);
     req.session.destroy((err) => {
       if (err) return next(err);
-      res.clearCookie('session');
+      res.clearCookie('connect.sid');
       res.sendStatus(200);
     });
   });
@@ -89,7 +106,5 @@ router.get("/user", (req, res) => {
   const { password, ...userWithoutPassword } = req.user;
   res.json(userWithoutPassword);
 });
-
-router.use(errorHandler);
 
 export default router;

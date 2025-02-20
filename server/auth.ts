@@ -127,7 +127,7 @@ export function setupAuth(app: Express) {
       const user = await storage.createUser({
         ...req.body,
         password: hashedPassword,
-        role: 'member' // Default role
+        role: 'user' // Default role for new registrations
       });
 
       logInfo('New user registered', { userId: user.id });
@@ -182,26 +182,4 @@ export function setupAuth(app: Express) {
     const { password, ...userWithoutPassword } = req.user;
     res.json(userWithoutPassword);
   });
-
-  // Create admin user if it doesn't exist
-  async function createAdminUser() {
-    try {
-      const adminUser = await storage.getUserByUsername('admin');
-      if (!adminUser) {
-        const hashedPassword = await hashPassword('admin');
-        await storage.createUser({
-          username: 'admin',
-          password: hashedPassword,
-          role: 'admin',
-          email: 'admin@luxegym.com',
-          name: 'Admin User'
-        });
-        logInfo('Admin user created successfully');
-      }
-    } catch (error) {
-      logError('Error creating admin user:', { error });
-    }
-  }
-
-  createAdminUser();
 }
