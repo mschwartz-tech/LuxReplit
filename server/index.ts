@@ -93,13 +93,31 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     serveStatic(app);
   }
 
-  const PORT = process.env.PORT || 5000;
-  const HOST = '0.0.0.0';
+  const tryPort = async (port: number): Promise<number> => {
+    try {
+      await new Promise((resolve, reject) => {
+        server.listen(port, '0.0.0.0')
+          .once('listening', () => {
+            server.close(() => resolve(port));
+          })
+          .once('error', reject);
+      });
+      return port;
+    } catch (err) {
+      if (err.code === 'EADDRINUSE') {
+        return tryPort(port + 1);
+      }
+      throw err;
+    }
+  };
 
-  server.listen(Number(PORT), HOST, () => {
-    logInfo(`Server started on port ${PORT}`, {
+  const startPort = Number(process.env.PORT) || 5000;
+  const port = await tryPort(startPort);
+  
+  server.listen(port, '0.0.0.0', () => {
+    logInfo(`Server started on port ${port}`, {
       env: process.env.NODE_ENV,
-      port: PORT,
+      port,
     });
   });
 })();
