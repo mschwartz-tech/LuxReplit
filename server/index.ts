@@ -119,11 +119,12 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 
   // Start server
   const PORT = process.env.PORT || 5000;
+  const HOST = '0.0.0.0';
   const MAX_RETRIES = 3;
   let currentRetry = 0;
 
   const startServer = () => {
-    server.listen(PORT, () => {
+    server.listen(PORT, HOST, () => {
       logInfo(`Server started on port ${PORT}`, {
         env: process.env.NODE_ENV,
         port: PORT,
