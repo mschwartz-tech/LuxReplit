@@ -130,6 +130,9 @@ export default function PricingPage() {
 
       <div className="flex justify-center">
         <div className="overflow-x-auto rounded-lg border border-gray-200 max-w-4xl">
+          <h2 className="text-lg font-medium text-gray-900 p-4 border-b bg-gray-50">
+            Personal Training Pricing Index
+          </h2>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
