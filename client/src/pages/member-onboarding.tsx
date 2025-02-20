@@ -912,7 +912,7 @@ export default function MemberOnboardingPage() {
       const userData = {
         username: data.email,
         password: "temporary123", // This should be changed on first login
-        role: "member",
+        role: "user",
         email: data.email,
         name: `${data.firstName} ${data.middleInitial ? data.middleInitial + ' ' : ''}${data.lastName}`,
       };
