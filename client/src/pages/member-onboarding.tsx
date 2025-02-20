@@ -71,13 +71,15 @@ const step1Schema = z.object({
   }),
   membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"], {
     required_error: "Membership type is required"
-  }).refine((val, ctx) => {
-    const gymLocationId = parseInt(ctx.path[0].toString());
-    if (gymLocationId === 0 && val !== "training_only") {
-      return false;
+  }).superRefine((val, ctx) => {
+    const data = ctx.parent as { gymLocationId?: number };
+    if (data.gymLocationId === 0 && val !== "training_only") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Training Only membership is required when No Gym is selected"
+      });
     }
-    return true;
-  }, { message: "Training Only membership is required when No Gym is selected" }),
+  }),
 });
 
 // Update the schema
