@@ -155,7 +155,7 @@ export default function MemberOnboardingPage() {
       liabilityWaiverSigned: false,
       photoReleaseWaiverSigned: false,
       marketingOptIn: false,
-      fitnessGoals: [],
+      fitnessGoals: [], // Ensure this is initialized as an empty array
       healthConditions: [],
       medications: [],
       injuries: [],
@@ -514,14 +514,13 @@ export default function MemberOnboardingPage() {
                   <FormControl>
                     <Textarea
                       placeholder="Enter your fitness goals (one per line)"
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value
-                            .split("\n")
-                            .filter((goal) => goal.trim() !== "")
-                        )
-                      }
-                      value={field.value?.join("\n") || ""}
+                      onChange={(e) => {
+                        const goals = e.target.value
+                          .split("\n")
+                          .filter(goal => goal.trim() !== "");
+                        field.onChange(goals);
+                      }}
+                      value={Array.isArray(field.value) ? field.value.join("\n") : ""}
                     />
                   </FormControl>
                   <FormDescription>Enter each goal on a new line</FormDescription>
