@@ -50,6 +50,25 @@ const locationMembershipSchema = z.object({
   membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
 });
 
+// Step-specific schemas
+const step1Schema = z.object({
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  middleInitial: z.string().max(1, "Middle initial should be a single character").optional(),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  birthMonth: z.number().min(1).max(12),
+  birthDay: z.number().min(1).max(31),
+  birthYear: z.number().min(1900).max(new Date().getFullYear()),
+  gender: z.string(),
+  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+  address: z.string(),
+  city: z.string(),
+  state: z.string(),
+  zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
+  gymLocationId: z.number(),
+  membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
+});
+
 // Update the schema
 const onboardingSchema = z.object({
   // Location and Membership (Step 1)
@@ -732,6 +751,29 @@ export default function MemberOnboardingPage() {
     }
   }
 
+  const handleNext = async () => {
+    // Validate the current step
+    try {
+      const currentFields = form.getValues();
+
+      if (currentStep === 1) {
+        await step1Schema.parseAsync(currentFields);
+      }
+      // Add validation for other steps as needed
+
+      setCurrentStep((prev) => prev + 1);
+    } catch (error) {
+      // This will trigger the form's error display
+      if (error instanceof z.ZodError) {
+        error.errors.forEach((err) => {
+          form.setError(err.path[0] as any, {
+            message: err.message,
+          });
+        });
+      }
+    }
+  };
+
   return (
     <div className="container mx-auto p-8">
       <Card>
@@ -760,7 +802,7 @@ export default function MemberOnboardingPage() {
                 {currentStep < 4 ? (
                   <Button
                     type="button"
-                    onClick={() => setCurrentStep((prev) => prev + 1)}
+                    onClick={handleNext}
                     className="ml-auto"
                   >
                     Next
