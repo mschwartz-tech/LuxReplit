@@ -15,7 +15,7 @@ interface EditableCellProps {
 
 const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) => (
   <div className="relative flex items-center">
-    <span className="absolute left-2 text-gray-500">$</span>
+    <span className="text-gray-500 mr-1">$</span>
     <Input
       type={type}
       value={value}
@@ -24,7 +24,7 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
         if (type === "number" && !/^\d*\.?\d*$/.test(val)) return;
         onChange(val);
       }}
-      className="w-20 h-8 text-sm px-6 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      className="w-24 h-8 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       min="0"
     />
   </div>
