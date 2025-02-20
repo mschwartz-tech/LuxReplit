@@ -427,8 +427,10 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        gymChanges[pricing.id]?.luxeEssentialsPrice?.toString() ??
-                        pricing.luxeEssentialsPrice.toString()
+                        (gymChanges[pricing.id]?.luxeEssentialsPrice !== undefined
+                          ? gymChanges[pricing.id]?.luxeEssentialsPrice
+                          : pricing.luxeEssentialsPrice
+                        ).toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeEssentialsPrice", value)}
                     />
@@ -436,8 +438,10 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        gymChanges[pricing.id]?.luxeStrivePrice?.toString() ??
-                        pricing.luxeStrivePrice.toString()
+                        (gymChanges[pricing.id]?.luxeStrivePrice !== undefined
+                          ? gymChanges[pricing.id]?.luxeStrivePrice
+                          : pricing.luxeStrivePrice
+                        ).toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeStrivePrice", value)}
                     />
@@ -445,8 +449,10 @@ export default function PricingPage() {
                   <td className="px-3 py-2">
                     <EditableCell
                       value={
-                        gymChanges[pricing.id]?.luxeAllAccessPrice?.toString() ??
-                        pricing.luxeAllAccessPrice.toString()
+                        (gymChanges[pricing.id]?.luxeAllAccessPrice !== undefined
+                          ? gymChanges[pricing.id]?.luxeAllAccessPrice
+                          : pricing.luxeAllAccessPrice
+                        ).toString()
                       }
                       onChange={(value) => handleGymPriceChange(pricing.id, "luxeAllAccessPrice", value)}
                     />
