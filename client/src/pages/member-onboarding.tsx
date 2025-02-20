@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import SignaturePad from 'react-signature-canvas';
 import { format } from "date-fns";
 import { Loader2, ArrowLeft } from "lucide-react";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -1191,4 +1192,6 @@ export default function MemberOnboardingPage() {
       </div>
     </ErrorBoundary>
   );
-}
+};
+
+export default MemberOnboardingPage;
