@@ -107,9 +107,14 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   res.status(errorResponse.status).json(errorResponse);
 });
 
+import { initializeDatabase } from './db';
+
 (async () => {
   try {
     logInfo("Starting server initialization", {
+    
+    // Initialize database connection
+    await initializeDatabase();
       nodeEnv: process.env.NODE_ENV,
       processId: process.pid
     });
