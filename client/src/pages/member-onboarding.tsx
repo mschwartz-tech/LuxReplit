@@ -103,7 +103,8 @@ const onboardingSchema = z.object({
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
 
   // Physical Information and Goals (Step 3)
-  height: z.string(),
+  heightFeet: z.number().min(1, "Feet must be at least 1").max(9, "Feet cannot exceed 9"),
+  heightInches: z.number().min(0, "Inches must be at least 0").max(11, "Inches cannot exceed 11"),
   weight: z.string(),
   fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
   healthConditions: z.array(z.string()).optional(),
@@ -174,7 +175,8 @@ export default function MemberOnboardingPage() {
       medications: [], // Initialize as empty array
       injuries: [], // Initialize as empty array
       preferredLocation: "",
-      height: "",
+      heightFeet: undefined,
+      heightInches: undefined,
       weight: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
@@ -470,15 +472,42 @@ export default function MemberOnboardingPage() {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Physical Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
-                name="height"
+                name="heightFeet"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Height</FormLabel>
+                    <FormLabel>Height (ft)</FormLabel>
                     <FormControl>
-                      <Input placeholder="5'10&quot;" {...field} />
+                      <Input
+                        type="number"
+                        min={1}
+                        max={9}
+                        placeholder="5"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="heightInches"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Height (in)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={11}
+                        placeholder="10"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -748,7 +777,7 @@ export default function MemberOnboardingPage() {
           zipCode: data.zipCode,
           phoneNumber: data.phoneNumber,
           preferredLocation: data.preferredLocation,
-          height: data.height,
+          height: `${data.heightFeet}'${data.heightInches}"`, //Combine height for api
           weight: data.weight,
           fitnessGoals: data.fitnessGoals,
           healthConditions: data.healthConditions,
