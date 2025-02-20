@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Button } from "./button";
 
 interface AddressAutocompleteProps
@@ -24,14 +24,6 @@ interface AddressAutocompleteProps
     state: string;
     zipCode: string;
   }) => void;
-}
-
-// Define types for Google Maps API
-declare global {
-  interface Window {
-    google: typeof google;
-    initAutoComplete: () => void;
-  }
 }
 
 interface AddressComponent {
@@ -51,13 +43,45 @@ export const AddressAutocomplete = forwardRef<
 >(({ className, onAddressSelect, ...props }, ref) => {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
-  const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null);
-  const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{
+    description: string;
+    place_id: string;
+  }>>([]);
+  const [autocompleteService, setAutocompleteService] = useState<any>(null);
+  const [placesService, setPlacesService] = useState<any>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
-    // Initialize Google Places services
-    if (window.google && !autocompleteService) {
+    // Check if the script is already loaded
+    if (window.google?.maps?.places) {
+      initializeServices();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      setScriptLoaded(true);
+      initializeServices();
+    };
+
+    script.onerror = () => {
+      console.error("Failed to load Google Places script");
+    };
+
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const initializeServices = () => {
+    if (window.google?.maps?.places) {
       const autoService = new window.google.maps.places.AutocompleteService();
       const placeService = new window.google.maps.places.PlacesService(
         document.createElement("div")
@@ -65,45 +89,47 @@ export const AddressAutocomplete = forwardRef<
       setAutocompleteService(autoService);
       setPlacesService(placeService);
     }
-  }, []);
+  };
 
   const getPlacePredictions = async (input: string) => {
     if (!input || !autocompleteService) return;
+    setIsLoading(true);
 
     try {
-      const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
-        autocompleteService.getPlacePredictions(
-          {
-            input,
-            componentRestrictions: { country: "us" },
-            types: ["address"],
-          },
-          (predictions, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              resolve(predictions);
-            } else {
-              reject(status);
-            }
+      autocompleteService.getPlacePredictions(
+        {
+          input,
+          componentRestrictions: { country: "us" },
+          types: ["address"],
+        },
+        (predictions: Array<{ description: string; place_id: string }> | null, status: string) => {
+          if (status === "OK" && predictions) {
+            setSuggestions(predictions);
+          } else {
+            setSuggestions([]);
           }
-        );
-      });
-      setSuggestions(response);
+          setIsLoading(false);
+        }
+      );
     } catch (error) {
       console.error("Error fetching address suggestions:", error);
+      setIsLoading(false);
     }
   };
 
-  const handleAddressSelect = (placeId: string) => {
+  const handleAddressSelect = (placeId: string, description: string) => {
     if (!placesService) return;
+
+    setValue(description);
+    setOpen(false);
 
     placesService.getDetails(
       {
         placeId,
         fields: ["address_components", "formatted_address"],
       },
-      (place: PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-          const addressComponents = place.address_components || [];
+      (place: PlaceResult | null, status: string) => {
+        if (status === "OK" && place?.address_components) {
           const addressData = {
             address: place.formatted_address || "",
             city: "",
@@ -111,7 +137,7 @@ export const AddressAutocomplete = forwardRef<
             zipCode: "",
           };
 
-          addressComponents.forEach((component: AddressComponent) => {
+          place.address_components.forEach((component: AddressComponent) => {
             const types = component.types;
             if (types.includes("locality")) {
               addressData.city = component.long_name;
@@ -122,8 +148,6 @@ export const AddressAutocomplete = forwardRef<
             }
           });
 
-          setValue(addressData.address);
-          setOpen(false);
           onAddressSelect(addressData);
         }
       }
@@ -141,9 +165,14 @@ export const AddressAutocomplete = forwardRef<
             "w-full justify-between h-9 font-normal",
             !value && "text-muted-foreground"
           )}
+          disabled={!scriptLoaded}
         >
           {value || "Enter address..."}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {isLoading ? (
+            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
@@ -162,7 +191,7 @@ export const AddressAutocomplete = forwardRef<
               <CommandItem
                 key={suggestion.place_id}
                 value={suggestion.description}
-                onSelect={() => handleAddressSelect(suggestion.place_id)}
+                onSelect={() => handleAddressSelect(suggestion.place_id, suggestion.description)}
               >
                 <Check
                   className={cn(
