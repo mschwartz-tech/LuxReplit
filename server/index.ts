@@ -4,6 +4,12 @@ import { fromZodError } from "zod-validation-error";
 import { setupVite, serveStatic } from "./vite";
 import { logInfo, logError } from "./services/logger";
 import { registerRoutes } from "./routes";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Define __dirname equivalent for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class ValidationError extends Error {
   constructor(public details: any[]) {
@@ -21,9 +27,29 @@ class AuthorizationError extends Error {
 
 const app = express();
 
+// Basic security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+
+  // Content Security Policy
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Required for Vite HMR
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' ws: wss:", // Required for WebSocket connections
+  ].join('; '));
+
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
@@ -49,6 +75,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Global error handler
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   const errorResponse = {
     message: err.message || "Internal Server Error",
@@ -87,9 +114,28 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
       processId: process.pid
     });
 
+    // Register API routes first
     const server = await registerRoutes(app);
     logInfo("Routes registered successfully", {
       processId: process.pid
+    });
+
+    // Set up Vite middleware for development
+    if (process.env.NODE_ENV === 'development') {
+      await setupVite(app, { root: join(__dirname, '../client') });
+    }
+
+    // Serve static files in production
+    if (process.env.NODE_ENV === 'production') {
+      app.use(serveStatic(join(__dirname, '../client/dist')));
+    }
+
+    // Handle SPA routing - must be after static files
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(join(__dirname, '../client/dist/index.html'));
     });
 
     const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;

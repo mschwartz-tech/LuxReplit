@@ -10,9 +10,7 @@ import {
   insertGymMembershipPricingSchema
 } from "@shared/schema";
 import { logError, logInfo } from "./services/logger";
-
-const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) =>
-  Promise.resolve(fn(req, res, next)).catch(next);
+import { asyncHandler } from "./middleware/async";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -34,10 +32,10 @@ const requireRole = (roles: string[]) => (req: Request, res: Response, next: Nex
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
-  app.get("/health", (req: Request, res: Response) => {
+  app.get("/health", asyncHandler(async (req: Request, res: Response) => {
     logInfo("Health check requested", { path: req.path });
     res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
+  }));
 
   app.post("/api/users", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
     const parsed = insertUserSchema.safeParse(req.body);
@@ -138,7 +136,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     logInfo("Member assessment retrieved", { assessmentId: req.params.assessmentId });
     res.json(assessment);
   }));
-
 
   app.get("/api/members/:id/progress-photos", requireAuth, asyncHandler(async (req: Request, res: Response) => {
     const photos = await storage.getMemberProgressPhotos(parseInt(req.params.id));

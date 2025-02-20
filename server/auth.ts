@@ -6,6 +6,8 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { loginLimiter } from "./middleware/rate-limit";
+import { logError, logInfo } from "./services/logger";
 
 declare global {
   namespace Express {
@@ -25,7 +27,7 @@ async function comparePasswords(supplied: string, stored: string) {
   try {
     const [hashedPassword, saltHex] = stored.split('.');
     if (!hashedPassword || !saltHex) {
-      console.error('Invalid stored password format');
+      logError('Invalid stored password format');
       return false;
     }
 
@@ -34,36 +36,41 @@ async function comparePasswords(supplied: string, stored: string) {
     const hashedStored = Buffer.from(hashedPassword, 'hex');
 
     if (hashedSupplied.length !== hashedStored.length) {
-      console.error('Buffer length mismatch');
+      logError('Buffer length mismatch');
       return false;
     }
 
     return timingSafeEqual(hashedSupplied, hashedStored);
   } catch (error) {
-    console.error('Error comparing passwords:', error);
+    logError('Error comparing passwords:', { error });
     return false;
   }
 }
 
 export function setupAuth(app: Express) {
-  // Set a default SESSION_SECRET if not provided
-  const sessionSecret = process.env.SESSION_SECRET || 'your-session-secret-key-here';
+  const sessionSecret = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
 
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/',
     },
-    name: 'session'
+    name: 'sid',
+    rolling: true
   };
 
-  app.set("trust proxy", 1);
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+    if (sessionSettings.cookie) sessionSettings.cookie.secure = true;
+  }
+
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -83,7 +90,7 @@ export function setupAuth(app: Express) {
 
         return done(null, user);
       } catch (err) {
-        console.error('Authentication error:', err);
+        logError('Authentication error:', { error: err });
         return done(err);
       }
     })
@@ -107,8 +114,8 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      if (!req.body.username || !req.body.password) {
-        return res.status(400).json({ message: "Username and password are required" });
+      if (!req.body.username || !req.body.password || !req.body.email || !req.body.name) {
+        return res.status(400).json({ message: "All fields are required" });
       }
 
       const existingUser = await storage.getUserByUsername(req.body.username);
@@ -120,27 +127,29 @@ export function setupAuth(app: Express) {
       const user = await storage.createUser({
         ...req.body,
         password: hashedPassword,
+        role: 'member' // Default role
       });
 
+      logInfo('New user registered', { userId: user.id });
       req.login(user, (err) => {
         if (err) return next(err);
         const { password, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
       });
     } catch (err) {
-      console.error('Registration error:', err);
+      logError('Registration error:', { error: err });
       next(err);
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
+  app.post("/api/login", loginLimiter, (req, res, next) => {
     if (!req.body.username || !req.body.password) {
       return res.status(400).json({ message: "Username and password are required" });
     }
 
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) {
-        console.error('Login error:', err);
+        logError('Login error:', { error: err });
         return next(err);
       }
       if (!user) {
@@ -149,17 +158,20 @@ export function setupAuth(app: Express) {
       req.login(user, (err) => {
         if (err) return next(err);
         const { password, ...userWithoutPassword } = user;
+        logInfo('User logged in successfully', { userId: user.id });
         res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const userId = req.user?.id;
     req.logout((err) => {
       if (err) return next(err);
       req.session.destroy((err) => {
         if (err) return next(err);
-        res.clearCookie('session');
+        res.clearCookie('sid');
+        logInfo('User logged out successfully', { userId });
         res.sendStatus(200);
       });
     });
@@ -184,10 +196,10 @@ export function setupAuth(app: Express) {
           email: 'admin@luxegym.com',
           name: 'Admin User'
         });
-        console.log('Admin user created successfully');
+        logInfo('Admin user created successfully');
       }
     } catch (error) {
-      console.error('Error creating admin user:', error);
+      logError('Error creating admin user:', { error });
     }
   }
 
