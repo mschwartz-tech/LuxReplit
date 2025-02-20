@@ -393,9 +393,9 @@ export class DatabaseStorage implements IStorage {
     const [newPricing] = await db.insert(gymMembershipPricing)
       .values({
         ...pricing,
-        luxeEssentialsPrice: parseFloat(pricing.luxeEssentialsPrice.toString()).toFixed(2),
-        luxeStrivePrice: parseFloat(pricing.luxeStrivePrice.toString()).toFixed(2),
-        luxeAllAccessPrice: parseFloat(pricing.luxeAllAccessPrice.toString()).toFixed(2),
+        luxeEssentialsPrice: pricing.luxeEssentialsPrice.toString(),
+        luxeStrivePrice: pricing.luxeStrivePrice.toString(),
+        luxeAllAccessPrice: pricing.luxeAllAccessPrice.toString(),
         updatedAt: new Date(),
       })
       .returning();
@@ -406,20 +406,17 @@ export class DatabaseStorage implements IStorage {
     id: number,
     pricing: Partial<InsertGymMembershipPricing>
   ): Promise<GymMembershipPricing> {
-    const updateData: any = { 
-      ...pricing,
-      updatedAt: new Date()
-    };
-
+    const updateData: any = { ...pricing };
     if (pricing.luxeEssentialsPrice !== undefined) {
-      updateData.luxeEssentialsPrice = parseFloat(pricing.luxeEssentialsPrice.toString()).toFixed(2);
+      updateData.luxeEssentialsPrice = pricing.luxeEssentialsPrice.toString();
     }
     if (pricing.luxeStrivePrice !== undefined) {
-      updateData.luxeStrivePrice = parseFloat(pricing.luxeStrivePrice.toString()).toFixed(2);
+      updateData.luxeStrivePrice = pricing.luxeStrivePrice.toString();
     }
     if (pricing.luxeAllAccessPrice !== undefined) {
-      updateData.luxeAllAccessPrice = parseFloat(pricing.luxeAllAccessPrice.toString()).toFixed(2);
+      updateData.luxeAllAccessPrice = pricing.luxeAllAccessPrice.toString();
     }
+    updateData.updatedAt = new Date();
 
     const [updatedPricing] = await db.update(gymMembershipPricing)
       .set(updateData)
