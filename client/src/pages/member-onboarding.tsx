@@ -374,7 +374,7 @@ export default function MemberOnboardingPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="0">No Gym</SelectItem>
+                          <SelectItem value="0">No Gym - Training Only</SelectItem>
                           {gymLocations?.map((location: { id: number; gymName: string }) => (
                             <SelectItem key={location.id} value={location.id.toString()}>
                               {location.gymName}
