@@ -208,9 +208,10 @@ export default function PricingPage() {
       });
     },
     onError: (error) => {
+      console.error("Error updating pricing plans:", error);
       toast({
         title: "Error",
-        description: "Failed to update pricing plans",
+        description: error instanceof Error ? error.message : "Failed to update pricing plans",
         variant: "destructive",
       });
     },
