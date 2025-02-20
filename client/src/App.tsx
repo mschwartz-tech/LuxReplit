@@ -12,6 +12,7 @@ import ClientProfilePage from "@/pages/client-profile";
 import TrainingManagementPage from "@/pages/training-management";
 import ExerciseLibrary from "@/pages/exercise-library";
 import PricingPage from "@/pages/pricing";
+import MemberProfilePage from "@/pages/member-profile";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 
@@ -23,6 +24,7 @@ function Router() {
       <ProtectedRoute path="/gym-members" component={GymMembersPage} />
       <ProtectedRoute path="/training-clients" component={TrainingClientsPage} />
       <ProtectedRoute path="/client/:id" component={ClientProfilePage} />
+      <ProtectedRoute path="/member/:id/profile" component={MemberProfilePage} />
       <ProtectedRoute path="/training-management" component={TrainingManagementPage} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/exercise-library" component={ExerciseLibrary} />
