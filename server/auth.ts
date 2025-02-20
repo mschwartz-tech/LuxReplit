@@ -16,22 +16,31 @@ declare global {
 const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${derivedKey.toString("hex")}.${salt}`;
+  const salt = randomBytes(16);
+  const derivedKey = (await scryptAsync(password, salt, 32)) as Buffer;
+  return `${derivedKey.toString('hex')}.${salt.toString('hex')}`;
 }
 
 async function comparePasswords(supplied: string, stored: string) {
   try {
-    const [hashedPassword, salt] = stored.split(".");
-    if (!hashedPassword || !salt) {
+    const [hashedPassword, saltHex] = stored.split('.');
+    if (!hashedPassword || !saltHex) {
+      console.error('Invalid stored password format');
       return false;
     }
-    const hashedSuppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-    const hashedStoredBuf = Buffer.from(hashedPassword, "hex");
-    return timingSafeEqual(hashedSuppliedBuf, hashedStoredBuf);
+
+    const salt = Buffer.from(saltHex, 'hex');
+    const hashedSupplied = (await scryptAsync(supplied, salt, 32)) as Buffer;
+    const hashedStored = Buffer.from(hashedPassword, 'hex');
+
+    if (hashedSupplied.length !== hashedStored.length) {
+      console.error('Buffer length mismatch');
+      return false;
+    }
+
+    return timingSafeEqual(hashedSupplied, hashedStored);
   } catch (error) {
-    console.error("Error comparing passwords:", error);
+    console.error('Error comparing passwords:', error);
     return false;
   }
 }
@@ -42,8 +51,8 @@ export function setupAuth(app: Express) {
 
   const sessionSettings: session.SessionOptions = {
     secret: sessionSecret,
-    resave: true, // Changed to true to ensure session is saved
-    saveUninitialized: true, // Changed to true to create session for all requests
+    resave: true,
+    saveUninitialized: true,
     store: storage.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === "production",
@@ -51,7 +60,7 @@ export function setupAuth(app: Express) {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: 'lax'
     },
-    name: 'session' // Explicitly set session cookie name
+    name: 'session'
   };
 
   app.set("trust proxy", 1);
@@ -66,12 +75,15 @@ export function setupAuth(app: Express) {
         if (!user) {
           return done(null, false, { message: "Invalid username or password" });
         }
+
         const isValidPassword = await comparePasswords(password, user.password);
         if (!isValidPassword) {
           return done(null, false, { message: "Invalid username or password" });
         }
+
         return done(null, user);
       } catch (err) {
+        console.error('Authentication error:', err);
         return done(err);
       }
     })
@@ -95,6 +107,10 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
+      if (!req.body.username || !req.body.password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
@@ -108,11 +124,11 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        // Don't send password back to client
         const { password, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
       });
     } catch (err) {
+      console.error('Registration error:', err);
       next(err);
     }
   });
@@ -123,13 +139,15 @@ export function setupAuth(app: Express) {
     }
 
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
-      if (err) return next(err);
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
+      }
       if (!user) {
         return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
       req.login(user, (err) => {
         if (err) return next(err);
-        // Don't send password back to client
         const { password, ...userWithoutPassword } = user;
         res.status(200).json(userWithoutPassword);
       });
@@ -149,7 +167,6 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    // Don't send password back to client
     const { password, ...userWithoutPassword } = req.user;
     res.json(userWithoutPassword);
   });
