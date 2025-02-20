@@ -1,6 +1,5 @@
-
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { PricingPlan, GymMembershipPricing } from "@shared/schema";
 import {
@@ -27,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function MemberCheckoutPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
   const [, setLocation] = useLocation();
   const [location] = useLocation();
@@ -34,7 +34,7 @@ export default function MemberCheckoutPage() {
   // Parse URL parameters
   const params = new URLSearchParams(location.split('?')[1]);
   const memberId = params.get('memberId');
-  
+
   // Initialize form state from URL parameters
   const [sessionDuration, setSessionDuration] = useState<"30" | "60">(
     params.get('sessionDuration') as "30" | "60" || "30"
@@ -95,6 +95,39 @@ export default function MemberCheckoutPage() {
   };
 
   const totalPrice = getGymMembershipPrice() + getTrainingPrice();
+
+  // Create gym location with default pricing mutation
+  const createGymLocationMutation = useMutation({
+    mutationFn: async (gymName: string) => {
+      const response = await fetch("/api/gym-membership-pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gymName,
+          luxeEssentialsPrice: "49.99",  // Default prices
+          luxeStrivePrice: "79.99",
+          luxeAllAccessPrice: "99.99"
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to create gym location");
+      const data = await response.json();
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      toast({
+        title: "Success",
+        description: "New gym location created with default pricing",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create gym location",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleCheckout = async () => {
     try {

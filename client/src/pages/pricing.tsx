@@ -4,7 +4,7 @@ import { ArrowLeft, Save, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useState, useCallback } from "react";
 
 interface EditableCellProps {
@@ -32,6 +32,7 @@ const EditableCell = ({ value, onChange, type = "number" }: EditableCellProps) =
 
 export default function PricingPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [changes, setChanges] = useState<Record<number, Partial<PricingPlan>>>({});
   const [gymChanges, setGymChanges] = useState<Record<number, Partial<GymMembershipPricing>>>({});
   const [showNewGymForm, setShowNewGymForm] = useState(false);
@@ -194,6 +195,14 @@ export default function PricingPage() {
   };
 
   const handleCreateGym = () => {
+    if (!newGym.gymName || !newGym.luxeEssentialsPrice || !newGym.luxeStrivePrice || !newGym.luxeAllAccessPrice) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
     createGymMutation.mutate(newGym);
   };
 
@@ -229,7 +238,7 @@ export default function PricingPage() {
       </div>
 
       <div className="flex justify-center">
-        <div className="rounded-lg border border-gray-200 max-w-4xl">
+        <div className="rounded-lg border border-gray-200 max-w-4xl w-full">
           <h2 className="text-lg font-medium text-gray-900 p-4 border-b bg-gray-50">
             Personal Training Pricing Index
           </h2>
@@ -268,7 +277,7 @@ export default function PricingPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {[1, 2, 3, 4, 5].map((sessions, index) => (
+              {[1, 2, 3, 4].map((sessions, index) => (
                 <tr key={sessions} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 text-center">
                     {sessions}
