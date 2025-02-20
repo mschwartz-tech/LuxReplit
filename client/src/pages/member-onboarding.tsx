@@ -395,39 +395,45 @@ export default function MemberOnboardingPage() {
                 <FormField
                   control={form.control}
                   name="membershipType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Membership Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={!form.getValues("gymLocationId")}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Select membership type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {form.getValues("gymLocationId") && (
-                            <>
-                              {form.getValues("gymLocationId") === 0 ? (
+                  render={({ field }) => {
+                    // Set membership type to training_only when No Gym is selected
+                    React.useEffect(() => {
+                      const gymLocationId = form.getValues("gymLocationId");
+                      if (gymLocationId === 0) {
+                        form.setValue("membershipType", "training_only");
+                      }
+                    }, [form.getValues("gymLocationId")]);
+
+                    return (
+                      <FormItem>
+                        <FormLabel>Membership Type</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={!form.getValues("gymLocationId") || form.getValues("gymLocationId") === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Select membership type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {form.getValues("gymLocationId") === 0 ? (
+                              <SelectItem value="training_only">Training Only</SelectItem>
+                            ) : (
+                              <>
+                                <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
+                                <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
+                                <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
                                 <SelectItem value="training_only">Training Only</SelectItem>
-                              ) : (
-                                <>
-                                  <SelectItem value="luxe_essentials">Luxe Essentials</SelectItem>
-                                  <SelectItem value="luxe_strive">Luxe Strive</SelectItem>
-                                  <SelectItem value="luxe_all_access">Luxe All-Access</SelectItem>
-                                  <SelectItem value="training_only">Training Only</SelectItem>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
             </div>
