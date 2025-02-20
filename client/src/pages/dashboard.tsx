@@ -1,25 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
-import { Loader2, Users, Calendar, DollarSign, BarChart } from "lucide-react";
-
-interface DashboardCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-}
-
-const DashboardCard = ({ title, value, icon }: DashboardCardProps) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      {icon}
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{value}</div>
-    </CardContent>
-  </Card>
-);
+import { Loader2 } from "lucide-react";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -31,13 +13,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const dashboardCards = [
-    { title: "Total Members", value: "24", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
-    { title: "Active Sessions", value: "12", icon: <Calendar className="h-4 w-4 text-muted-foreground" /> },
-    { title: "Revenue", value: "$4,250", icon: <DollarSign className="h-4 w-4 text-muted-foreground" /> },
-    { title: "Active Plans", value: "18", icon: <BarChart className="h-4 w-4 text-muted-foreground" /> }
-  ];
 
   return (
     <div className="flex h-screen">
@@ -59,10 +34,17 @@ export default function Dashboard() {
             Welcome back, {user.name}
           </h1>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            {dashboardCards.map((card, index) => (
-              <DashboardCard key={index} {...card} />
-            ))}
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="w-full max-w-lg">
+              <CardContent className="p-6 text-center">
+                <h2 className="text-2xl font-semibold text-muted-foreground">
+                  Dashboard Coming Soon
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  We're working on bringing you an amazing dashboard experience.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>
