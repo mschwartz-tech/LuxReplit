@@ -372,6 +372,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendStatus(200);
   }));
 
+  app.get("/api/gym-membership-pricing/all", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
+    const pricing = await storage.getAllGymMembershipPricing();
+    logInfo("All gym membership pricing retrieved", { count: pricing.length });
+    res.json(pricing);
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }

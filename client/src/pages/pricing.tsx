@@ -65,6 +65,10 @@ export default function PricingPage() {
     queryKey: ["/api/gym-membership-pricing"],
   });
 
+  const { data: allGymPricing = [], isLoading: allLocationsLoading } = useQuery<GymMembershipPricing[]>({
+    queryKey: ["/api/gym-membership-pricing/all"],
+  });
+
   const createGymMutation = useMutation({
     mutationFn: async (pricing: typeof newGym) => {
       const response = await fetch("/api/gym-membership-pricing", {
@@ -224,7 +228,7 @@ export default function PricingPage() {
     }
   };
 
-  if (plansLoading || locationsLoading) {
+  if (plansLoading || locationsLoading || allLocationsLoading) {
     return (
       <div className="flex h-[200px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -543,6 +547,74 @@ export default function PricingPage() {
               </Button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* All Gyms History Table */}
+      <div className="flex justify-center mt-8">
+        <div className="rounded-lg border border-gray-200 w-full max-w-4xl">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <h2 className="text-lg font-medium text-gray-900">
+              All Gym Locations History
+            </h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gym Location
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Luxe Essentials
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Luxe Strive
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Luxe All-Access
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Updated
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allGymPricing?.map((pricing) => (
+                  <tr key={pricing.id} className={`hover:bg-gray-50 ${pricing.isactive ? '' : 'bg-gray-50 text-gray-500'}`}>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                        pricing.isactive 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {pricing.isactive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {pricing.gymName}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.luxeEssentialsPrice).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.luxeStrivePrice).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.luxeAllAccessPrice).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500">
+                      {new Date(pricing.updatedAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

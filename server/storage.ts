@@ -90,6 +90,7 @@ export interface IStorage {
   createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing>;
   updateGymMembershipPricing(id: number, pricing: Partial<InsertGymMembershipPricing>): Promise<GymMembershipPricing>;
   deleteGymMembershipPricing(id: number): Promise<void>;
+  getAllGymMembershipPricing(): Promise<GymMembershipPricing[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -409,7 +410,7 @@ export class DatabaseStorage implements IStorage {
     id: number,
     pricing: Partial<InsertGymMembershipPricing>
   ): Promise<GymMembershipPricing> {
-    const updateData: Record<string, any> = { 
+    const updateData: Record<string, any> = {
       updatedAt: new Date()
     };
 
@@ -437,6 +438,11 @@ export class DatabaseStorage implements IStorage {
     await db.update(gymMembershipPricing)
       .set({ isactive: false, updatedAt: new Date() })
       .where(eq(gymMembershipPricing.id, id));
+  }
+  async getAllGymMembershipPricing(): Promise<GymMembershipPricing[]> {
+    return await db.select()
+      .from(gymMembershipPricing)
+      .orderBy(gymMembershipPricing.gymName);
   }
 }
 
