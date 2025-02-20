@@ -7,20 +7,18 @@ import {
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
-  insertGymMembershipPricingSchema,
-  gymMembershipPricing
+  insertGymMembershipPricingSchema
 } from "@shared/schema";
 import { generateMovementPatternDescription, predictMuscleGroups } from "./services/openai";
 import { logError, logInfo } from "./services/logger";
 
-// Utility function to wrap async route handlers
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
-  // Members
+  // Members Routes
   app.get("/api/members", asyncHandler(async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const members = await storage.getMembers();
@@ -50,6 +48,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(member);
   }));
 
+  // Member Profile
   app.get("/api/members/:id", asyncHandler(async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const member = await storage.getMember(parseInt(req.params.id));
@@ -58,31 +57,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(member);
   }));
 
-  // Member Profile Routes
-  app.get("/api/members/:id/profile", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const profile = await storage.getMemberProfile(parseInt(req.params.id));
-    if (!profile) return res.sendStatus(404);
-    logInfo("Member profile retrieved", { memberId: req.params.id });
-    res.json(profile);
-  }));
-
-  // Member Assessment Routes
-  app.get("/api/members/:id/assessments", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const assessments = await storage.getMemberAssessments(parseInt(req.params.id));
-    logInfo("Member assessments retrieved", { memberId: req.params.id, count: assessments.length });
-    res.json(assessments);
-  }));
-
-  app.get("/api/members/trainer/:trainerId", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const members = await storage.getMembersByTrainer(parseInt(req.params.trainerId));
-    logInfo("Members by trainer retrieved", { trainerId: req.params.trainerId, count: members.length });
-    res.json(members);
-  }));
-
-  // Member Profile Routes
   app.get("/api/members/:id/profile", asyncHandler(async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const profile = await storage.getMemberProfile(parseInt(req.params.id));
@@ -93,16 +67,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/members/:id/profile", asyncHandler(async (req, res) => {
     if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized member profile creation attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
+      logError("Unauthorized profile creation attempt", {
+        userId: (req.user as any)?.id,
+        role: (req.user as any)?.role,
+      });
       return res.sendStatus(403);
     }
-    const parsed = insertMemberProfileSchema.safeParse({ ...req.body, userId: parseInt(req.params.id) });
+    const parsed = insertMemberProfileSchema.safeParse({ ...req.body, memberId: parseInt(req.params.id) });
     if (!parsed.success) {
-      logError("Member profile creation validation failed", { errors: parsed.error.errors });
+      logError("Profile creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
     const profile = await storage.createMemberProfile(parsed.data);
-    logInfo("New member profile created", { profileId: profile.id });
+    logInfo("New profile created", { profileId: profile.id });
     res.status(201).json(profile);
   }));
 
@@ -125,12 +102,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedProfile);
   }));
 
-  // Member Assessment Routes
+  // Member Assessments
   app.get("/api/members/:id/assessments", asyncHandler(async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const assessments = await storage.getMemberAssessments(parseInt(req.params.id));
-    logInfo("Member assessments retrieved", { memberId: req.params.id, count: assessments.length });
+    logInfo("Assessments retrieved", { memberId: req.params.id, count: assessments.length });
     res.json(assessments);
+  }));
+
+  app.post("/api/members/:id/assessments", asyncHandler(async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
+      logError("Unauthorized assessment creation attempt", {
+        userId: (req.user as any)?.id,
+        role: (req.user as any)?.role,
+      });
+      return res.sendStatus(403);
+    }
+    const parsed = insertMemberAssessmentSchema.safeParse({ ...req.body, memberId: parseInt(req.params.id) });
+    if (!parsed.success) {
+      logError("Assessment creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const assessment = await storage.createMemberAssessment(parsed.data);
+    logInfo("New assessment created", { assessmentId: assessment.id });
+    res.status(201).json(assessment);
   }));
 
   app.get("/api/members/:id/assessments/:assessmentId", asyncHandler(async (req, res) => {
@@ -142,20 +137,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(assessment);
   }));
 
-  app.post("/api/members/:id/assessments", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || !["admin", "trainer"].includes(req.user.role)) {
-      logError("Unauthorized member assessment creation attempt", { userId: (req.user as any)?.id, role: (req.user as any)?.role });
-      return res.sendStatus(403);
-    }
-    const parsed = insertMemberAssessmentSchema.safeParse({ ...req.body, memberId: parseInt(req.params.id) });
-    if (!parsed.success) {
-      logError("Member assessment creation validation failed", { errors: parsed.error.errors });
-      return res.status(400).json(parsed.error);
-    }
-    const assessment = await storage.createMemberAssessment(parsed.data);
-    logInfo("New member assessment created", { assessmentId: assessment.id });
-    res.status(201).json(assessment);
-  }));
 
   // Member Progress Photo Routes
   app.get("/api/members/:id/progress-photos", asyncHandler(async (req, res) => {
