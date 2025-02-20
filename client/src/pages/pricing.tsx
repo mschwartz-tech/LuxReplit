@@ -405,8 +405,12 @@ export default function PricingPage() {
               )}
               {gymPricing?.map((pricing) => (
                 <tr key={pricing.id}>
-                  <td className="px-3 py-2 text-sm font-medium text-gray-900">
-                    {pricing.gymName}
+                  <td className="px-3 py-2">
+                    <Input
+                      value={gymChanges[pricing.id]?.gymName ?? pricing.gymName}
+                      onChange={(e) => handleGymPriceChange(pricing.id, "gymName", e.target.value)}
+                      className="w-full h-8 text-sm"
+                    />
                   </td>
                   <td className="px-3 py-2">
                     <EditableCell
