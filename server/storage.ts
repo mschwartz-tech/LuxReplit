@@ -393,6 +393,9 @@ export class DatabaseStorage implements IStorage {
     const [newPricing] = await db.insert(gymMembershipPricing)
       .values({
         ...pricing,
+        luxeEssentialsPrice: pricing.luxeEssentialsPrice.toString(),
+        luxeStrivePrice: pricing.luxeStrivePrice.toString(),
+        luxeAllAccessPrice: pricing.luxeAllAccessPrice.toString(),
         updatedAt: new Date(),
       })
       .returning();
@@ -403,11 +406,20 @@ export class DatabaseStorage implements IStorage {
     id: number,
     pricing: Partial<InsertGymMembershipPricing>
   ): Promise<GymMembershipPricing> {
+    const updateData: any = { ...pricing };
+    if (pricing.luxeEssentialsPrice !== undefined) {
+      updateData.luxeEssentialsPrice = pricing.luxeEssentialsPrice.toString();
+    }
+    if (pricing.luxeStrivePrice !== undefined) {
+      updateData.luxeStrivePrice = pricing.luxeStrivePrice.toString();
+    }
+    if (pricing.luxeAllAccessPrice !== undefined) {
+      updateData.luxeAllAccessPrice = pricing.luxeAllAccessPrice.toString();
+    }
+    updateData.updatedAt = new Date();
+
     const [updatedPricing] = await db.update(gymMembershipPricing)
-      .set({
-        ...pricing,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(gymMembershipPricing.id, id))
       .returning();
     return updatedPricing;

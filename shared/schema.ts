@@ -247,9 +247,16 @@ export const insertPricingPlanSchema = createInsertSchema(pricingPlans)
 
 export const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
   .extend({
-    luxeEssentialsPrice: z.string().min(1, "Luxe Essentials price is required"),
-    luxeStrivePrice: z.string().min(1, "Luxe Strive price is required"),
-    luxeAllAccessPrice: z.string().min(1, "Luxe All-Access price is required"),
+    gymName: z.string().min(1, "Gym name is required"),
+    luxeEssentialsPrice: z.number().or(z.string()).transform(val => 
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeStrivePrice: z.number().or(z.string()).transform(val => 
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeAllAccessPrice: z.number().or(z.string()).transform(val => 
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
   })
   .omit({ createdAt: true, updatedAt: true });
 
