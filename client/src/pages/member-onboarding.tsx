@@ -902,11 +902,8 @@ export default function MemberOnboardingPage() {
   const onSubmit = async (data: OnboardingForm) => {
     try {
       setIsSubmitting(true);
-
-      // For development, log the data being sent
-      if (DEBUG_MODE) {
-        console.log('Submitting form data:', data);
-      }
+      console.log('Form submission started');
+      console.log('Submitting form data:', data);
 
       // Prepare user data
       const userData = {
