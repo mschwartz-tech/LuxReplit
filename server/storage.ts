@@ -395,10 +395,7 @@ export class DatabaseStorage implements IStorage {
   async createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing> {
     const [newPricing] = await db.insert(gymMembershipPricing)
       .values({
-        gymName: pricing.gymName,
-        luxeEssentialsPrice: pricing.luxeEssentialsPrice.toString(),
-        luxeStrivePrice: pricing.luxeStrivePrice.toString(),
-        luxeAllAccessPrice: pricing.luxeAllAccessPrice.toString(),
+        ...pricing,
         isactive: true,
         updatedAt: new Date()
       })
@@ -410,25 +407,11 @@ export class DatabaseStorage implements IStorage {
     id: number,
     pricing: Partial<InsertGymMembershipPricing>
   ): Promise<GymMembershipPricing> {
-    const updateData: Record<string, any> = {
-      updatedAt: new Date()
-    };
-
-    if (pricing.gymName !== undefined) {
-      updateData.gymName = pricing.gymName;
-    }
-    if (pricing.luxeEssentialsPrice !== undefined) {
-      updateData.luxeEssentialsPrice = pricing.luxeEssentialsPrice.toString();
-    }
-    if (pricing.luxeStrivePrice !== undefined) {
-      updateData.luxeStrivePrice = pricing.luxeStrivePrice.toString();
-    }
-    if (pricing.luxeAllAccessPrice !== undefined) {
-      updateData.luxeAllAccessPrice = pricing.luxeAllAccessPrice.toString();
-    }
-
     const [updatedPricing] = await db.update(gymMembershipPricing)
-      .set(updateData)
+      .set({
+        ...pricing,
+        updatedAt: new Date()
+      })
       .where(eq(gymMembershipPricing.id, id))
       .returning();
     return updatedPricing;
