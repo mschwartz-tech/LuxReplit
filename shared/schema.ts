@@ -401,6 +401,28 @@ export const classRegistrationsRelations = relations(classRegistrations, ({ one 
   })
 }));
 
+// Add relations for schedules and exercises
+export const schedulesRelations = relations(schedules, ({ one }) => ({
+  trainer: one(users, {
+    fields: [schedules.trainerId],
+    references: [users.id],
+  }),
+  member: one(members, {
+    fields: [schedules.memberId],
+    references: [members.id],
+  })
+}));
+
+export const exercisesRelations = relations(exercises, ({ one, many }) => ({
+  primaryMuscleGroup: one(muscleGroups, {
+    fields: [exercises.primaryMuscleGroupId],
+    references: [muscleGroups.id],
+  }),
+  // Add relation to strength metrics
+  strengthMetrics: many(strengthMetrics)
+}));
+
+
 // Add insert schemas
 export const insertMealPlanSchema = createInsertSchema(mealPlans)
   .extend({
@@ -644,3 +666,74 @@ export const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => 
 export const membershipPricingRelations = relations(membershipPricing, ({ many }) => ({
   members: many(members)
 }));
+
+// Add new tables for strength metrics and progress tracking
+export const progress = pgTable("progress", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  date: timestamp("date").notNull(),
+  weight: numeric("weight"),
+  bodyFatPercentage: numeric("body_fat_percentage"),
+  measurements: jsonb("measurements"),
+  notes: text("notes")
+});
+
+export const strengthMetrics = pgTable("strength_metrics", {
+  id: serial("id").primaryKey(),
+  progressId: integer("progress_id").references(() => progress.id).notNull(),
+  exerciseId: integer("exercise_id").references(() => exercises.id).notNull(),
+  weight: numeric("weight"),
+  sets: integer("sets"),
+  reps: integer("reps"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+// Add new relations for progress tracking
+export const progressRelations = relations(progress, ({ one, many }) => ({
+  member: one(members, {
+    fields: [progress.memberId],
+    references: [members.id],
+  }),
+  strengthMetrics: many(strengthMetrics)
+}));
+
+export const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
+  progress: one(progress, {
+    fields: [strengthMetrics.progressId],
+    references: [progress.id],
+  }),
+  exercise: one(exercises, {
+    fields: [strengthMetrics.exerciseId],
+    references: [exercises.id],
+  })
+}));
+
+// Add missing insert schemas with validation
+export const insertProgressSchema = createInsertSchema(progress)
+  .extend({
+    weight: z.number().min(0, "Weight must be positive").optional(),
+    bodyFatPercentage: z.number().min(0, "Body fat percentage must be positive").max(100, "Body fat percentage cannot exceed 100").optional(),
+    measurements: z.object({
+      chest: z.number().optional(),
+      waist: z.number().optional(),
+      hips: z.number().optional(),
+      thighs: z.number().optional(),
+      arms: z.number().optional()
+    }).optional(),
+    notes: z.string().optional()
+  });
+
+export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
+  .extend({
+    weight: z.number().min(0, "Weight must be positive").optional(),
+    sets: z.number().min(1, "Must have at least one set").optional(),
+    reps: z.number().min(1, "Must have at least one rep").optional(),
+    notes: z.string().optional()
+  });
+
+// Add corresponding types
+export type Progress = typeof progress.$inferSelect;
+export type InsertProgress = z.infer<typeof insertProgressSchema>;
+export type StrengthMetric = typeof strengthMetrics.$inferSelect;
+export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
