@@ -317,7 +317,9 @@ export default function PricingPage() {
       return Promise.all(promises);
     },
     onSuccess: () => {
+      // Invalidate both active and all membership pricing queries
       queryClient.invalidateQueries({ queryKey: ["/api/membership-pricing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/membership-pricing/all"] });
       setMembershipChanges({});
       toast({
         title: "Success",
@@ -375,8 +377,8 @@ export default function PricingPage() {
   }, []);
 
   const handleCreateMembership = () => {
-    if (!newMembership.gymLocation || !newMembership.membershipTier1 || !newMembership.membershipTier2 || 
-        !newMembership.membershipTier3 || !newMembership.membershipTier4) {
+    if (!newMembership.gymLocation || !newMembership.membershipTier1 || !newMembership.membershipTier2 ||
+      !newMembership.membershipTier3 || !newMembership.membershipTier4) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -854,7 +856,7 @@ export default function PricingPage() {
                     <td className="px-3 py-2">
                       <EditableCell
                         value={newMembership.membershipTier3}
-                        onChange={(value) => setNewMembership(prev => ({ ...prevprev, membershipTier3: value }))}
+                        onChange={(value) => setNewMembership(prev => ({ ...prev, membershipTier3: value }))}
                       />
                     </td>
                     <td className="px-3 py-2">
