@@ -9,10 +9,10 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, CheckCircle2 } from "lucide-react";
+import { Plus, Loader2, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema } from "@shared/schema";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { WorkoutPlan, Exercise, insertWorkoutPlanSchema } from "@shared/schema";
+import { useLocation } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -28,31 +28,28 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import React from 'react';
 
-export default function WorkoutPlans() {
+export default function WorkoutPlansPage() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
-  const isMember = user?.role === "member";
+  const isAdmin = user?.role === "admin";
 
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
-
-  const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery<WorkoutPlan[]>({
+  const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["/api/workout-plans"],
-    enabled: !!user,
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/workout-plans");
+      return res.json();
+    }
   });
 
-  const form = useForm({
-    resolver: zodResolver(insertWorkoutPlanSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      frequencyPerWeek: 3,
-      status: "active" as const,
-      completionRate: "0",
-    },
+  const { data: exercises, isLoading: isLoadingExercises } = useQuery({
+    queryKey: ["/api/exercises"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/exercises");
+      return res.json();
+    }
   });
 
   const createPlanMutation = useMutation({
@@ -70,8 +67,6 @@ export default function WorkoutPlans() {
         description: "Workout plan created successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/workout-plans"] });
-      setIsDialogOpen(false);
-      form.reset();
     },
     onError: (error: Error) => {
       toast({
@@ -82,11 +77,18 @@ export default function WorkoutPlans() {
     },
   });
 
-  const onSubmit = (data: any) => {
-    createPlanMutation.mutate({ ...data, trainerId: user?.id });
-  };
+  const form = useForm({
+    resolver: zodResolver(insertWorkoutPlanSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      frequencyPerWeek: 3,
+      status: "active" as const,
+      completionRate: "0",
+    },
+  });
 
-  if (isLoadingPlans) {
+  if (isLoadingPlans || isLoadingExercises) {
     return (
       <div className="flex h-[200px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -97,74 +99,87 @@ export default function WorkoutPlans() {
   return (
     <div className="p-8">
       <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Workout Plans</h1>
-          {(isAdmin || isTrainer) && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Plan
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create Workout Plan</DialogTitle>
-                  <DialogDescription>
-                    Create a new workout plan for your clients.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="title"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Title</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="frequencyPerWeek"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Frequency per Week</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="submit" disabled={createPlanMutation.isPending}>
-                      {createPlanMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Plan
-                    </Button>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
+        <Button
+          variant="ghost"
+          className="w-fit"
+          onClick={(e) => {
+            e.preventDefault();
+            window.history.back();
+          }}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+
+        {(isTrainer || isAdmin) && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="w-fit">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Plan
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Workout Plan</DialogTitle>
+                <DialogDescription>
+                  Create a new workout plan for your clients
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => createPlanMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="frequencyPerWeek"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Frequency per Week</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} max={7} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={createPlanMutation.isPending}>
+                    {createPlanMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="mr-2 h-4 w-4" />
+                    )}
+                    Create Plan
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        )}
 
         <div className="grid gap-8 grid-cols-1">
           <Card>
@@ -185,6 +200,8 @@ export default function WorkoutPlans() {
                     <div
                       key={plan.id}
                       className="flex items-center justify-between p-4 border-b last:border-0"
+                      onClick={() => setLocation(`/workout-plans/${plan.id}`)}
+                      style={{ cursor: 'pointer' }}
                     >
                       <div className="flex-1">
                         <p className="font-medium">{plan.title}</p>
