@@ -299,7 +299,13 @@ export default function PricingPage() {
         fetch(`/api/membership-pricing/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(pricing),
+          body: JSON.stringify({
+            ...pricing,
+            membershipTier1: pricing.membershipTier1 ? parseFloat(pricing.membershipTier1.toString()) : undefined,
+            membershipTier2: pricing.membershipTier2 ? parseFloat(pricing.membershipTier2.toString()) : undefined,
+            membershipTier3: pricing.membershipTier3 ? parseFloat(pricing.membershipTier3.toString()) : undefined,
+            membershipTier4: pricing.membershipTier4 ? parseFloat(pricing.membershipTier4.toString()) : undefined,
+          }),
         }).then(async (res) => {
           if (!res.ok) {
             const error = await res.text();
@@ -848,7 +854,7 @@ export default function PricingPage() {
                     <td className="px-3 py-2">
                       <EditableCell
                         value={newMembership.membershipTier3}
-                        onChange={(value) => setNewMembership(prev => ({ ...prev, membershipTier3: value }))}
+                        onChange={(value) => setNewMembership(prev => ({ ...prevprev, membershipTier3: value }))}
                       />
                     </td>
                     <td className="px-3 py-2">
