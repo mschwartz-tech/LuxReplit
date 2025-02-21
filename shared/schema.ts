@@ -205,6 +205,47 @@ export const membershipPricing = pgTable("membership_pricing", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
+export const mealPlans = pgTable("meal_plans", {
+  id: serial("id").primaryKey(),
+  trainerId: integer("trainer_id").references(() => users.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  meals: jsonb("meals").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const memberMealPlans = pgTable("member_meal_plans", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  mealPlanId: integer("meal_plan_id").references(() => mealPlans.id).notNull(),
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  customMeals: jsonb("custom_meals"),
+  status: text("status", {
+    enum: ["pending", "active", "completed"]
+  }).notNull(),
+});
+
+export const insertMealPlanSchema = createInsertSchema(mealPlans)
+  .extend({
+    meals: z.array(z.object({
+      meal: z.string(),
+      food: z.string(),
+      calories: z.number().optional(),
+      protein: z.number().optional(),
+      carbs: z.number().optional(),
+      fats: z.number().optional()
+    })).min(1, "At least one meal is required")
+  });
+
+export const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans);
+
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type MemberMealPlan = typeof memberMealPlans.$inferSelect;
+export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members)
   .extend({
