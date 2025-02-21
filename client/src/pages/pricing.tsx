@@ -408,11 +408,11 @@ export default function PricingPage() {
             </h2>
             <Button
               onClick={() => setShowNewGymForm(true)}
-              className="gap-2 h-8"
-              size="sm"
+              className="gap-2 h-9 px-4 bg-primary hover:bg-primary/90"
+              size="default"
             >
-              <Plus className="h-4 w-4" />
-              Add Gym
+              <Plus className="h-5 w-5" />
+              Add New Gym
             </Button>
           </div>
 
