@@ -1,8 +1,8 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan, GymMembershipPricing, InsertGymMembershipPricing, MembershipPricing, InsertMembershipPricing } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan, MembershipPricing, InsertMembershipPricing } from "@shared/schema";
 import session from "express-session";
 import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, gymMembershipPricing, membershipPricing,
+  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, membershipPricing,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
@@ -83,14 +83,6 @@ export interface IStorage {
   getPricingPlan(id: number): Promise<PricingPlan | undefined>;
   createPricingPlan(plan: InsertPricingPlan): Promise<PricingPlan>;
   updatePricingPlan(id: number, plan: Partial<InsertPricingPlan>): Promise<PricingPlan>;
-
-  // Gym Membership Pricing operations
-  getGymMembershipPricing(): Promise<GymMembershipPricing[]>;
-  getGymMembershipPricingById(id: number): Promise<GymMembershipPricing | undefined>;
-  createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing>;
-  updateGymMembershipPricing(id: number, pricing: Partial<InsertGymMembershipPricing>): Promise<GymMembershipPricing>;
-  deleteGymMembershipPricing(id: number): Promise<void>;
-  getAllGymMembershipPricing(): Promise<GymMembershipPricing[]>;
 
   // Membership Pricing operations
   getMembershipPricing(): Promise<MembershipPricing[]>;
@@ -386,56 +378,6 @@ export class DatabaseStorage implements IStorage {
     return updatedPlan;
   }
 
-  async getGymMembershipPricing(): Promise<GymMembershipPricing[]> {
-    return await db.select()
-      .from(gymMembershipPricing)
-      .where(eq(gymMembershipPricing.isactive, true))
-      .orderBy(gymMembershipPricing.gymName);
-  }
-
-  async getGymMembershipPricingById(id: number): Promise<GymMembershipPricing | undefined> {
-    const [pricing] = await db.select()
-      .from(gymMembershipPricing)
-      .where(eq(gymMembershipPricing.id, id));
-    return pricing;
-  }
-
-  async createGymMembershipPricing(pricing: InsertGymMembershipPricing): Promise<GymMembershipPricing> {
-    const [newPricing] = await db.insert(gymMembershipPricing)
-      .values({
-        ...pricing,
-        isactive: true,
-        updatedAt: new Date()
-      })
-      .returning();
-    return newPricing;
-  }
-
-  async updateGymMembershipPricing(
-    id: number,
-    pricing: Partial<InsertGymMembershipPricing>
-  ): Promise<GymMembershipPricing> {
-    const [updatedPricing] = await db.update(gymMembershipPricing)
-      .set({
-        ...pricing,
-        updatedAt: new Date()
-      })
-      .where(eq(gymMembershipPricing.id, id))
-      .returning();
-    return updatedPricing;
-  }
-
-  async deleteGymMembershipPricing(id: number): Promise<void> {
-    await db.update(gymMembershipPricing)
-      .set({ isactive: false, updatedAt: new Date() })
-      .where(eq(gymMembershipPricing.id, id));
-  }
-  async getAllGymMembershipPricing(): Promise<GymMembershipPricing[]> {
-    return await db.select()
-      .from(gymMembershipPricing)
-      .orderBy(gymMembershipPricing.gymName);
-  }
-
   async getMembershipPricing(): Promise<MembershipPricing[]> {
     return await db.select()
       .from(membershipPricing)
@@ -552,16 +494,6 @@ CREATE TABLE IF NOT EXISTS member_assessments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS gym_membership_pricing (
-  id SERIAL PRIMARY KEY,
-  gym_name VARCHAR(255) NOT NULL,
-  luxe_essentials_price DECIMAL(10,2) NOT NULL,
-  luxe_strive_price DECIMAL(10,2) NOT NULL,
-  luxe_all_access_price DECIMAL(10,2) NOT NULL,
-  isactive BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE IF NOT EXISTS workout_logs (
   id SERIAL PRIMARY KEY,
