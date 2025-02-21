@@ -59,8 +59,8 @@ async function startServer() {
     }
 
     // Start the server
-    const port = Number(process.env.PORT) || 3000;
-    server.listen(port, () => {
+    const port = Number(process.env.PORT) || 5000; // Changed default port to 5000
+    server.listen(port, '0.0.0.0', () => { // Added host parameter for better accessibility
       logInfo(`Server listening on port ${port}`, {
         port,
         env: process.env.NODE_ENV || 'development',

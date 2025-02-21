@@ -416,6 +416,33 @@ export const insertMealPlanSchema = createInsertSchema(mealPlans)
 
 export const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans);
 
+// Add types for meal plans and relations
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type MemberMealPlan = typeof memberMealPlans.$inferSelect;
+export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+
+// Add relations for meal plans
+export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
+  trainer: one(users, {
+    fields: [mealPlans.trainerId],
+    references: [users.id],
+  }),
+  memberMealPlans: many(memberMealPlans)
+}));
+
+export const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => ({
+  member: one(members, {
+    fields: [memberMealPlans.memberId],
+    references: [members.id],
+  }),
+  mealPlan: one(mealPlans, {
+    fields: [memberMealPlans.mealPlanId],
+    references: [mealPlans.id],
+  })
+}));
+
+
 export const validateSchedulingConflict = async (
   db: any,
   trainerId: number,
@@ -485,11 +512,6 @@ export const insertClassSchema = createInsertSchema(classes)
 export const insertClassRegistrationSchema = createInsertSchema(classRegistrations).omit({ createdAt: true });
 
 // Add types
-export type MealPlan = typeof mealPlans.$inferSelect;
-export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
-export type MemberMealPlan = typeof memberMealPlans.$inferSelect;
-export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
-
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;
@@ -526,7 +548,6 @@ export type Class = typeof classes.$inferSelect;
 export type InsertClass = z.infer<typeof insertClassSchema>;
 export type ClassRegistration = typeof classRegistrations.$inferSelect;
 export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
-
 
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
@@ -617,43 +638,6 @@ export const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => 
     references: [members.id],
   }),
   workoutLogs: many(workoutLogs)
-}));
-
-export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
-  trainer: one(users, {
-    fields: [mealPlans.trainerId],
-    references: [users.id],
-  }),
-  memberMealPlans: many(memberMealPlans)
-}));
-
-export const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => ({
-  member: one(members, {
-    fields: [memberMealPlans.memberId],
-    references: [members.id],
-  }),
-  mealPlan: one(mealPlans, {
-    fields: [memberMealPlans.mealPlanId],
-    references: [mealPlans.id],
-  })
-}));
-
-export const schedulesRelations = relations(schedules, ({ one }) => ({
-  trainer: one(users, {
-    fields: [schedules.trainerId],
-    references: [users.id],
-  }),
-  member: one(members, {
-    fields: [schedules.memberId],
-    references: [members.id],
-  })
-}));
-
-export const exercisesRelations = relations(exercises, ({ one }) => ({
-  primaryMuscleGroup: one(muscleGroups, {
-    fields: [exercises.primaryMuscleGroupId],
-    references: [muscleGroups.id],
-  })
 }));
 
 // Add relations for membership_pricing
