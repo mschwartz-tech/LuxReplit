@@ -195,7 +195,7 @@ export const gymMembershipPricing = pgTable("gym_membership_pricing", {
 
 export const membershipPricing = pgTable("membership_pricing", {
   id: serial("id").primaryKey(),
-  gymLocation: text("gym_location").notNull().unique(),
+  gymLocation: text("gym_location").notNull(),
   membershipTier1: numeric("membership_tier_1").notNull(),
   membershipTier2: numeric("membership_tier_2").notNull(),
   membershipTier3: numeric("membership_tier_3").notNull(),
