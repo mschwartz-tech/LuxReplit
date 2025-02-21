@@ -30,6 +30,11 @@ export default function MealPlansPage() {
   const { toast } = useToast();
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState<number | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [newPlan, setNewPlan] = useState({
     name: '',
     description: '',
@@ -45,7 +50,68 @@ export default function MealPlansPage() {
 
   useEffect(() => {
     fetchMealPlans();
+    fetchMembers();
   }, []);
+
+  const fetchMembers = async () => {
+    try {
+      const response = await fetch('/api/members');
+      if (!response.ok) throw new Error('Failed to fetch members');
+      const data = await response.json();
+      setMembers(data);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load members',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleAssignPlan = async () => {
+    if (!selectedMember || !selectedPlan || !startDate) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/members/${selectedMember}/meal-plans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mealPlanId: selectedPlan,
+          startDate,
+          endDate: endDate || null,
+          status: 'active'
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to assign meal plan');
+      
+      toast({
+        title: 'Success',
+        description: 'Meal plan assigned successfully'
+      });
+      
+      // Reset form
+      setSelectedMember(null);
+      setSelectedPlan(null);
+      setStartDate('');
+      setEndDate('');
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to assign meal plan',
+        variant: 'destructive'
+      });
+    }
+  };
 
   const fetchMealPlans = async () => {
     try {
@@ -132,6 +198,47 @@ export default function MealPlansPage() {
                 onChange={(e) => setNewPlan(prev => ({ ...prev, description: e.target.value }))}
               />
               <Button onClick={handleCreatePlan}>Create Plan</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(user?.role === 'admin' || user?.role === 'trainer') && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Assign Meal Plan</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <select
+                className="w-full p-2 border rounded"
+                onChange={(e) => setSelectedMember(parseInt(e.target.value))}
+              >
+                <option value="">Select Member</option>
+                {members.map(member => (
+                  <option key={member.id} value={member.id}>{member.name}</option>
+                ))}
+              </select>
+              <select
+                className="w-full p-2 border rounded"
+                onChange={(e) => setSelectedPlan(parseInt(e.target.value))}
+              >
+                <option value="">Select Meal Plan</option>
+                {mealPlans.map(plan => (
+                  <option key={plan.id} value={plan.id}>{plan.name}</option>
+                ))}
+              </select>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+              <Button onClick={handleAssignPlan}>Assign Plan</Button>
             </div>
           </CardContent>
         </Card>
