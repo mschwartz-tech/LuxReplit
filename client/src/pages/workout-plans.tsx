@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -28,6 +27,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useState } from "react";
 
 export default function WorkoutPlansPage() {
   const { user } = useAuth();
@@ -35,6 +35,7 @@ export default function WorkoutPlansPage() {
   const { toast } = useToast();
   const isTrainer = user?.role === "trainer";
   const isAdmin = user?.role === "admin";
+  const [selectedExercises, setSelectedExercises] = useState([]);
 
   const { data: workoutPlans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["/api/workout-plans"],
@@ -54,7 +55,7 @@ export default function WorkoutPlansPage() {
 
   const createPlanMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/workout-plans", data);
+      const res = await apiRequest("POST", "/api/workout-plans", { ...data, exercises: selectedExercises });
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || "Failed to create workout plan");
@@ -119,11 +120,11 @@ export default function WorkoutPlansPage() {
                 Create New Plan
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Create New Workout Plan</DialogTitle>
                 <DialogDescription>
-                  Create a new workout plan for your clients
+                  Create a new workout plan for a client. Select exercises and set the frequency.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -159,21 +160,50 @@ export default function WorkoutPlansPage() {
                     name="frequencyPerWeek"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Frequency per Week</FormLabel>
+                        <FormLabel>Weekly Frequency</FormLabel>
                         <FormControl>
-                          <Input type="number" min={1} max={7} {...field} />
+                          <Input type="number" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" disabled={createPlanMutation.isPending}>
+                  <div className="space-y-2">
+                    <FormLabel>Exercises</FormLabel>
+                    <ScrollArea className="h-[200px] border rounded-md p-4">
+                      <div className="space-y-2">
+                        {exercises?.map((exercise) => (
+                          <div key={exercise.id} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedExercises.includes(exercise.id.toString())}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedExercises([...selectedExercises, exercise.id.toString()]);
+                                } else {
+                                  setSelectedExercises(selectedExercises.filter(id => id !== exercise.id.toString()));
+                                }
+                              }}
+                              className="h-4 w-4"
+                            />
+                            <div>
+                              <p className="font-medium">{exercise.name}</p>
+                              <p className="text-sm text-muted-foreground">{exercise.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={createPlanMutation.isPending || selectedExercises.length === 0}
+                  >
                     {createPlanMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Plus className="mr-2 h-4 w-4" />
+                      "Create Plan"
                     )}
-                    Create Plan
                   </Button>
                 </form>
               </Form>
