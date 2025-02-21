@@ -22,6 +22,12 @@ export function SidebarNav() {
   const { user, logoutMutation } = useAuth();
   const userRole = user?.role?.toLowerCase() || '';
 
+  // Ensure we have a valid role or default to restricted access
+  if (!user || !userRole) {
+    console.warn('User or role not properly initialized');
+    return null;
+  }
+
   const items = [
     {
       title: "Dashboard",
@@ -85,9 +91,14 @@ export function SidebarNav() {
     },
   ];
 
-  // Debug log to check user role
-  console.log('Current user:', user);
-  console.log('User role:', userRole);
+  // Filter items based on user role
+  const visibleItems = items.filter(item => item.roles.includes(userRole));
+
+  // If no items are visible for the user's role, something might be wrong
+  if (visibleItems.length === 0) {
+    console.error('No navigation items available for role:', userRole);
+    return null;
+  }
 
   return (
     <div className="border-r bg-sidebar h-screen w-64 flex flex-col">
@@ -98,22 +109,20 @@ export function SidebarNav() {
           </div>
           <ScrollArea className="h-[calc(100vh-10rem)]">
             <div className="space-y-1">
-              {items
-                .filter((item) => item.roles.includes(userRole))
-                .map((item) => (
-                  <Link key={item.href} href={item.href}>
-                    <Button
-                      variant={location === item.href ? "secondary" : "ghost"}
-                      className={cn(
-                        "w-full justify-start gap-2",
-                        location === item.href && "bg-sidebar-accent"
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.title}
-                    </Button>
-                  </Link>
-                ))}
+              {visibleItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant={location === item.href ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-start gap-2",
+                      location === item.href && "bg-sidebar-accent"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.title}
+                  </Button>
+                </Link>
+              ))}
             </div>
           </ScrollArea>
         </div>

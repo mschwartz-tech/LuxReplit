@@ -14,6 +14,16 @@ export default function Dashboard() {
     );
   }
 
+  // Ensure we have the necessary user data
+  if (!user.role) {
+    console.error('User role not defined');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Error loading user data. Please try logging in again.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen">
       <SidebarNav />
