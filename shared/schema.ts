@@ -1,7 +1,9 @@
 import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users table and relations
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -14,6 +16,14 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+export const usersRelations = relations(users, ({ many }) => ({
+  members: many(members),
+  trainers: many(members, { relationName: "trainer" }),
+  marketingCampaigns: many(marketingCampaigns),
+  mealPlans: many(mealPlans)
+}));
+
+// Members table and relations
 export const members = pgTable("members", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -29,6 +39,29 @@ export const members = pgTable("members", {
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
+
+export const membersRelations = relations(members, ({ one, many }) => ({
+  user: one(users, {
+    fields: [members.userId],
+    references: [users.id],
+  }),
+  trainer: one(users, {
+    fields: [members.assignedTrainerId],
+    references: [users.id],
+  }),
+  profile: one(memberProfiles),
+  assessments: many(memberAssessments),
+  progressPhotos: many(memberProgressPhotos),
+  workoutPlans: many(workoutPlans),
+  workoutLogs: many(workoutLogs),
+  schedules: many(schedules),
+  invoices: many(invoices),
+  memberMealPlans: many(memberMealPlans),
+  gymLocation: one(gymMembershipPricing, {
+    fields: [members.gymLocationId],
+    references: [gymMembershipPricing.id],
+  })
+}));
 
 export const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
@@ -227,6 +260,88 @@ export const memberMealPlans = pgTable("member_meal_plans", {
   }).notNull(),
 });
 
+// Scheduled Blocks View
+export const scheduledBlocks = pgTable("scheduled_blocks", {
+  trainerId: integer("trainer_id").references(() => users.id).notNull(),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  type: text("type", { enum: ["session", "class"] }).notNull(),
+  id: integer("id").notNull()
+});
+
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
+  trainerId: integer("trainer_id").references(() => users.id).notNull(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  date: timestamp("date").notNull(),
+  time: text("time").notNull(),
+  duration: integer("duration").notNull(), // in minutes
+  status: text("status", {
+    enum: ["scheduled", "completed", "canceled"]
+  }).notNull(),
+  notes: text("notes"),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const classes = pgTable("classes", {
+  id: serial("id").primaryKey(),
+  trainerId: integer("trainer_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  date: timestamp("date").notNull(),
+  time: text("time").notNull(),
+  duration: integer("duration").notNull(), // in minutes
+  capacity: integer("capacity").notNull(),
+  status: text("status", {
+    enum: ["scheduled", "completed", "canceled"]
+  }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const classRegistrations = pgTable("class_registrations", {
+  id: serial("id").primaryKey(),
+  classId: integer("class_id").references(() => classes.id).notNull(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  status: text("status", {
+    enum: ["registered", "attended", "canceled"]
+  }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+// Add relations
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  trainer: one(users, {
+    fields: [sessions.trainerId],
+    references: [users.id],
+  }),
+  member: one(members, {
+    fields: [sessions.memberId],
+    references: [members.id],
+  })
+}));
+
+export const classesRelations = relations(classes, ({ one, many }) => ({
+  trainer: one(users, {
+    fields: [classes.trainerId],
+    references: [users.id],
+  }),
+  registrations: many(classRegistrations)
+}));
+
+export const classRegistrationsRelations = relations(classRegistrations, ({ one }) => ({
+  class: one(classes, {
+    fields: [classRegistrations.classId],
+    references: [classes.id],
+  }),
+  member: one(members, {
+    fields: [classRegistrations.memberId],
+    references: [members.id],
+  })
+}));
+
+// Add insert schemas
 export const insertMealPlanSchema = createInsertSchema(mealPlans)
   .extend({
     meals: z.array(z.object({
@@ -241,10 +356,66 @@ export const insertMealPlanSchema = createInsertSchema(mealPlans)
 
 export const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans);
 
+export const insertSessionSchema = createInsertSchema(sessions)
+  .extend({
+    time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    duration: z.number().min(15, "Session must be at least 15 minutes").max(180, "Session cannot exceed 3 hours"),
+  })
+  .omit({ createdAt: true, deletedAt: true });
+
+export const insertClassSchema = createInsertSchema(classes)
+  .extend({
+    time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    duration: z.number().min(15, "Class must be at least 15 minutes").max(180, "Class cannot exceed 3 hours"),
+    capacity: z.number().min(1, "Class must have at least 1 spot"),
+  })
+  .omit({ createdAt: true });
+
+export const insertClassRegistrationSchema = createInsertSchema(classRegistrations).omit({ createdAt: true });
+
+// Add types
 export type MealPlan = typeof mealPlans.$inferSelect;
 export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
 export type MemberMealPlan = typeof memberMealPlans.$inferSelect;
 export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Member = typeof members.$inferSelect;
+export type InsertMember = z.infer<typeof insertMemberSchema>;
+export type MemberProfile = typeof memberProfiles.$inferSelect;
+export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
+export type MemberAssessment = typeof memberAssessments.$inferSelect;
+export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
+export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
+export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
+export type WorkoutPlan = typeof workoutPlans.$inferSelect;
+export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
+export type WorkoutLog = typeof workoutLogs.$inferSelect;
+export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
+export type Schedule = typeof schedules.$inferSelect;
+export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+export type MuscleGroup = typeof muscleGroups.$inferSelect;
+export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
+export type Exercise = typeof exercises.$inferSelect;
+export type InsertExercise = z.infer<typeof insertExerciseSchema>;
+export type PricingPlan = typeof pricingPlans.$inferSelect;
+export type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
+export type GymMembershipPricing = typeof gymMembershipPricing.$inferSelect;
+export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
+export type MembershipPricing = typeof membershipPricing.$inferSelect;
+export type InsertMembershipPricing = z.infer<typeof insertMembershipPricingSchema>;
+export type Session = typeof sessions.$inferSelect;
+export type InsertSession = z.infer<typeof insertSessionSchema>;
+export type Class = typeof classes.$inferSelect;
+export type InsertClass = z.infer<typeof insertClassSchema>;
+export type ClassRegistration = typeof classRegistrations.$inferSelect;
+export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
+
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members)
@@ -312,7 +483,7 @@ export const insertGymMembershipPricingSchema = createInsertSchema(gymMembership
       typeof val === 'string' ? parseFloat(val) : val
     ),
   })
-  .omit({ createdAt: true, updatedAt: true, isActive: true });
+  .omit({ createdAt: true, updatedAt: true });
 
 export const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
   .extend({
@@ -324,33 +495,51 @@ export const insertMembershipPricingSchema = createInsertSchema(membershipPricin
   })
   .omit({ id: true, createdAt: true, updatedAt: true, isActive: true });
 
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type Member = typeof members.$inferSelect;
-export type InsertMember = z.infer<typeof insertMemberSchema>;
-export type MemberProfile = typeof memberProfiles.$inferSelect;
-export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
-export type MemberAssessment = typeof memberAssessments.$inferSelect;
-export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
-export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
-export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
-export type WorkoutPlan = typeof workoutPlans.$inferSelect;
-export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
-export type WorkoutLog = typeof workoutLogs.$inferSelect;
-export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
-export type Schedule = typeof schedules.$inferSelect;
-export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
-export type Invoice = typeof invoices.$inferSelect;
-export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
-export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
-export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
-export type MuscleGroup = typeof muscleGroups.$inferSelect;
-export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
-export type Exercise = typeof exercises.$inferSelect;
-export type InsertExercise = z.infer<typeof insertExerciseSchema>;
-export type PricingPlan = typeof pricingPlans.$inferSelect;
-export type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
-export type GymMembershipPricing = typeof gymMembershipPricing.$inferSelect;
-export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
-export type MembershipPricing = typeof membershipPricing.$inferSelect;
-export type InsertMembershipPricing = z.infer<typeof insertMembershipPricingSchema>;
+export const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => ({
+  trainer: one(users, {
+    fields: [workoutPlans.trainerId],
+    references: [users.id],
+  }),
+  member: one(members, {
+    fields: [workoutPlans.memberId],
+    references: [members.id],
+  }),
+  workoutLogs: many(workoutLogs)
+}));
+
+export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
+  trainer: one(users, {
+    fields: [mealPlans.trainerId],
+    references: [users.id],
+  }),
+  memberMealPlans: many(memberMealPlans)
+}));
+
+export const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => ({
+  member: one(members, {
+    fields: [memberMealPlans.memberId],
+    references: [members.id],
+  }),
+  mealPlan: one(mealPlans, {
+    fields: [memberMealPlans.mealPlanId],
+    references: [mealPlans.id],
+  })
+}));
+
+export const schedulesRelations = relations(schedules, ({ one }) => ({
+  trainer: one(users, {
+    fields: [schedules.trainerId],
+    references: [users.id],
+  }),
+  member: one(members, {
+    fields: [schedules.memberId],
+    references: [members.id],
+  })
+}));
+
+export const exercisesRelations = relations(exercises, ({ one }) => ({
+  primaryMuscleGroup: one(muscleGroups, {
+    fields: [exercises.primaryMuscleGroupId],
+    references: [muscleGroups.id],
+  })
+}));
