@@ -7,8 +7,8 @@ import {
   insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
-  insertGymMembershipPricingSchema,
-  insertMembershipPricingSchema
+  insertGymMembershipPricingSchema, insertMembershipPricingSchema,
+  insertProgressSchema, insertStrengthMetricSchema
 } from "@shared/schema";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
@@ -512,6 +512,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const updatedPlan = await storage.updateMemberMealPlan(parseInt(req.params.planId), parsed.data);
     logInfo("Member meal plan updated", { planId: updatedPlan.id });
     res.json(updatedPlan);
+  }));
+
+  // Progress Tracking Routes
+  app.get("/api/members/:id/progress", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const progressRecords = await storage.getMemberProgress(parseInt(req.params.id));
+    logInfo("Progress records retrieved", { memberId: req.params.id, count: progressRecords.length });
+    res.json(progressRecords);
+  }));
+
+  app.post("/api/members/:id/progress", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const parsed = insertProgressSchema.safeParse({
+      ...req.body,
+      memberId: parseInt(req.params.id)
+    });
+    if (!parsed.success) {
+      logError("Progress record creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const progress = await storage.createProgress(parsed.data);
+    logInfo("New progress record created", { progressId: progress.id });
+    res.status(201).json(progress);
+  }));
+
+  app.patch("/api/members/:memberId/progress/:progressId", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const progress = await storage.getProgress(parseInt(req.params.progressId));
+    if (!progress || progress.memberId !== parseInt(req.params.memberId)) return res.sendStatus(404);
+
+    const parsed = insertProgressSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      logError("Progress record update validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const updatedProgress = await storage.updateProgress(parseInt(req.params.progressId), parsed.data);
+    logInfo("Progress record updated", { progressId: updatedProgress.id });
+    res.json(updatedProgress);
+  }));
+
+  // Strength Metrics Routes
+  app.get("/api/members/:id/strength-metrics", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const metrics = await storage.getMemberStrengthMetrics(parseInt(req.params.id));
+    logInfo("Strength metrics retrieved", { memberId: req.params.id, count: metrics.length });
+    res.json(metrics);
+  }));
+
+  app.post("/api/progress/:progressId/strength-metrics", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const parsed = insertStrengthMetricSchema.safeParse({
+      ...req.body,
+      progressId: parseInt(req.params.progressId)
+    });
+    if (!parsed.success) {
+      logError("Strength metric creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const metric = await storage.createStrengthMetric(parsed.data);
+    logInfo("New strength metric created", { metricId: metric.id });
+    res.status(201).json(metric);
+  }));
+
+  app.get("/api/progress/:progressId/strength-metrics", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const metrics = await storage.getProgressStrengthMetrics(parseInt(req.params.progressId));
+    logInfo("Progress strength metrics retrieved", { progressId: req.params.progressId, count: metrics.length });
+    res.json(metrics);
   }));
 
   const httpServer = createServer(app);
