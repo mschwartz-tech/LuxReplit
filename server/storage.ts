@@ -1,16 +1,23 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan, MembershipPricing, InsertMembershipPricing, MealPlan, InsertMealPlan, MemberMealPlan, InsertMemberMealPlan } from "@shared/schema";
+import { 
+  User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, 
+  WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, 
+  MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, 
+  MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, 
+  PricingPlan, InsertPricingPlan, MembershipPricing, InsertMembershipPricing,
+  Progress, InsertProgress, StrengthMetric, InsertStrengthMetric,
+  MealPlan, InsertMealPlan, MemberMealPlan, InsertMemberMealPlan, MuscleGroup, InsertMuscleGroup, Exercise, InsertExercise
+} from "@shared/schema";
 import session from "express-session";
 import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, membershipPricing,
-  mealPlans, memberMealPlans,
-  type Exercise, type InsertExercise,
-  type MuscleGroup, type InsertMuscleGroup
+  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, 
+  pricingPlans, membershipPricing, progress, strengthMetrics,
 } from "@shared/schema";
 import { eq, sql, desc, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 
+//Added error handling
 const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
@@ -106,6 +113,17 @@ export interface IStorage {
   createMemberMealPlan(data: InsertMemberMealPlan): Promise<MemberMealPlan>;
   updateMemberMealPlan(id: number, data: Partial<InsertMemberMealPlan>): Promise<MemberMealPlan>;
   deleteMemberMealPlan(id: number): Promise<void>;
+
+  // Progress tracking methods
+  getMemberProgress(memberId: number): Promise<Progress[]>;
+  getProgress(id: number): Promise<Progress | undefined>;
+  createProgress(progress: InsertProgress): Promise<Progress>;
+  updateProgress(id: number, progress: Partial<InsertProgress>): Promise<Progress>;
+
+  // Strength metrics methods
+  getMemberStrengthMetrics(memberId: number): Promise<StrengthMetric[]>;
+  getProgressStrengthMetrics(progressId: number): Promise<StrengthMetric[]>;
+  createStrengthMetric(metric: InsertStrengthMetric): Promise<StrengthMetric>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -121,391 +139,785 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user;
+    } catch (error) {
+      console.error("Error getting user:", error);
+      return undefined;
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user;
+    } catch (error) {
+      console.error("Error getting user by username:", error);
+      return undefined;
+    }
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
-    return newUser;
+    try {
+      const [newUser] = await db.insert(users).values(user).returning();
+      return newUser;
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error; // Re-throw for handling at a higher level
+    }
   }
 
   async getMembers(): Promise<Member[]> {
-    return await db.select().from(members);
+    try {
+      return await db.select().from(members);
+    } catch (error) {
+      console.error("Error getting members:", error);
+      return [];
+    }
   }
 
   async getMembersByTrainer(trainerId: number): Promise<Member[]> {
-    return await db.select()
-      .from(members)
-      .where(eq(members.assignedTrainerId, trainerId));
+    try {
+      return await db.select()
+        .from(members)
+        .where(eq(members.assignedTrainerId, trainerId));
+    } catch (error) {
+      console.error("Error getting members by trainer:", error);
+      return [];
+    }
   }
 
   async getMember(id: number): Promise<Member | undefined> {
-    const [member] = await db.select().from(members).where(eq(members.id, id));
-    return member;
+    try {
+      const [member] = await db.select().from(members).where(eq(members.id, id));
+      return member;
+    } catch (error) {
+      console.error("Error getting member:", error);
+      return undefined;
+    }
   }
 
   async createMember(member: InsertMember): Promise<Member> {
-    const [newMember] = await db.insert(members).values(member).returning();
-    return newMember;
+    try {
+      const [newMember] = await db.insert(members).values(member).returning();
+      return newMember;
+    } catch (error) {
+      console.error("Error creating member:", error);
+      throw error;
+    }
   }
 
   async getMemberProfile(memberId: number): Promise<MemberProfile | undefined> {
-    const [profile] = await db
-      .select()
-      .from(memberProfiles)
-      .where(eq(memberProfiles.userId, memberId));
-    return profile;
+    try {
+      const [profile] = await db
+        .select()
+        .from(memberProfiles)
+        .where(eq(memberProfiles.userId, memberId));
+      return profile;
+    } catch (error) {
+      console.error("Error getting member profile:", error);
+      return undefined;
+    }
   }
 
   async createMemberProfile(profile: InsertMemberProfile): Promise<MemberProfile> {
-    const [newProfile] = await db
-      .insert(memberProfiles)
-      .values({
-        ...profile,
-        height: profile.height?.toString(),
-        weight: profile.weight?.toString(),
-        updatedAt: new Date(),
-      })
-      .returning();
-    return newProfile;
+    try {
+      const [newProfile] = await db
+        .insert(memberProfiles)
+        .values({
+          ...profile,
+          height: profile.height?.toString(),
+          weight: profile.weight?.toString(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      return newProfile;
+    } catch (error) {
+      console.error("Error creating member profile:", error);
+      throw error;
+    }
   }
 
   async updateMemberProfile(
     userId: number,
     profile: Partial<InsertMemberProfile>
   ): Promise<MemberProfile> {
-    const updateData: any = { ...profile };
-    if (profile.height !== undefined) {
-      updateData.height = profile.height.toString();
-    }
-    if (profile.weight !== undefined) {
-      updateData.weight = profile.weight.toString();
-    }
-    updateData.updatedAt = new Date();
+    try {
+      const updateData: any = { ...profile };
+      if (profile.height !== undefined) {
+        updateData.height = profile.height.toString();
+      }
+      if (profile.weight !== undefined) {
+        updateData.weight = profile.weight.toString();
+      }
+      updateData.updatedAt = new Date();
 
-    const [updatedProfile] = await db
-      .update(memberProfiles)
-      .set(updateData)
-      .where(eq(memberProfiles.userId, userId))
-      .returning();
-    return updatedProfile;
+      const [updatedProfile] = await db
+        .update(memberProfiles)
+        .set(updateData)
+        .where(eq(memberProfiles.userId, userId))
+        .returning();
+      return updatedProfile;
+    } catch (error) {
+      console.error("Error updating member profile:", error);
+      throw error;
+    }
   }
 
   async getMemberAssessments(memberId: number): Promise<MemberAssessment[]> {
-    return await db
-      .select()
-      .from(memberAssessments)
-      .where(eq(memberAssessments.memberId, memberId))
-      .orderBy(desc(memberAssessments.assessmentDate));
+    try {
+      return await db
+        .select()
+        .from(memberAssessments)
+        .where(eq(memberAssessments.memberId, memberId))
+        .orderBy(desc(memberAssessments.assessmentDate));
+    } catch (error) {
+      console.error("Error getting member assessments:", error);
+      return [];
+    }
   }
 
   async getMemberAssessment(id: number): Promise<MemberAssessment | undefined> {
-    const [assessment] = await db
-      .select()
-      .from(memberAssessments)
-      .where(eq(memberAssessments.id, id));
-    return assessment;
+    try {
+      const [assessment] = await db
+        .select()
+        .from(memberAssessments)
+        .where(eq(memberAssessments.id, id));
+      return assessment;
+    } catch (error) {
+      console.error("Error getting member assessment:", error);
+      return undefined;
+    }
   }
 
   async createMemberAssessment(assessment: InsertMemberAssessment): Promise<MemberAssessment> {
-    const [newAssessment] = await db
-      .insert(memberAssessments)
-      .values(assessment)
-      .returning();
-    return newAssessment;
+    try {
+      const [newAssessment] = await db
+        .insert(memberAssessments)
+        .values(assessment)
+        .returning();
+      return newAssessment;
+    } catch (error) {
+      console.error("Error creating member assessment:", error);
+      throw error;
+    }
   }
 
   async getMemberProgressPhotos(memberId: number): Promise<MemberProgressPhoto[]> {
-    return await db
-      .select()
-      .from(memberProgressPhotos)
-      .where(eq(memberProgressPhotos.memberId, memberId))
-      .orderBy(desc(memberProgressPhotos.photoDate));
+    try {
+      return await db
+        .select()
+        .from(memberProgressPhotos)
+        .where(eq(memberProgressPhotos.memberId, memberId))
+        .orderBy(desc(memberProgressPhotos.photoDate));
+    } catch (error) {
+      console.error("Error getting member progress photos:", error);
+      return [];
+    }
   }
 
   async getMemberProgressPhoto(id: number): Promise<MemberProgressPhoto | undefined> {
-    const [photo] = await db
-      .select()
-      .from(memberProgressPhotos)
-      .where(eq(memberProgressPhotos.id, id));
-    return photo;
+    try {
+      const [photo] = await db
+        .select()
+        .from(memberProgressPhotos)
+        .where(eq(memberProgressPhotos.id, id));
+      return photo;
+    } catch (error) {
+      console.error("Error getting member progress photo:", error);
+      return undefined;
+    }
   }
 
   async createMemberProgressPhoto(photo: InsertMemberProgressPhoto): Promise<MemberProgressPhoto> {
-    const [newPhoto] = await db
-      .insert(memberProgressPhotos)
-      .values(photo)
-      .returning();
-    return newPhoto;
+    try {
+      const [newPhoto] = await db
+        .insert(memberProgressPhotos)
+        .values(photo)
+        .returning();
+      return newPhoto;
+    } catch (error) {
+      console.error("Error creating member progress photo:", error);
+      throw error;
+    }
   }
 
   async getWorkoutPlans(): Promise<WorkoutPlan[]> {
-    return await db.select().from(workoutPlans);
+    try {
+      return await db.select().from(workoutPlans);
+    } catch (error) {
+      console.error("Error getting workout plans:", error);
+      return [];
+    }
   }
 
   async getWorkoutPlansByMember(memberId: number): Promise<WorkoutPlan[]> {
-    return await db.select().from(workoutPlans).where(eq(workoutPlans.memberId, memberId));
+    try {
+      return await db.select().from(workoutPlans).where(eq(workoutPlans.memberId, memberId));
+    } catch (error) {
+      console.error("Error getting workout plans by member:", error);
+      return [];
+    }
   }
 
   async getWorkoutPlan(id: number): Promise<WorkoutPlan | undefined> {
-    const [plan] = await db.select().from(workoutPlans).where(eq(workoutPlans.id, id));
-    return plan;
+    try {
+      const [plan] = await db.select().from(workoutPlans).where(eq(workoutPlans.id, id));
+      return plan;
+    } catch (error) {
+      console.error("Error getting workout plan:", error);
+      return undefined;
+    }
   }
 
   async createWorkoutPlan(plan: InsertWorkoutPlan): Promise<WorkoutPlan> {
-    const [newPlan] = await db.insert(workoutPlans).values(plan).returning();
-    return newPlan;
+    try {
+      const [newPlan] = await db.insert(workoutPlans).values(plan).returning();
+      return newPlan;
+    } catch (error) {
+      console.error("Error creating workout plan:", error);
+      throw error;
+    }
   }
 
   async updateWorkoutPlanCompletionRate(id: number, completionRate: number): Promise<WorkoutPlan> {
-    const [updatedPlan] = await db
-      .update(workoutPlans)
-      .set({ completionRate: completionRate.toString() })
-      .where(eq(workoutPlans.id, id))
-      .returning();
-    return updatedPlan;
+    try {
+      const [updatedPlan] = await db
+        .update(workoutPlans)
+        .set({ completionRate: completionRate.toString() })
+        .where(eq(workoutPlans.id, id))
+        .returning();
+      return updatedPlan;
+    } catch (error) {
+      console.error("Error updating workout plan completion rate:", error);
+      throw error;
+    }
   }
 
   async getWorkoutLogs(workoutPlanId: number): Promise<WorkoutLog[]> {
-    return await db.select().from(workoutLogs).where(eq(workoutLogs.workoutPlanId, workoutPlanId));
+    try {
+      return await db.select().from(workoutLogs).where(eq(workoutLogs.workoutPlanId, workoutPlanId));
+    } catch (error) {
+      console.error("Error getting workout logs:", error);
+      return [];
+    }
   }
 
   async getMemberWorkoutLogs(memberId: number): Promise<WorkoutLog[]> {
-    return await db.select().from(workoutLogs).where(eq(workoutLogs.memberId, memberId));
+    try {
+      return await db.select().from(workoutLogs).where(eq(workoutLogs.memberId, memberId));
+    } catch (error) {
+      console.error("Error getting member workout logs:", error);
+      return [];
+    }
   }
 
   async createWorkoutLog(log: InsertWorkoutLog): Promise<WorkoutLog> {
-    const [newLog] = await db.insert(workoutLogs).values(log).returning();
-    return newLog;
+    try {
+      const [newLog] = await db.insert(workoutLogs).values(log).returning();
+      return newLog;
+    } catch (error) {
+      console.error("Error creating workout log:", error);
+      throw error;
+    }
   }
 
   async getSchedules(): Promise<Schedule[]> {
-    return await db.select().from(schedules);
+    try {
+      return await db.select().from(schedules);
+    } catch (error) {
+      console.error("Error getting schedules:", error);
+      return [];
+    }
   }
 
   async getSchedule(id: number): Promise<Schedule | undefined> {
-    const [schedule] = await db.select().from(schedules).where(eq(schedules.id, id));
-    return schedule;
+    try {
+      const [schedule] = await db.select().from(schedules).where(eq(schedules.id, id));
+      return schedule;
+    } catch (error) {
+      console.error("Error getting schedule:", error);
+      return undefined;
+    }
   }
 
   async createSchedule(schedule: InsertSchedule): Promise<Schedule> {
-    const [newSchedule] = await db.insert(schedules).values(schedule).returning();
-    return newSchedule;
+    try {
+      const [newSchedule] = await db.insert(schedules).values(schedule).returning();
+      return newSchedule;
+    } catch (error) {
+      console.error("Error creating schedule:", error);
+      throw error;
+    }
   }
 
   async getInvoices(): Promise<Invoice[]> {
-    return await db.select().from(invoices);
+    try {
+      return await db.select().from(invoices);
+    } catch (error) {
+      console.error("Error getting invoices:", error);
+      return [];
+    }
   }
 
   async getInvoice(id: number): Promise<Invoice | undefined> {
-    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
-    return invoice;
+    try {
+      const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+      return invoice;
+    } catch (error) {
+      console.error("Error getting invoice:", error);
+      return undefined;
+    }
   }
 
   async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
-    const [newInvoice] = await db.insert(invoices).values(invoice).returning();
-    return newInvoice;
+    try {
+      const [newInvoice] = await db.insert(invoices).values(invoice).returning();
+      return newInvoice;
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      throw error;
+    }
   }
 
   async getMarketingCampaigns(): Promise<MarketingCampaign[]> {
-    return await db.select().from(marketingCampaigns);
+    try {
+      return await db.select().from(marketingCampaigns);
+    } catch (error) {
+      console.error("Error getting marketing campaigns:", error);
+      return [];
+    }
   }
 
   async getMarketingCampaign(id: number): Promise<MarketingCampaign | undefined> {
-    const [campaign] = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.id, id));
-    return campaign;
+    try {
+      const [campaign] = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.id, id));
+      return campaign;
+    } catch (error) {
+      console.error("Error getting marketing campaign:", error);
+      return undefined;
+    }
   }
 
   async createMarketingCampaign(campaign: InsertMarketingCampaign): Promise<MarketingCampaign> {
-    const [newCampaign] = await db.insert(marketingCampaigns).values(campaign).returning();
-    return newCampaign;
+    try {
+      const [newCampaign] = await db.insert(marketingCampaigns).values(campaign).returning();
+      return newCampaign;
+    } catch (error) {
+      console.error("Error creating marketing campaign:", error);
+      throw error;
+    }
   }
 
   async getMuscleGroups(): Promise<MuscleGroup[]> {
-    return await db.select().from(muscleGroups);
+    try {
+      return await db.select().from(muscleGroups);
+    } catch (error) {
+      console.error("Error getting muscle groups:", error);
+      return [];
+    }
   }
 
   async getMuscleGroup(id: number): Promise<MuscleGroup | undefined> {
-    const [group] = await db.select().from(muscleGroups).where(eq(muscleGroups.id, id));
-    return group;
+    try {
+      const [group] = await db.select().from(muscleGroups).where(eq(muscleGroups.id, id));
+      return group;
+    } catch (error) {
+      console.error("Error getting muscle group:", error);
+      return undefined;
+    }
   }
 
   async createMuscleGroup(group: InsertMuscleGroup): Promise<MuscleGroup> {
-    const [newGroup] = await db.insert(muscleGroups).values(group).returning();
-    return newGroup;
+    try {
+      const [newGroup] = await db.insert(muscleGroups).values(group).returning();
+      return newGroup;
+    } catch (error) {
+      console.error("Error creating muscle group:", error);
+      throw error;
+    }
   }
 
   async getExercises(): Promise<Exercise[]> {
-    return await db.select().from(exercises);
+    try {
+      return await db.select().from(exercises);
+    } catch (error) {
+      console.error("Error getting exercises:", error);
+      return [];
+    }
   }
 
   async getExercise(id: number): Promise<Exercise | undefined> {
-    const [exercise] = await db.select().from(exercises).where(eq(exercises.id, id));
-    return exercise;
+    try {
+      const [exercise] = await db.select().from(exercises).where(eq(exercises.id, id));
+      return exercise;
+    } catch (error) {
+      console.error("Error getting exercise:", error);
+      return undefined;
+    }
   }
 
   async getExercisesByMuscleGroup(muscleGroupId: number): Promise<Exercise[]> {
-    return await db.select()
-      .from(exercises)
-      .where(sql`${exercises.primaryMuscleGroupId} = ${muscleGroupId} OR ${muscleGroupId} = ANY(${exercises.secondaryMuscleGroupIds})`);
+    try {
+      return await db.select()
+        .from(exercises)
+        .where(sql`${exercises.primaryMuscleGroupId} = ${muscleGroupId} OR ${muscleGroupId} = ANY(${exercises.secondaryMuscleGroupIds})`);
+    } catch (error) {
+      console.error("Error getting exercises by muscle group:", error);
+      return [];
+    }
   }
 
   async createExercise(exercise: InsertExercise): Promise<Exercise> {
-    const [newExercise] = await db.insert(exercises).values(exercise).returning();
-    return newExercise;
+    try {
+      const [newExercise] = await db.insert(exercises).values(exercise).returning();
+      return newExercise;
+    } catch (error) {
+      console.error("Error creating exercise:", error);
+      throw error;
+    }
   }
 
 
   async getPricingPlans(): Promise<PricingPlan[]> {
-    return await db.select().from(pricingPlans)
-      .orderBy(pricingPlans.sessionsPerWeek, pricingPlans.duration);
+    try {
+      return await db.select().from(pricingPlans)
+        .orderBy(pricingPlans.sessionsPerWeek, pricingPlans.duration);
+    } catch (error) {
+      console.error("Error getting pricing plans:", error);
+      return [];
+    }
   }
 
   async getPricingPlan(id: number): Promise<PricingPlan | undefined> {
-    const [plan] = await db.select().from(pricingPlans).where(eq(pricingPlans.id, id));
-    return plan;
+    try {
+      const [plan] = await db.select().from(pricingPlans).where(eq(pricingPlans.id, id));
+      return plan;
+    } catch (error) {
+      console.error("Error getting pricing plan:", error);
+      return undefined;
+    }
   }
 
   async createPricingPlan(plan: InsertPricingPlan): Promise<PricingPlan> {
-    const [newPlan] = await db.insert(pricingPlans)
-      .values({
-        ...plan,
-        updatedAt: new Date(),
-      })
-      .returning();
-    return newPlan;
+    try {
+      const [newPlan] = await db.insert(pricingPlans)
+        .values({
+          ...plan,
+          updatedAt: new Date(),
+        })
+        .returning();
+      return newPlan;
+    } catch (error) {
+      console.error("Error creating pricing plan:", error);
+      throw error;
+    }
   }
 
   async updatePricingPlan(id: number, plan: Partial<InsertPricingPlan>): Promise<PricingPlan> {
-    const [updatedPlan] = await db.update(pricingPlans)
-      .set({
-        ...plan,
-        updatedAt: new Date(),
-      })
-      .where(eq(pricingPlans.id, id))
-      .returning();
-    return updatedPlan;
+    try {
+      const [updatedPlan] = await db.update(pricingPlans)
+        .set({
+          ...plan,
+          updatedAt: new Date(),
+        })
+        .where(eq(pricingPlans.id, id))
+        .returning();
+      return updatedPlan;
+    } catch (error) {
+      console.error("Error updating pricing plan:", error);
+      throw error;
+    }
   }
 
   async getMembershipPricing(): Promise<MembershipPricing[]> {
-    return await db.select()
-      .from(membershipPricing)
-      .where(eq(membershipPricing.isActive, true))
-      .orderBy(membershipPricing.gymLocation);
+    try {
+      return await db.select()
+        .from(membershipPricing)
+        .where(eq(membershipPricing.isActive, true))
+        .orderBy(membershipPricing.gymLocation);
+    } catch (error) {
+      console.error("Error getting membership pricing:", error);
+      return [];
+    }
   }
 
   async getMembershipPricingById(id: number): Promise<MembershipPricing | undefined> {
-    const [pricing] = await db.select()
-      .from(membershipPricing)
-      .where(eq(membershipPricing.id, id));
-    return pricing;
+    try {
+      const [pricing] = await db.select()
+        .from(membershipPricing)
+        .where(eq(membershipPricing.id, id));
+      return pricing;
+    } catch (error) {
+      console.error("Error getting membership pricing by ID:", error);
+      return undefined;
+    }
   }
 
   async createMembershipPricing(pricing: InsertMembershipPricing): Promise<MembershipPricing> {
-    const [newPricing] = await db.insert(membershipPricing)
-      .values({
-        ...pricing,
-        membershipTier1: pricing.membershipTier1.toString(),
-        membershipTier2: pricing.membershipTier2.toString(),
-        membershipTier3: pricing.membershipTier3.toString(),
-        membershipTier4: pricing.membershipTier4.toString(),
-        isActive: true,
-        updatedAt: new Date()
-      })
-      .returning();
-    return newPricing;
+    try {
+      const [newPricing] = await db.insert(membershipPricing)
+        .values({
+          ...pricing,
+          membershipTier1: pricing.membershipTier1.toString(),
+          membershipTier2: pricing.membershipTier2.toString(),
+          membershipTier3: pricing.membershipTier3.toString(),
+          membershipTier4: pricing.membershipTier4.toString(),
+          isActive: true,
+          updatedAt: new Date()
+        })
+        .returning();
+      return newPricing;
+    } catch (error) {
+      console.error("Error creating membership pricing:", error);
+      throw error;
+    }
   }
 
   async updateMembershipPricing(
     id: number,
     pricing: Partial<InsertMembershipPricing>
   ): Promise<MembershipPricing> {
-    const updateData: any = { ...pricing };
-    if (pricing.membershipTier1 !== undefined) {
-      updateData.membershipTier1 = pricing.membershipTier1.toString();
-    }
-    if (pricing.membershipTier2 !== undefined) {
-      updateData.membershipTier2 = pricing.membershipTier2.toString();
-    }
-    if (pricing.membershipTier3 !== undefined) {
-      updateData.membershipTier3 = pricing.membershipTier3.toString();
-    }
-    if (pricing.membershipTier4 !== undefined) {
-      updateData.membershipTier4 = pricing.membershipTier4.toString();
-    }
-    updateData.updatedAt = new Date();
+    try {
+      const updateData: any = { ...pricing };
+      if (pricing.membershipTier1 !== undefined) {
+        updateData.membershipTier1 = pricing.membershipTier1.toString();
+      }
+      if (pricing.membershipTier2 !== undefined) {
+        updateData.membershipTier2 = pricing.membershipTier2.toString();
+      }
+      if (pricing.membershipTier3 !== undefined) {
+        updateData.membershipTier3 = pricing.membershipTier3.toString();
+      }
+      if (pricing.membershipTier4 !== undefined) {
+        updateData.membershipTier4 = pricing.membershipTier4.toString();
+      }
+      updateData.updatedAt = new Date();
 
-    const [updatedPricing] = await db.update(membershipPricing)
-      .set(updateData)
-      .where(eq(membershipPricing.id, id))
-      .returning();
-    return updatedPricing;
+      const [updatedPricing] = await db.update(membershipPricing)
+        .set(updateData)
+        .where(eq(membershipPricing.id, id))
+        .returning();
+      return updatedPricing;
+    } catch (error) {
+      console.error("Error updating membership pricing:", error);
+      throw error;
+    }
   }
 
   async deleteMembershipPricing(id: number): Promise<void> {
-    await db.update(membershipPricing)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(membershipPricing.id, id));
+    try {
+      await db.update(membershipPricing)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(eq(membershipPricing.id, id));
+    } catch (error) {
+      console.error("Error deleting membership pricing:", error);
+      throw error;
+    }
   }
 
   async getAllMembershipPricing(): Promise<MembershipPricing[]> {
-    return await db.select()
-      .from(membershipPricing)
-      .orderBy(membershipPricing.gymLocation);
+    try {
+      return await db.select()
+        .from(membershipPricing)
+        .orderBy(membershipPricing.gymLocation);
+    } catch (error) {
+      console.error("Error getting all membership pricing:", error);
+      return [];
+    }
   }
 
   // Meal Plans
   async getMealPlans(): Promise<MealPlan[]> {
-    return await db.select().from(mealPlans);
+    try {
+      return await db.select().from(mealPlans);
+    } catch (error) {
+      console.error("Error getting meal plans:", error);
+      return [];
+    }
   }
 
   async getMealPlan(id: number): Promise<MealPlan | null> {
-    const results = await db.select().from(mealPlans).where(eq(mealPlans.id, id));
-    return results[0] || null;
+    try {
+      const results = await db.select().from(mealPlans).where(eq(mealPlans.id, id));
+      return results[0] || null;
+    } catch (error) {
+      console.error("Error getting meal plan:", error);
+      return null;
+    }
   }
 
   async createMealPlan(data: InsertMealPlan): Promise<MealPlan> {
-    const results = await db.insert(mealPlans).values(data).returning();
-    return results[0];
+    try {
+      const results = await db.insert(mealPlans).values(data).returning();
+      return results[0];
+    } catch (error) {
+      console.error("Error creating meal plan:", error);
+      throw error;
+    }
   }
 
   async updateMealPlan(id: number, data: Partial<InsertMealPlan>): Promise<MealPlan> {
-    const results = await db.update(mealPlans).set(data).where(eq(mealPlans.id, id)).returning();
-    return results[0];
+    try {
+      const results = await db.update(mealPlans).set(data).where(eq(mealPlans.id, id)).returning();
+      return results[0];
+    } catch (error) {
+      console.error("Error updating meal plan:", error);
+      throw error;
+    }
   }
 
   async deleteMealPlan(id: number): Promise<void> {
-    await db.delete(mealPlans).where(eq(mealPlans.id, id));
+    try {
+      await db.delete(mealPlans).where(eq(mealPlans.id, id));
+    } catch (error) {
+      console.error("Error deleting meal plan:", error);
+      throw error;
+    }
   }
 
   // Member Meal Plans
   async getMemberMealPlans(memberId: number): Promise<MemberMealPlan[]> {
-    return await db.select().from(memberMealPlans).where(eq(memberMealPlans.memberId, memberId));
+    try {
+      return await db.select().from(memberMealPlans).where(eq(memberMealPlans.memberId, memberId));
+    } catch (error) {
+      console.error("Error getting member meal plans:", error);
+      return [];
+    }
   }
 
   async getMemberMealPlan(id: number): Promise<MemberMealPlan | null> {
-    const results = await db.select().from(memberMealPlans).where(eq(memberMealPlans.id, id));
-    return results[0] || null;
+    try {
+      const results = await db.select().from(memberMealPlans).where(eq(memberMealPlans.id, id));
+      return results[0] || null;
+    } catch (error) {
+      console.error("Error getting member meal plan:", error);
+      return null;
+    }
   }
 
   async createMemberMealPlan(data: InsertMemberMealPlan): Promise<MemberMealPlan> {
-    const results = await db.insert(memberMealPlans).values(data).returning();
-    return results[0];
+    try {
+      const results = await db.insert(memberMealPlans).values(data).returning();
+      return results[0];
+    } catch (error) {
+      console.error("Error creating member meal plan:", error);
+      throw error;
+    }
   }
 
   async updateMemberMealPlan(id: number, data: Partial<InsertMemberMealPlan>): Promise<MemberMealPlan> {
-    const results = await db.update(memberMealPlans).set(data).where(eq(memberMealPlans.id, id)).returning();
-    return results[0];
+    try {
+      const results = await db.update(memberMealPlans).set(data).where(eq(memberMealPlans.id, id)).returning();
+      return results[0];
+    } catch (error) {
+      console.error("Error updating member meal plan:", error);
+      throw error;
+    }
   }
 
   async deleteMemberMealPlan(id: number): Promise<void> {
-    await db.delete(memberMealPlans).where(eq(memberMealPlans.id, id));
+    try {
+      await db.delete(memberMealPlans).where(eq(memberMealPlans.id, id));
+    } catch (error) {
+      console.error("Error deleting member meal plan:", error);
+      throw error;
+    }
+  }
+
+  // Progress tracking implementation
+  async getMemberProgress(memberId: number): Promise<Progress[]> {
+    try {
+      return await db.select()
+        .from(progress)
+        .where(eq(progress.memberId, memberId))
+        .orderBy(desc(progress.progressDate));
+    } catch (error) {
+      console.error("Error getting member progress:", error);
+      return [];
+    }
+  }
+
+  async getProgress(id: number): Promise<Progress | undefined> {
+    try {
+      const [record] = await db.select()
+        .from(progress)
+        .where(eq(progress.id, id));
+      return record;
+    } catch (error) {
+      console.error("Error getting progress:", error);
+      return undefined;
+    }
+  }
+
+  async createProgress(data: InsertProgress): Promise<Progress> {
+    try {
+      const [newProgress] = await db.insert(progress)
+        .values({
+          ...data,
+          progressDate: new Date(),
+        })
+        .returning();
+      return newProgress;
+    } catch (error) {
+      console.error("Error creating progress:", error);
+      throw error;
+    }
+  }
+
+  async updateProgress(id: number, data: Partial<InsertProgress>): Promise<Progress> {
+    try {
+      const [updatedProgress] = await db.update(progress)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(progress.id, id))
+        .returning();
+      return updatedProgress;
+    } catch (error) {
+      console.error("Error updating progress:", error);
+      throw error;
+    }
+  }
+
+  // Strength metrics implementation
+  async getMemberStrengthMetrics(memberId: number): Promise<StrengthMetric[]> {
+    try {
+      return await db.select()
+        .from(strengthMetrics)
+        .innerJoin(progress, eq(strengthMetrics.progressId, progress.id))
+        .where(eq(progress.memberId, memberId))
+        .orderBy(desc(progress.progressDate));
+    } catch (error) {
+      console.error("Error getting member strength metrics:", error);
+      return [];
+    }
+  }
+
+  async getProgressStrengthMetrics(progressId: number): Promise<StrengthMetric[]> {
+    try {
+      return await db.select()
+        .from(strengthMetrics)
+        .where(eq(strengthMetrics.progressId, progressId))
+        .orderBy(strengthMetrics.exerciseId);
+    } catch (error) {
+      console.error("Error getting progress strength metrics:", error);
+      return [];
+    }
+  }
+
+  async createStrengthMetric(metric: InsertStrengthMetric): Promise<StrengthMetric> {
+    try {
+      const [newMetric] = await db.insert(strengthMetrics)
+        .values(metric)
+        .returning();
+      return newMetric;
+    } catch (error) {
+      console.error("Error creating strength metric:", error);
+      throw error;
+    }
   }
 }
 
@@ -680,5 +1092,23 @@ CREATE TABLE IF NOT EXISTS member_meal_plans (
   end_date TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS progress (
+  id SERIAL PRIMARY KEY,
+  memberId INTEGER REFERENCES members(id),
+  progressDate TIMESTAMP WITH TIME ZONE,
+  notes TEXT,
+  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS strengthMetrics (
+  id SERIAL PRIMARY KEY,
+  progressId INTEGER REFERENCES progress(id),
+  exerciseId INTEGER REFERENCES exercises(id),
+  weight DECIMAL,
+  reps INTEGER,
+  sets INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 `;
