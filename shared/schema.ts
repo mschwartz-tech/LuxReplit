@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uni
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from 'drizzle-orm';
 
 // Users table and relations
 export const users = pgTable("users", {
@@ -355,6 +356,48 @@ export const insertMealPlanSchema = createInsertSchema(mealPlans)
   });
 
 export const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans);
+
+export const validateSchedulingConflict = async (
+  db: any,
+  trainerId: number,
+  date: Date,
+  startTime: string,
+  duration: number
+): Promise<boolean> => {
+  const [conflict] = await db.execute(sql`
+    WITH new_slot AS (
+      SELECT 
+        ${trainerId} as trainer_id,
+        ${date}::date as date,
+        (${date}::date + ${startTime}::time)::timestamp as start_timestamp,
+        (${date}::date + ${startTime}::time + interval '${duration} minutes')::timestamp as end_timestamp
+    ),
+    existing_blocks AS (
+      SELECT 
+        trainer_id,
+        date,
+        (date + start_time::time)::timestamp as start_timestamp,
+        end_time as end_timestamp
+      FROM scheduled_blocks
+      WHERE trainer_id = ${trainerId}
+      AND date::date = ${date}::date
+    )
+    SELECT EXISTS (
+      SELECT 1 FROM existing_blocks eb, new_slot ns
+      WHERE eb.trainer_id = ns.trainer_id
+      AND eb.date::date = ns.date::date
+      AND (
+        (eb.start_timestamp <= ns.start_timestamp AND eb.end_timestamp > ns.start_timestamp)
+        OR 
+        (eb.start_timestamp < ns.end_timestamp AND eb.end_timestamp >= ns.end_timestamp)
+        OR
+        (ns.start_timestamp <= eb.start_timestamp AND ns.end_timestamp > eb.start_timestamp)
+      )
+    ) as has_conflict;
+  `);
+
+  return conflict?.has_conflict || false;
+};
 
 export const insertSessionSchema = createInsertSchema(sessions)
   .extend({
