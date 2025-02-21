@@ -90,13 +90,10 @@ export default function PricingPage() {
       const data = await response.json();
       return data;
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData<GymMembershipPricing[]>(
-        ["/api/gym-membership-pricing"],
-        (old) => [...(old || []), data]
-      );
-
+    onSuccess: () => {
+      // Invalidate both queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing/all"] });
 
       setShowNewGymForm(false);
       setNewGym({
@@ -588,8 +585,8 @@ export default function PricingPage() {
                   <tr key={pricing.id} className={`hover:bg-gray-50 ${pricing.isactive ? '' : 'bg-gray-50 text-gray-500'}`}>
                     <td className="px-3 py-2">
                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                        pricing.isactive 
-                          ? 'bg-green-100 text-green-700' 
+                        pricing.isactive
+                          ? 'bg-green-100 text-green-700'
                           : 'bg-gray-100 text-gray-700'
                       }`}>
                         {pricing.isactive ? 'Active' : 'Inactive'}
