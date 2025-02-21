@@ -193,6 +193,18 @@ export const gymMembershipPricing = pgTable("gym_membership_pricing", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
+export const membershipPricing = pgTable("membership_pricing", {
+  id: serial("id").primaryKey(),
+  gymLocation: text("gym_location").notNull().unique(),
+  membershipTier1: numeric("membership_tier_1").notNull(),
+  membershipTier2: numeric("membership_tier_2").notNull(),
+  membershipTier3: numeric("membership_tier_3").notNull(),
+  membershipTier4: numeric("membership_tier_4").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members)
   .extend({
@@ -261,6 +273,16 @@ export const insertGymMembershipPricingSchema = createInsertSchema(gymMembership
   })
   .omit({ createdAt: true, updatedAt: true, isActive: true });
 
+export const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
+  .extend({
+    gymLocation: z.string().min(1, "Gym location is required"),
+    membershipTier1: z.number().min(0, "Price must be positive"),
+    membershipTier2: z.number().min(0, "Price must be positive"),
+    membershipTier3: z.number().min(0, "Price must be positive"),
+    membershipTier4: z.number().min(0, "Price must be positive"),
+  })
+  .omit({ id: true, createdAt: true, updatedAt: true, isActive: true });
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Member = typeof members.$inferSelect;
@@ -289,3 +311,5 @@ export type PricingPlan = typeof pricingPlans.$inferSelect;
 export type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
 export type GymMembershipPricing = typeof gymMembershipPricing.$inferSelect;
 export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
+export type MembershipPricing = typeof membershipPricing.$inferSelect;
+export type InsertMembershipPricing = z.infer<typeof insertMembershipPricingSchema>;

@@ -1,8 +1,8 @@
-import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan, GymMembershipPricing, InsertGymMembershipPricing } from "@shared/schema";
+import { User, InsertUser, Member, InsertMember, WorkoutPlan, InsertWorkoutPlan, WorkoutLog, InsertWorkoutLog, Schedule, InsertSchedule, Invoice, InsertInvoice, MarketingCampaign, InsertMarketingCampaign, MemberProfile, InsertMemberProfile, MemberAssessment, InsertMemberAssessment, MemberProgressPhoto, InsertMemberProgressPhoto, PricingPlan, InsertPricingPlan, GymMembershipPricing, InsertGymMembershipPricing, MembershipPricing, InsertMembershipPricing } from "@shared/schema";
 import session from "express-session";
 import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
-  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, gymMembershipPricing,
+  exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, gymMembershipPricing, membershipPricing,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
@@ -91,6 +91,14 @@ export interface IStorage {
   updateGymMembershipPricing(id: number, pricing: Partial<InsertGymMembershipPricing>): Promise<GymMembershipPricing>;
   deleteGymMembershipPricing(id: number): Promise<void>;
   getAllGymMembershipPricing(): Promise<GymMembershipPricing[]>;
+
+  // Membership Pricing operations
+  getMembershipPricing(): Promise<MembershipPricing[]>;
+  getMembershipPricingById(id: number): Promise<MembershipPricing | undefined>;
+  createMembershipPricing(pricing: InsertMembershipPricing): Promise<MembershipPricing>;
+  updateMembershipPricing(id: number, pricing: Partial<InsertMembershipPricing>): Promise<MembershipPricing>;
+  deleteMembershipPricing(id: number): Promise<void>;
+  getAllMembershipPricing(): Promise<MembershipPricing[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -427,6 +435,73 @@ export class DatabaseStorage implements IStorage {
       .from(gymMembershipPricing)
       .orderBy(gymMembershipPricing.gymName);
   }
+
+  async getMembershipPricing(): Promise<MembershipPricing[]> {
+    return await db.select()
+      .from(membershipPricing)
+      .where(eq(membershipPricing.isActive, true))
+      .orderBy(membershipPricing.gymLocation);
+  }
+
+  async getMembershipPricingById(id: number): Promise<MembershipPricing | undefined> {
+    const [pricing] = await db.select()
+      .from(membershipPricing)
+      .where(eq(membershipPricing.id, id));
+    return pricing;
+  }
+
+  async createMembershipPricing(pricing: InsertMembershipPricing): Promise<MembershipPricing> {
+    const [newPricing] = await db.insert(membershipPricing)
+      .values({
+        ...pricing,
+        membershipTier1: pricing.membershipTier1.toString(),
+        membershipTier2: pricing.membershipTier2.toString(),
+        membershipTier3: pricing.membershipTier3.toString(),
+        membershipTier4: pricing.membershipTier4.toString(),
+        isActive: true,
+        updatedAt: new Date()
+      })
+      .returning();
+    return newPricing;
+  }
+
+  async updateMembershipPricing(
+    id: number,
+    pricing: Partial<InsertMembershipPricing>
+  ): Promise<MembershipPricing> {
+    const updateData: any = { ...pricing };
+    if (pricing.membershipTier1 !== undefined) {
+      updateData.membershipTier1 = pricing.membershipTier1.toString();
+    }
+    if (pricing.membershipTier2 !== undefined) {
+      updateData.membershipTier2 = pricing.membershipTier2.toString();
+    }
+    if (pricing.membershipTier3 !== undefined) {
+      updateData.membershipTier3 = pricing.membershipTier3.toString();
+    }
+    if (pricing.membershipTier4 !== undefined) {
+      updateData.membershipTier4 = pricing.membershipTier4.toString();
+    }
+    updateData.updatedAt = new Date();
+
+    const [updatedPricing] = await db.update(membershipPricing)
+      .set(updateData)
+      .where(eq(membershipPricing.id, id))
+      .returning();
+    return updatedPricing;
+  }
+
+  async deleteMembershipPricing(id: number): Promise<void> {
+    await db.update(membershipPricing)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(membershipPricing.id, id));
+  }
+
+  async getAllMembershipPricing(): Promise<MembershipPricing[]> {
+    return await db.select()
+      .from(membershipPricing)
+      .orderBy(membershipPricing.gymLocation);
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -577,5 +652,19 @@ CREATE TABLE IF NOT EXISTS muscle_groups (
   name VARCHAR(255) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS membership_pricing (
+  id SERIAL PRIMARY KEY,
+  gymLocation VARCHAR(255) NOT NULL,
+  planName VARCHAR(255) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  membershipTier1 DECIMAL(10,2),
+  membershipTier2 DECIMAL(10,2),
+  membershipTier3 DECIMAL(10,2),
+  membershipTier4 DECIMAL(10,2),
+  isActive BOOLEAN DEFAULT TRUE,
+  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 `;
