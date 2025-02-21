@@ -4,9 +4,9 @@ import { SidebarNav } from "@/components/ui/sidebar-nav";
 import { Loader2 } from "lucide-react";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  if (!user) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -14,12 +14,10 @@ export default function Dashboard() {
     );
   }
 
-  // Ensure we have the necessary user data
-  if (!user.role) {
-    console.error('User role not defined');
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Error loading user data. Please try logging in again.</p>
+        <p>Please log in to access the dashboard.</p>
       </div>
     );
   }

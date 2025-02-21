@@ -22,12 +22,6 @@ export function SidebarNav() {
   const { user, logoutMutation } = useAuth();
   const userRole = user?.role?.toLowerCase() || '';
 
-  // Ensure we have a valid role or default to restricted access
-  if (!user || !userRole) {
-    console.warn('User or role not properly initialized');
-    return null;
-  }
-
   const items = [
     {
       title: "Dashboard",
@@ -92,12 +86,23 @@ export function SidebarNav() {
   ];
 
   // Filter items based on user role
-  const visibleItems = items.filter(item => item.roles.includes(userRole));
+  const visibleItems = items.filter(item => 
+    userRole && item.roles.includes(userRole)
+  );
 
-  // If no items are visible for the user's role, something might be wrong
-  if (visibleItems.length === 0) {
-    console.error('No navigation items available for role:', userRole);
-    return null;
+  // If no items are visible for the user's role, return the default navigation
+  if (!visibleItems.length) {
+    return (
+      <div className="border-r bg-sidebar h-screen w-64 flex flex-col">
+        <div className="flex-1">
+          <div className="px-3 py-2">
+            <div className="mb-6 px-4">
+              <Logo size="xl" type="banner" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
