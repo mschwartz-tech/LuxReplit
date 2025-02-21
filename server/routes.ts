@@ -329,53 +329,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(updatedPlan);
   }));
 
+  // Replace old gym membership pricing endpoints with the new unified membership pricing
   app.get("/api/gym-membership-pricing", requireAuth, asyncHandler(async (req: Request, res: Response) => {
-    const pricing = await storage.getGymMembershipPricing();
-    logInfo("Gym membership pricing retrieved", { count: pricing.length });
+    const pricing = await storage.getMembershipPricing();
+    logInfo("Membership pricing retrieved", { count: pricing.length });
     res.json(pricing);
   }));
 
   app.post("/api/gym-membership-pricing", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
-    const parsed = insertGymMembershipPricingSchema.safeParse(req.body);
+    const parsed = insertMembershipPricingSchema.safeParse(req.body);
     if (!parsed.success) {
-      logError("Gym membership pricing creation validation failed", { errors: parsed.error.errors });
+      logError("Membership pricing creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
-    const pricing = await storage.createGymMembershipPricing(parsed.data);
-    logInfo("New gym membership pricing created", { pricingId: pricing.id });
+    const pricing = await storage.createMembershipPricing(parsed.data);
+    logInfo("New membership pricing created", { pricingId: pricing.id });
     res.status(201).json(pricing);
   }));
 
   app.patch("/api/gym-membership-pricing/:id", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
     const pricingId = parseInt(req.params.id);
-    const pricing = await storage.getGymMembershipPricingById(pricingId);
+    const pricing = await storage.getMembershipPricingById(pricingId);
     if (!pricing) return res.sendStatus(404);
 
-    const parsed = insertGymMembershipPricingSchema.partial().safeParse(req.body);
+    const parsed = insertMembershipPricingSchema.partial().safeParse(req.body);
     if (!parsed.success) {
-      logError("Gym membership pricing update validation failed", { errors: parsed.error.errors });
+      logError("Membership pricing update validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
     }
 
-    const updatedPricing = await storage.updateGymMembershipPricing(pricingId, parsed.data);
-    logInfo("Gym membership pricing updated", { pricingId: updatedPricing.id });
+    const updatedPricing = await storage.updateMembershipPricing(pricingId, parsed.data);
+    logInfo("Membership pricing updated", { pricingId: updatedPricing.id });
     res.json(updatedPricing);
   }));
 
   app.delete("/api/gym-membership-pricing/:id", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
     const pricingId = parseInt(req.params.id);
-    const pricing = await storage.getGymMembershipPricingById(pricingId);
+    const pricing = await storage.getMembershipPricingById(pricingId);
     if (!pricing) return res.sendStatus(404);
 
-    await storage.deleteGymMembershipPricing(pricingId);
-    logInfo("Gym membership pricing deleted", { pricingId });
+    await storage.deleteMembershipPricing(pricingId);
+    logInfo("Membership pricing deleted", { pricingId });
     res.sendStatus(200);
   }));
 
   app.get("/api/gym-membership-pricing/all", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
-    const pricing = await storage.getAllGymMembershipPricing();
-    logInfo("All gym membership pricing retrieved", { count: pricing.length });
+    const pricing = await storage.getAllMembershipPricing();
+    logInfo("All membership pricing retrieved", { count: pricing.length });
     res.json(pricing);
   }));
 
