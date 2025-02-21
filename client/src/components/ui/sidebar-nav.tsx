@@ -20,6 +20,7 @@ import {
 export function SidebarNav() {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
+  const userRole = user?.role?.toLowerCase() || '';
 
   const items = [
     {
@@ -84,6 +85,10 @@ export function SidebarNav() {
     },
   ];
 
+  // Debug log to check user role
+  console.log('Current user:', user);
+  console.log('User role:', userRole);
+
   return (
     <div className="border-r bg-sidebar h-screen w-64 flex flex-col">
       <div className="flex-1">
@@ -94,7 +99,7 @@ export function SidebarNav() {
           <ScrollArea className="h-[calc(100vh-10rem)]">
             <div className="space-y-1">
               {items
-                .filter((item) => item.roles.includes(user?.role || ""))
+                .filter((item) => item.roles.includes(userRole))
                 .map((item) => (
                   <Link key={item.href} href={item.href}>
                     <Button
