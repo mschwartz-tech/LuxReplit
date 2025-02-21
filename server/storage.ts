@@ -3,6 +3,7 @@ import session from "express-session";
 import {
   users, members, workoutPlans, workoutLogs, schedules, invoices, marketingCampaigns,
   exercises, muscleGroups, memberProfiles, memberAssessments, memberProgressPhotos, pricingPlans, membershipPricing,
+  mealPlans, memberMealPlans,
   type Exercise, type InsertExercise,
   type MuscleGroup, type InsertMuscleGroup
 } from "@shared/schema";
@@ -91,6 +92,20 @@ export interface IStorage {
   updateMembershipPricing(id: number, pricing: Partial<InsertMembershipPricing>): Promise<MembershipPricing>;
   deleteMembershipPricing(id: number): Promise<void>;
   getAllMembershipPricing(): Promise<MembershipPricing[]>;
+
+  //Meal Plan operations
+  getMealPlans(): Promise<MealPlan[]>;
+  getMealPlan(id: number): Promise<MealPlan | null>;
+  createMealPlan(data: InsertMealPlan): Promise<MealPlan>;
+  updateMealPlan(id: number, data: Partial<InsertMealPlan>): Promise<MealPlan>;
+  deleteMealPlan(id: number): Promise<void>;
+
+  // Member Meal Plan operations
+  getMemberMealPlans(memberId: number): Promise<MemberMealPlan[]>;
+  getMemberMealPlan(id: number): Promise<MemberMealPlan | null>;
+  createMemberMealPlan(data: InsertMemberMealPlan): Promise<MemberMealPlan>;
+  updateMemberMealPlan(id: number, data: Partial<InsertMemberMealPlan>): Promise<MemberMealPlan>;
+  deleteMemberMealPlan(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -444,6 +459,54 @@ export class DatabaseStorage implements IStorage {
       .from(membershipPricing)
       .orderBy(membershipPricing.gymLocation);
   }
+
+  // Meal Plans
+  async getMealPlans(): Promise<MealPlan[]> {
+    return await db.select().from(mealPlans);
+  }
+
+  async getMealPlan(id: number): Promise<MealPlan | null> {
+    const results = await db.select().from(mealPlans).where(eq(mealPlans.id, id));
+    return results[0] || null;
+  }
+
+  async createMealPlan(data: InsertMealPlan): Promise<MealPlan> {
+    const results = await db.insert(mealPlans).values(data).returning();
+    return results[0];
+  }
+
+  async updateMealPlan(id: number, data: Partial<InsertMealPlan>): Promise<MealPlan> {
+    const results = await db.update(mealPlans).set(data).where(eq(mealPlans.id, id)).returning();
+    return results[0];
+  }
+
+  async deleteMealPlan(id: number): Promise<void> {
+    await db.delete(mealPlans).where(eq(mealPlans.id, id));
+  }
+
+  // Member Meal Plans
+  async getMemberMealPlans(memberId: number): Promise<MemberMealPlan[]> {
+    return await db.select().from(memberMealPlans).where(eq(memberMealPlans.memberId, memberId));
+  }
+
+  async getMemberMealPlan(id: number): Promise<MemberMealPlan | null> {
+    const results = await db.select().from(memberMealPlans).where(eq(memberMealPlans.id, id));
+    return results[0] || null;
+  }
+
+  async createMemberMealPlan(data: InsertMemberMealPlan): Promise<MemberMealPlan> {
+    const results = await db.insert(memberMealPlans).values(data).returning();
+    return results[0];
+  }
+
+  async updateMemberMealPlan(id: number, data: Partial<InsertMemberMealPlan>): Promise<MemberMealPlan> {
+    const results = await db.update(memberMealPlans).set(data).where(eq(memberMealPlans.id, id)).returning();
+    return results[0];
+  }
+
+  async deleteMemberMealPlan(id: number): Promise<void> {
+    await db.delete(memberMealPlans).where(eq(memberMealPlans.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -598,5 +661,24 @@ CREATE TABLE IF NOT EXISTS membership_pricing (
   isActive BOOLEAN DEFAULT TRUE,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS meal_plans (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  meals JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS member_meal_plans (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id),
+  meal_plan_id INTEGER REFERENCES meal_plans(id),
+  start_date TIMESTAMP WITH TIME ZONE,
+  end_date TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 `;

@@ -430,6 +430,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(pricing);
   }));
 
+  // Meal Plans Routes
+  app.get("/api/meal-plans", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const plans = await storage.getMealPlans();
+    logInfo("Meal plans retrieved", { count: plans.length });
+    res.json(plans);
+  }));
+
+  app.get("/api/meal-plans/:id", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const plan = await storage.getMealPlan(parseInt(req.params.id));
+    if (!plan) return res.sendStatus(404);
+    logInfo("Meal plan retrieved", { planId: req.params.id });
+    res.json(plan);
+  }));
+
+  app.post("/api/meal-plans", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const parsed = insertMealPlanSchema.safeParse(req.body);
+    if (!parsed.success) {
+      logError("Meal plan creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const plan = await storage.createMealPlan(parsed.data);
+    logInfo("New meal plan created", { planId: plan.id });
+    res.status(201).json(plan);
+  }));
+
+  app.patch("/api/meal-plans/:id", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const planId = parseInt(req.params.id);
+    const plan = await storage.getMealPlan(planId);
+    if (!plan) return res.sendStatus(404);
+
+    const parsed = insertMealPlanSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      logError("Meal plan update validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const updatedPlan = await storage.updateMealPlan(planId, parsed.data);
+    logInfo("Meal plan updated", { planId: updatedPlan.id });
+    res.json(updatedPlan);
+  }));
+
+  app.delete("/api/meal-plans/:id", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const planId = parseInt(req.params.id);
+    const plan = await storage.getMealPlan(planId);
+    if (!plan) return res.sendStatus(404);
+    await storage.deleteMealPlan(planId);
+    logInfo("Meal plan deleted", { planId });
+    res.sendStatus(200);
+  }));
+
+  // Member Meal Plans Routes
+  app.get("/api/members/:id/meal-plans", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const plans = await storage.getMemberMealPlans(parseInt(req.params.id));
+    logInfo("Member meal plans retrieved", { memberId: req.params.id, count: plans.length });
+    res.json(plans);
+  }));
+
+  app.post("/api/members/:id/meal-plans", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const parsed = insertMemberMealPlanSchema.safeParse({
+      ...req.body,
+      memberId: parseInt(req.params.id)
+    });
+    if (!parsed.success) {
+      logError("Member meal plan creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const plan = await storage.createMemberMealPlan(parsed.data);
+    logInfo("New member meal plan created", { planId: plan.id });
+    res.status(201).json(plan);
+  }));
+
+  app.patch("/api/members/:memberId/meal-plans/:planId", requireRole(["admin", "trainer"]), asyncHandler(async (req: Request, res: Response) => {
+    const plan = await storage.getMemberMealPlan(parseInt(req.params.planId));
+    if (!plan || plan.memberId !== parseInt(req.params.memberId)) return res.sendStatus(404);
+
+    const parsed = insertMemberMealPlanSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      logError("Member meal plan update validation failed", { errors: parsed.error.errors });
+      return res.status(400).json(parsed.error);
+    }
+    const updatedPlan = await storage.updateMemberMealPlan(parseInt(req.params.planId), parsed.data);
+    logInfo("Member meal plan updated", { planId: updatedPlan.id });
+    res.json(updatedPlan);
+  }));
+
   const httpServer = createServer(app);
   return httpServer;
 }
