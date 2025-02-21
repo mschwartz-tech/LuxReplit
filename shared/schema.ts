@@ -74,6 +74,13 @@ export const members = pgTable("members", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    memberStatusIdx: uniqueIndex("member_status_idx").on(table.membershipStatus),
+    memberTypeIdx: uniqueIndex("member_type_idx").on(table.membershipType),
+    memberDateIdx: uniqueIndex("member_date_idx").on(table.startDate, table.endDate),
+    trainerMemberIdx: uniqueIndex("trainer_member_idx").on(table.assignedTrainerId)
+  }
 });
 
 export const membersRelations = relations(members, ({ one, many }) => ({
@@ -170,12 +177,17 @@ export const workoutPlans = pgTable("workout_plans", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  trainerId: integer("trainer_id").references(() => users.id),
-  memberId: integer("member_id").references(() => members.id),
+  trainerId: integer("trainer_id").references(() => users.id, { onDelete: 'set null' }),
+  memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }),
   status: text("status", { enum: ["active", "completed", "cancelled"] }).notNull(),
   frequencyPerWeek: integer("frequency_per_week").notNull(),
   completionRate: numeric("completion_rate").default("0"),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    workoutPlanStatusIdx: uniqueIndex("workout_plan_status_idx").on(table.status),
+    workoutPlanMemberIdx: uniqueIndex("workout_plan_member_idx").on(table.memberId)
+  }
 });
 
 export const workoutLogs = pgTable("workout_logs", {
@@ -190,10 +202,16 @@ export const workoutLogs = pgTable("workout_logs", {
 
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
-  trainerId: integer("trainer_id").references(() => users.id),
-  memberId: integer("member_id").references(() => members.id),
+  trainerId: integer("trainer_id").references(() => users.id, { onDelete: 'cascade' }),
+  memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }),
   date: timestamp("date").notNull(),
   status: text("status", { enum: ["scheduled", "completed", "cancelled"] }).notNull()
+}, (table) => {
+  return {
+    scheduleTrainerDateIdx: uniqueIndex("schedule_trainer_date_idx").on(table.trainerId, table.date),
+    scheduleMemberDateIdx: uniqueIndex("schedule_member_date_idx").on(table.memberId, table.date),
+    scheduleStatusIdx: uniqueIndex("schedule_status_idx").on(table.status)
+  }
 });
 
 export const invoices = pgTable("invoices", {
@@ -262,6 +280,7 @@ export const gymMembershipPricing = pgTable("gym_membership_pricing", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
+// Update membership_pricing table definition to ensure safe creation
 export const membershipPricing = pgTable("membership_pricing", {
   id: serial("id").primaryKey(),
   gymLocation: text("gym_location").notNull(),
@@ -272,6 +291,11 @@ export const membershipPricing = pgTable("membership_pricing", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    membershipLocationIdx: uniqueIndex("membership_location_idx").on(table.gymLocation),
+    membershipActiveIdx: uniqueIndex("membership_active_idx").on(table.isActive)
+  }
 });
 
 export const mealPlans = pgTable("meal_plans", {
@@ -398,40 +422,49 @@ export const validateSchedulingConflict = async (
   date: Date,
   startTime: string,
   duration: number
-): Promise<boolean> => {
-  const [conflict] = await db.execute(sql`
-    WITH new_slot AS (
-      SELECT 
-        ${trainerId} as trainer_id,
-        ${date}::date as date,
-        (${date}::date + ${startTime}::time)::timestamp as start_timestamp,
-        (${date}::date + ${startTime}::time + interval '${duration} minutes')::timestamp as end_timestamp
-    ),
-    existing_blocks AS (
-      SELECT 
-        trainer_id,
-        date,
-        (date + start_time::time)::timestamp as start_timestamp,
-        end_time as end_timestamp
-      FROM scheduled_blocks
-      WHERE trainer_id = ${trainerId}
-      AND date::date = ${date}::date
-    )
-    SELECT EXISTS (
-      SELECT 1 FROM existing_blocks eb, new_slot ns
-      WHERE eb.trainer_id = ns.trainer_id
-      AND eb.date::date = ns.date::date
-      AND (
-        (eb.start_timestamp <= ns.start_timestamp AND eb.end_timestamp > ns.start_timestamp)
-        OR 
-        (eb.start_timestamp < ns.end_timestamp AND eb.end_timestamp >= ns.end_timestamp)
-        OR
-        (ns.start_timestamp <= eb.start_timestamp AND ns.end_timestamp > eb.start_timestamp)
+): Promise<{ hasConflict: boolean; error?: string }> => {
+  try {
+    const [conflict] = await db.execute(sql`
+      WITH new_slot AS (
+        SELECT 
+          ${trainerId} as trainer_id,
+          ${date}::date as date,
+          (${date}::date + ${startTime}::time)::timestamp as start_timestamp,
+          (${date}::date + ${startTime}::time + interval '${duration} minutes')::timestamp as end_timestamp
+      ),
+      existing_blocks AS (
+        SELECT 
+          trainer_id,
+          date,
+          (date + start_time::time)::timestamp as start_timestamp,
+          end_time as end_timestamp
+        FROM scheduled_blocks
+        WHERE trainer_id = ${trainerId}
+        AND date::date = ${date}::date
       )
-    ) as has_conflict;
-  `);
+      SELECT EXISTS (
+        SELECT 1 FROM existing_blocks eb, new_slot ns
+        WHERE eb.trainer_id = ns.trainer_id
+        AND eb.date::date = ns.date::date
+        AND (
+          (eb.start_timestamp <= ns.start_timestamp AND eb.end_timestamp > ns.start_timestamp)
+          OR 
+          (eb.start_timestamp < ns.end_timestamp AND eb.end_timestamp >= ns.end_timestamp)
+          OR
+          (ns.start_timestamp <= eb.start_timestamp AND ns.end_timestamp > eb.start_timestamp)
+        )
+      ) as has_conflict;
+    `);
 
-  return conflict?.has_conflict || false;
+    return {
+      hasConflict: conflict?.has_conflict || false
+    };
+  } catch (error) {
+    return {
+      hasConflict: false,
+      error: `Failed to validate scheduling: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
 };
 
 export const insertSessionSchema = createInsertSchema(sessions)
@@ -493,6 +526,7 @@ export type Class = typeof classes.$inferSelect;
 export type InsertClass = z.infer<typeof insertClassSchema>;
 export type ClassRegistration = typeof classRegistrations.$inferSelect;
 export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
+
 
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
@@ -620,4 +654,9 @@ export const exercisesRelations = relations(exercises, ({ one }) => ({
     fields: [exercises.primaryMuscleGroupId],
     references: [muscleGroups.id],
   })
+}));
+
+// Add relations for membership_pricing
+export const membershipPricingRelations = relations(membershipPricing, ({ many }) => ({
+  members: many(members)
 }));
