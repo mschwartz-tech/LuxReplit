@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Save, Plus, Loader2, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type PricingPlan, type GymMembershipPricing } from "@shared/schema";
+import { type PricingPlan, type GymMembershipPricing, type MembershipPricing } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useCallback, Fragment } from "react";
 import {
@@ -48,14 +48,26 @@ export default function PricingPage() {
   const { toast } = useToast();
   const [changes, setChanges] = useState<Record<number, Partial<PricingPlan>>>({});
   const [gymChanges, setGymChanges] = useState<Record<number, Partial<GymMembershipPricing>>>({});
+  const [membershipChanges, setMembershipChanges] = useState<Record<number, Partial<MembershipPricing>>>({});
   const [showNewGymForm, setShowNewGymForm] = useState(false);
+  const [showNewMembershipForm, setShowNewMembershipForm] = useState(false);
+  const [gymToDelete, setGymToDelete] = useState<number | null>(null);
+  const [membershipToDelete, setMembershipToDelete] = useState<number | null>(null);
+
   const [newGym, setNewGym] = useState({
     gymName: "",
     luxeEssentialsPrice: "",
     luxeStrivePrice: "",
     luxeAllAccessPrice: "",
   });
-  const [gymToDelete, setGymToDelete] = useState<number | null>(null);
+
+  const [newMembership, setNewMembership] = useState({
+    gymLocation: "",
+    membershipTier1: "",
+    membershipTier2: "",
+    membershipTier3: "",
+    membershipTier4: "",
+  });
 
   const { data: pricingPlans = [], isLoading: plansLoading } = useQuery<PricingPlan[]>({
     queryKey: ["/api/pricing-plans"],
@@ -67,6 +79,14 @@ export default function PricingPage() {
 
   const { data: allGymPricing = [], isLoading: allLocationsLoading } = useQuery<GymMembershipPricing[]>({
     queryKey: ["/api/gym-membership-pricing/all"],
+  });
+
+  const { data: membershipPricing = [], isLoading: membershipLoading } = useQuery<MembershipPricing[]>({
+    queryKey: ["/api/membership-pricing"],
+  });
+
+  const { data: allMembershipPricing = [], isLoading: allMembershipLoading } = useQuery<MembershipPricing[]>({
+    queryKey: ["/api/membership-pricing/all"],
   });
 
   const createGymMutation = useMutation({
@@ -91,7 +111,6 @@ export default function PricingPage() {
       return data;
     },
     onSuccess: () => {
-      // Invalidate both queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
       queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing/all"] });
 
@@ -225,13 +244,157 @@ export default function PricingPage() {
     }
   };
 
-  if (plansLoading || locationsLoading || allLocationsLoading) {
-    return (
-      <div className="flex h-[200px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  const createMembershipMutation = useMutation({
+    mutationFn: async (pricing: typeof newMembership) => {
+      const response = await fetch("/api/membership-pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gymLocation: pricing.gymLocation,
+          membershipTier1: parseFloat(pricing.membershipTier1),
+          membershipTier2: parseFloat(pricing.membershipTier2),
+          membershipTier3: parseFloat(pricing.membershipTier3),
+          membershipTier4: parseFloat(pricing.membershipTier4),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to create membership pricing: ${error}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/membership-pricing"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/membership-pricing/all"] });
+
+      setShowNewMembershipForm(false);
+      setNewMembership({
+        gymLocation: "",
+        membershipTier1: "",
+        membershipTier2: "",
+        membershipTier3: "",
+        membershipTier4: "",
+      });
+
+      toast({
+        title: "Success",
+        description: "New membership pricing added successfully",
+      });
+    },
+    onError: (error) => {
+      console.error("Error creating membership pricing:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add new membership pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMembershipMutation = useMutation({
+    mutationFn: async (updates: Record<number, Partial<MembershipPricing>>) => {
+      const promises = Object.entries(updates).map(([id, pricing]) =>
+        fetch(`/api/membership-pricing/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pricing),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const error = await res.text();
+            throw new Error(`Failed to update membership pricing ${id}: ${error}`);
+          }
+          return res.json();
+        })
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/membership-pricing"] });
+      setMembershipChanges({});
+      toast({
+        title: "Success",
+        description: "Membership pricing updated successfully",
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating membership pricing:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update membership pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMembershipMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/membership-pricing/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to delete membership pricing: ${error}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/membership-pricing"] });
+      toast({
+        title: "Success",
+        description: "Membership pricing deleted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete membership pricing",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleMembershipPriceChange = useCallback((
+    pricingId: number,
+    field: keyof MembershipPricing,
+    value: string
+  ) => {
+    setMembershipChanges(prev => ({
+      ...prev,
+      [pricingId]: {
+        ...prev[pricingId],
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  const handleCreateMembership = () => {
+    if (!newMembership.gymLocation || !newMembership.membershipTier1 || !newMembership.membershipTier2 || 
+        !newMembership.membershipTier3 || !newMembership.membershipTier4) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    createMembershipMutation.mutate(newMembership);
+  };
+
+  const handleSaveMembershipChanges = () => {
+    updateMembershipMutation.mutate(membershipChanges);
+  };
+
+  const handleDeleteMembership = (id: number) => {
+    setMembershipToDelete(id);
+  };
+
+  const confirmDeleteMembership = () => {
+    if (membershipToDelete) {
+      deleteMembershipMutation.mutate(membershipToDelete);
+      setMembershipToDelete(null);
+    }
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Record<number, Partial<PricingPlan>>) => {
@@ -265,7 +428,6 @@ export default function PricingPage() {
     },
   });
 
-
   const handlePriceChange = useCallback((
     planId: number,
     field: "costPerSession" | "biweeklyPrice" | "pifPrice",
@@ -286,6 +448,15 @@ export default function PricingPage() {
 
   const hasChanges = Object.keys(changes).length > 0;
   const hasGymChanges = Object.keys(gymChanges).length > 0;
+  const hasMembershipChanges = Object.keys(membershipChanges).length > 0;
+
+  if (plansLoading || locationsLoading || allLocationsLoading || membershipLoading || allMembershipLoading) {
+    return (
+      <div className="flex h-[200px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -399,7 +570,6 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* Gym Membership Pricing Table */}
       <div className="flex justify-center mt-8">
         <div className="rounded-lg border border-gray-200 w-full max-w-4xl">
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
@@ -547,7 +717,6 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* All Gyms History Table */}
       <div className="flex justify-center mt-8">
         <div className="rounded-lg border border-gray-200 w-full max-w-4xl">
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
@@ -615,6 +784,241 @@ export default function PricingPage() {
         </div>
       </div>
 
+      <div className="flex justify-center mt-8">
+        <div className="rounded-lg border border-gray-200 w-full max-w-4xl">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <h2 className="text-lg font-medium text-gray-900">
+              Membership Tiers Pricing
+            </h2>
+            <Button
+              onClick={() => setShowNewMembershipForm(true)}
+              className="gap-2 h-9 px-4 bg-primary hover:bg-primary/90"
+              size="default"
+            >
+              <Plus className="h-5 w-5" />
+              Add New Pricing
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gym Location
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 1
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 2
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 3
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 4
+                  </th>
+                  <th className="px-3 py-2 w-16"></th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {showNewMembershipForm && (
+                  <tr>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={newMembership.gymLocation}
+                        onChange={(e) => setNewMembership(prev => ({ ...prev, gymLocation: e.target.value }))}
+                        className="w-full h-8 text-sm"
+                        placeholder="Gym Location"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newMembership.membershipTier1}
+                        onChange={(value) => setNewMembership(prev => ({ ...prev, membershipTier1: value }))}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newMembership.membershipTier2}
+                        onChange={(value) => setNewMembership(prev => ({ ...prev, membershipTier2: value }))}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newMembership.membershipTier3}
+                        onChange={(value) => setNewMembership(prev => ({ ...prev, membershipTier3: value }))}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={newMembership.membershipTier4}
+                        onChange={(value) => setNewMembership(prev => ({ ...prev, membershipTier4: value }))}
+                      />
+                    </td>
+                    <td></td>
+                  </tr>
+                )}
+                {membershipPricing?.map((pricing) => (
+                  <tr key={pricing.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2">
+                      <Input
+                        value={membershipChanges[pricing.id]?.gymLocation ?? pricing.gymLocation}
+                        onChange={(e) => handleMembershipPriceChange(pricing.id, "gymLocation", e.target.value)}
+                        className="w-full h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={membershipChanges[pricing.id]?.membershipTier1 ?? pricing.membershipTier1}
+                        onChange={(value) => handleMembershipPriceChange(pricing.id, "membershipTier1", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={membershipChanges[pricing.id]?.membershipTier2 ?? pricing.membershipTier2}
+                        onChange={(value) => handleMembershipPriceChange(pricing.id, "membershipTier2", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={membershipChanges[pricing.id]?.membershipTier3 ?? pricing.membershipTier3}
+                        onChange={(value) => handleMembershipPriceChange(pricing.id, "membershipTier3", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <EditableCell
+                        value={membershipChanges[pricing.id]?.membershipTier4 ?? pricing.membershipTier4}
+                        onChange={(value) => handleMembershipPriceChange(pricing.id, "membershipTier4", value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => handleDeleteMembership(pricing.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {showNewMembershipForm && (
+            <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
+              <Button
+                onClick={() => setShowNewMembershipForm(false)}
+                variant="outline"
+                className="h-8"
+                size="sm"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateMembership}
+                disabled={createMembershipMutation.isPending}
+                className="h-8"
+                size="sm"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            </div>
+          )}
+          {hasMembershipChanges && (
+            <div className="flex justify-end p-4 border-t bg-gray-50">
+              <Button
+                onClick={handleSaveMembershipChanges}
+                disabled={updateMembershipMutation.isPending}
+                className="gap-2 h-8"
+                size="sm"
+              >
+                <Save className="h-4 w-4" />
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-center mt-8">
+        <div className="rounded-lg border border-gray-200 w-full max-w-4xl">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <h2 className="text-lg font-medium text-gray-900">
+              All Membership Tiers History
+            </h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gym Location
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 1
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 2
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 3
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tier 4
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Updated
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allMembershipPricing?.map((pricing) => (
+                  <tr key={pricing.id} className={`hover:bg-gray-50 ${pricing.isActive ? '' : 'bg-gray-50 text-gray-500'}`}>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                        pricing.isActive
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {pricing.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {pricing.gymLocation}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.membershipTier1.toString()).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.membershipTier2.toString()).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.membershipTier3.toString()).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      ${parseFloat(pricing.membershipTier4.toString()).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-500">
+                      {new Date(pricing.updatedAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <AlertDialog open={!!gymToDelete} onOpenChange={() => setGymToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -626,6 +1030,22 @@ export default function PricingPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!membershipToDelete} onOpenChange={() => setMembershipToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the membership pricing information.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteMembership} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
