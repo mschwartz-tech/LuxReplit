@@ -22,7 +22,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
 const paymentSchema = z.object({
-  memberId: z.string().optional(),
+  memberId: z.string().optional().nullable(), // Allow null for better handling of undefined
   amount: z.string().transform(val => parseFloat(val)),
   paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"]),
   description: z.string().min(1, "Description is required"),
@@ -42,7 +42,7 @@ export default function BillingPage() {
     defaultValues: {
       paymentMethod: "cash",
       description: "",
-      memberId: undefined,
+      memberId: null, // Default to null instead of undefined
     },
   });
 
@@ -59,12 +59,12 @@ export default function BillingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...data,
-            memberId: data.memberId ? parseInt(data.memberId) : undefined,
+            memberId: data.memberId === null ? undefined : parseInt(data.memberId), //Explicitly handle null
             status: "completed"
           }),
         });
 
-        const contentType = response.headers.get("content-type");
+        const contentType = response.headers.get("content-type"); // Moved here for consistency
         if (!response.ok) {
           let errorMessage = "Failed to create payment";
           if (contentType?.includes("application/json")) {
@@ -72,7 +72,7 @@ export default function BillingPage() {
             errorMessage = errorData.message || errorMessage;
           } else {
             const errorText = await response.text();
-            errorMessage = errorText.includes("<!DOCTYPE") 
+            errorMessage = errorText.includes("<!DOCTYPE")
               ? "Server error occurred. Please try again."
               : errorText;
           }
@@ -159,8 +159,10 @@ export default function BillingPage() {
                           <FormItem>
                             <FormLabel>Member ID (Optional)</FormLabel>
                             <FormControl>
-                              <Input 
-                                {...field} 
+                              <Input
+                                {...field}
+                                value={field.value === undefined ? '' : field.value} //Handle undefined values in input
+                                onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)} //Handle empty string as null
                                 placeholder="Leave empty for non-member payment"
                               />
                             </FormControl>
