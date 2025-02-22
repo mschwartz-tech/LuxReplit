@@ -36,16 +36,42 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   const autocompleteService = useRef<any>(null);
   const placesService = useRef<any>(null);
   const retryTimeoutRef = useRef<any>(null);
 
+  const validateApiKey = async (apiKey: string) => {
+    try {
+      const testResponse = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=test&key=${apiKey}`
+      );
+      const testData = await testResponse.json();
+      setDebugInfo(prev => `${prev}\nAPI Key validation response: ${testData.status}`);
+
+      if (testData.error_message) {
+        return { isValid: false, error: testData.error_message };
+      }
+      if (testData.status === 'REQUEST_DENIED') {
+        return { isValid: false, error: 'API key is invalid or Places API is not enabled' };
+      }
+      if (testData.status === 'ZERO_RESULTS') {
+        // This is actually okay - it means the API is working but found no results
+        return { isValid: true, error: null };
+      }
+      return { isValid: true, error: null };
+    } catch (error) {
+      return { isValid: false, error: 'Failed to validate API key' };
+    }
+  };
+
   const initializePlacesAPI = async () => {
     try {
       setStatus('loading');
       setErrorMessage('');
-      setDebugInfo('Starting Places API initialization...');
+      setDebugInfo(`Attempt ${retryCount + 1} of ${MAX_RETRIES}\nStarting Places API initialization...`);
 
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey) {
@@ -53,43 +79,43 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
       }
       setDebugInfo(prev => `${prev}\nAPI Key found`);
 
-      // Clean up any existing scripts
+      // Validate API key
+      const validation = await validateApiKey(apiKey);
+      if (!validation.isValid) {
+        throw new Error(validation.error || 'Invalid API key');
+      }
+
+      // Clean up existing script
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
         existingScript.remove();
         setDebugInfo(prev => `${prev}\nRemoved existing Google Maps script`);
       }
 
-      // Test API key before loading script
-      try {
-        const testResponse = await fetch(
-          `https://maps.googleapis.com/maps/api/geocode/json?address=test&key=${apiKey}`
-        );
-        const testData = await testResponse.json();
-        setDebugInfo(prev => `${prev}\nAPI Key test response: ${testData.status}`);
-
-        if (testData.error_message) {
-          throw new Error(`API Key test failed: ${testData.error_message}`);
-        }
-      } catch (error) {
-        setDebugInfo(prev => `${prev}\nAPI Key test failed: ${error.message}`);
-        throw new Error(`API Key validation failed: ${error.message}`);
-      }
-
-      // Load the Places API script
+      // Load Places API script
       await new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
         script.async = true;
         script.defer = true;
+
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Script loading timed out'));
+        }, 10000);
+
         script.onload = () => {
+          clearTimeout(timeoutId);
           setDebugInfo(prev => `${prev}\nGoogle Maps script loaded successfully`);
           resolve();
         };
+
         script.onerror = (error) => {
-          setDebugInfo(prev => `${prev}\nFailed to load Google Maps script: ${error}`);
-          reject(new Error('Failed to load Google Places API'));
+          clearTimeout(timeoutId);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          setDebugInfo(prev => `${prev}\nScript load error: ${errorMessage}`);
+          reject(new Error(`Failed to load Google Places API: ${errorMessage}`));
         };
+
         document.head.appendChild(script);
       });
 
@@ -104,22 +130,26 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
           document.createElement('div')
         );
         setDebugInfo(prev => `${prev}\nServices initialized successfully`);
+        setStatus('ready');
+        setRetryCount(0); // Reset retry count on success
       } catch (error) {
-        setDebugInfo(prev => `${prev}\nFailed to initialize services: ${error.message}`);
-        throw new Error(`Failed to initialize Places services: ${error.message}`);
+        throw new Error(`Failed to initialize services: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-
-      setStatus('ready');
     } catch (error) {
-      console.error('Places API initialization error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Places API initialization error:', errorMessage);
       setStatus('error');
-      setErrorMessage(error.message || 'Failed to initialize address service');
-      setDebugInfo(prev => `${prev}\nFinal error: ${error.message}`);
+      setErrorMessage(errorMessage);
+      setDebugInfo(prev => `${prev}\nFinal error: ${errorMessage}`);
 
-      // Retry after 3 seconds
-      retryTimeoutRef.current = setTimeout(() => {
-        initializePlacesAPI();
-      }, 3000);
+      // Retry logic
+      if (retryCount < MAX_RETRIES - 1) {
+        setRetryCount(prev => prev + 1);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Exponential backoff with max 8s
+        retryTimeoutRef.current = setTimeout(() => {
+          initializePlacesAPI();
+        }, delay);
+      }
     }
   };
 
@@ -225,7 +255,7 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
         <div className="flex items-center space-x-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           <p className="text-sm text-muted-foreground">
-            Initializing address service...
+            Initializing address service... (Attempt {retryCount + 1}/{MAX_RETRIES})
           </p>
         </div>
       </div>
@@ -245,7 +275,10 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
             </div>
             <Button
               variant="outline"
-              onClick={() => initializePlacesAPI()}
+              onClick={() => {
+                setRetryCount(0);
+                initializePlacesAPI();
+              }}
               className="w-full mt-2"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -315,3 +348,18 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
 };
 
 AddressAutocomplete.displayName = "AddressAutocomplete";
+
+// Add TypeScript support for the google global object
+declare global {
+  interface Window {
+    google?: {
+      maps?: {
+        places?: {
+          AutocompleteService?: new () => any;
+          PlacesService?: new (element: Element) => any;
+        };
+      };
+    };
+    initGoogleMaps?: () => void;
+  }
+}
