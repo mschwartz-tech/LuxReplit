@@ -47,6 +47,30 @@ interface ServiceStatus {
   isInitializing: boolean;
 }
 
+const testGooglePlacesApiKey = async (apiKey: string): Promise<{ isValid: boolean; error?: string }> => {
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=test&key=${apiKey}`
+    );
+    const data = await response.json();
+
+    console.log("AddressAutocomplete: API Key test response:", data.status);
+
+    if (data.error_message) {
+      return { isValid: false, error: `API Error: ${data.error_message}` };
+    }
+
+    if (data.status === "REQUEST_DENIED") {
+      return { isValid: false, error: "Invalid API key or API not enabled" };
+    }
+
+    return { isValid: true };
+  } catch (error) {
+    console.error("AddressAutocomplete: API Key test failed:", error);
+    return { isValid: false, error: "Failed to test API key" };
+  }
+};
+
 export const AddressAutocomplete = forwardRef<
   HTMLInputElement,
   AddressAutocompleteProps
@@ -70,7 +94,7 @@ export const AddressAutocomplete = forwardRef<
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
-  const loadGoogleMapsScript = useCallback(() => {
+  const loadGoogleMapsScript = useCallback(async () => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
     console.log("AddressAutocomplete: Attempting to load Google Maps");
 
@@ -91,13 +115,22 @@ export const AddressAutocomplete = forwardRef<
       return;
     }
 
-    // Remove existing script if any
+    const keyTest = await testGooglePlacesApiKey(apiKey);
+    if (!keyTest.isValid) {
+      console.error("AddressAutocomplete: API key validation failed:", keyTest.error);
+      setServiceStatus(prev => ({
+        ...prev,
+        error: keyTest.error || "Invalid API key",
+        isInitializing: false
+      }));
+      return;
+    }
+
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript && existingScript.parentNode) {
       existingScript.parentNode.removeChild(existingScript);
     }
 
-    // Define callback before creating script
     window.initGoogleMaps = () => {
       console.log("AddressAutocomplete: Google Maps callback initiated");
       setServiceStatus(prev => ({
@@ -171,7 +204,6 @@ export const AddressAutocomplete = forwardRef<
   useEffect(() => {
     console.log("AddressAutocomplete: Component mounted");
 
-    // Check if script is already loaded
     if (window.google?.maps?.places) {
       console.log("AddressAutocomplete: Google Maps already loaded");
       setServiceStatus(prev => ({
