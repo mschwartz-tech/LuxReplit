@@ -13,7 +13,7 @@ import {
 } from "./popover";
 import { cn } from "@/lib/utils";
 import { Check, Loader2 } from "lucide-react";
-import { useToast } from "./use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -60,13 +60,11 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
       script.onload = () => {
         setIsScriptLoaded(true);
-        // Initialize PlacesService with a dummy div
         const dummyElement = document.createElement('div');
         setPlacesService(new google.maps.places.PlacesService(dummyElement));
       };
 
-      script.onerror = (error) => {
-        console.error("Error loading Google Maps script:", error);
+      script.onerror = () => {
         toast({
           title: "Error",
           description: "Failed to load Google Maps. Please try again later.",
@@ -93,14 +91,14 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
     try {
       setIsLoading(true);
       const autocompleteService = new google.maps.places.AutocompleteService();
-      const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
+      const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve) => {
         autocompleteService.getPlacePredictions(
           {
             input,
             componentRestrictions: { country: 'us' },
             types: ['address']
           },
-          (predictions, status) => {
+          (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
               resolve(predictions);
             } else {
@@ -137,7 +135,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
             placeId: placeId,
             fields: ['address_components', 'formatted_address']
           },
-          (place, status) => {
+          (place: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && place) {
               resolve(place);
             } else {
@@ -158,7 +156,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         zipCode: ''
       };
 
-      result.address_components.forEach(component => {
+      result.address_components.forEach((component: google.maps.GeocoderAddressComponent) => {
         const type = component.types[0];
         if (type === 'locality') {
           addressData.city = component.long_name;

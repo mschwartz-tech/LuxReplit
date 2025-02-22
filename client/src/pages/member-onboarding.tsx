@@ -557,7 +557,11 @@ const WaiversStep = ({ form, liabilitySignaturePad, photoReleaseSignaturePad }: 
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => liabilitySignaturePad.current?.clear()}
+                  onClick={() => {
+                    if (liabilitySignaturePad.current) {
+                      liabilitySignaturePad.current.clear();
+                    }
+                  }}
                 >
                   Clear Signature
                 </Button>
@@ -601,7 +605,11 @@ const WaiversStep = ({ form, liabilitySignaturePad, photoReleaseSignaturePad }: 
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => photoReleaseSignaturePad.current?.clear()}
+                  onClick={() => {
+                    if (photoReleaseSignaturePad.current) {
+                      photoReleaseSignaturePad.current.clear();
+                    }
+                  }}
                 >
                   Clear Signature
                 </Button>
@@ -867,7 +875,7 @@ export default function MemberOnboardingPage() {
       'gymLocationId', 'membershipType'
     ];
     const stepData = Object.fromEntries(
-      fields.map(field => [field, form.getValues(field)])
+      Object.entries(form.getValues()).filter(([key]) => fields.includes(key))
     );
 
     try {
@@ -933,6 +941,7 @@ export default function MemberOnboardingPage() {
       // Validate form data
       try {
         validateFormData(data);
+      }<replit_final_file>
       } catch (error) {
         const errors = JSON.parse((error as Error).message);
         Object.entries(errors).forEach(([field, message]) => {
