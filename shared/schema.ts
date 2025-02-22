@@ -87,7 +87,20 @@ export const members = pgTable("members", {
     memberStatusIdx: uniqueIndex("member_status_idx").on(table.membershipStatus),
     memberTypeIdx: uniqueIndex("member_type_idx").on(table.membershipType),
     memberDateIdx: uniqueIndex("member_date_idx").on(table.startDate, table.endDate),
-    trainerMemberIdx: uniqueIndex("trainer_member_idx").on(table.assignedTrainerId)
+    trainerMemberIdx: uniqueIndex("trainer_member_idx").on(table.assignedTrainerId),
+    // Add explicit check constraint to prevent multiple active memberships
+    activeMembershipConstraint: sql`CONSTRAINT single_active_membership_check
+      CHECK (
+        CASE 
+          WHEN membership_status = 'active' THEN
+            (SELECT COUNT(*) 
+             FROM members m2 
+             WHERE m2.user_id = user_id 
+             AND m2.membership_status = 'active' 
+             AND m2.id < id) = 0
+          ELSE true
+        END
+      )`
   }
 });
 
@@ -208,6 +221,7 @@ export const workoutLogs = pgTable("workout_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+// Update the schedules table to include proper time constraints
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -216,8 +230,17 @@ export const schedules = pgTable("schedules", {
   status: text("status", { enum: ["scheduled", "completed", "cancelled"] }).notNull()
 }, (table) => {
   return {
-    scheduleTrainerDateIdx: uniqueIndex("schedule_trainer_date_idx").on(table.trainerId, table.date),
-    scheduleMemberDateIdx: uniqueIndex("schedule_member_date_idx").on(table.memberId, table.date),
+    // Use SQL constraint to prevent overlapping schedules
+    trainerScheduleConstraint: sql`CONSTRAINT trainer_schedule_check 
+      EXCLUDE USING gist (
+        trainer_id WITH =,
+        tsrange("date", "date" + interval '1 hour') WITH &&
+      )`,
+    memberScheduleConstraint: sql`CONSTRAINT member_schedule_check 
+      EXCLUDE USING gist (
+        member_id WITH =,
+        tsrange("date", "date" + interval '1 hour') WITH &&
+      )`,
     scheduleStatusIdx: uniqueIndex("schedule_status_idx").on(table.status)
   }
 });
@@ -728,15 +751,14 @@ export const progress = pgTable("progress", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }).notNull(),
   progressDate: timestamp("progress_date").notNull().defaultNow(),
-  weight: numeric("weight"),
+  weight:numeric("weight"),
   bodyFatPercentage: numeric("body_fat_percentage"),
   measurements: jsonb("measurements").notNull().default(sql`'{}'::jsonb`),
   notes: text("notes"),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 }, (table) => {
   return {
-    memberProgressIdx: uniqueIndex("member_progress_idx").on(table.memberId, table.progressDate),
-    progressDateIdx: uniqueIndex("progress_date_idx").on(table.progressDate)
+    memberProgressIdx: uniqueIndex("member_progress_idx").on(table.memberId, table.progressDate),    progressDateIdx: uniqueIndex("progress_date_idx").on(table.progressDate)
   }
 });
 

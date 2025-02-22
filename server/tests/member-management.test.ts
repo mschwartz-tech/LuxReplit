@@ -1,8 +1,8 @@
 import { beforeEach, afterEach, describe, it, expect } from '@jest/globals';
 import { db } from '../db';
-import { users, members, memberProfiles, gymMembershipPricing } from '../../shared/schema';
-import type { User, Member, MemberProfile, GymMembershipPricing } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { users, members, memberProfiles, gymMembershipPricing, schedules } from '../../shared/schema';
+import type { User, Member, MemberProfile, GymMembershipPricing, Schedule } from '../../shared/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 describe('Member Management System', () => {
   let testAdmin: User;
@@ -50,6 +50,7 @@ describe('Member Management System', () => {
   afterEach(async () => {
     try {
       // Clean up test data in correct order
+      await db.delete(schedules);
       await db.delete(memberProfiles);
       await db.delete(members);
       await db.delete(users).where(eq(users.email, 'member_basic@test.com'));
@@ -238,7 +239,7 @@ describe('Member Management System', () => {
     it('should update member status', async () => {
       // Update member status
       await db.update(members)
-        .set({ membershipStatus: 'suspended' })
+        .set({ membershipStatus: sql`'suspended'` })
         .where(eq(members.id, testMember.id));
 
       // Fetch updated member
@@ -248,6 +249,233 @@ describe('Member Management System', () => {
 
       expect(updatedMember).toBeDefined();
       expect(updatedMember?.membershipStatus).toBe('suspended');
+    });
+  });
+
+  describe('Member-Trainer Relationship', () => {
+    let testMember: Member;
+    let testUser: User;
+
+    beforeEach(async () => {
+      // Create test user and member
+      [testUser] = await db.insert(users).values({
+        username: `test_member_trainer_${Date.now()}`,
+        password: 'password123',
+        role: 'user',
+        email: `member_trainer_${Date.now()}@test.com`,
+        name: 'Test Member Trainer',
+        createdAt: new Date()
+      }).returning();
+
+      [testMember] = await db.insert(members).values({
+        userId: testUser.id,
+        membershipType: 'luxe_essentials',
+        membershipStatus: 'active',
+        gymLocationId: testGymLocation.id,
+        startDate: new Date(),
+        assignedTrainerId: testTrainer.id
+      }).returning();
+    });
+
+    it('should assign a trainer to a member', async () => {
+      const newTrainer = await db.insert(users).values({
+        username: `new_trainer_${Date.now()}`,
+        password: 'password123',
+        role: 'trainer',
+        email: `new_trainer_${Date.now()}@test.com`,
+        name: 'New Test Trainer',
+        createdAt: new Date()
+      }).returning();
+
+      await db.update(members)
+        .set({ assignedTrainerId: newTrainer[0].id })
+        .where(eq(members.id, testMember.id));
+
+      const updatedMember = await db.query.members.findFirst({
+        where: eq(members.id, testMember.id)
+      });
+
+      expect(updatedMember).toBeDefined();
+      expect(updatedMember?.assignedTrainerId).toBe(newTrainer[0].id);
+    });
+
+    it('should schedule training sessions with assigned trainer', async () => {
+      const sessionDate = new Date();
+      const [schedule] = await db.insert(schedules).values({
+        memberId: testMember.id,
+        trainerId: testTrainer.id,
+        date: sessionDate,
+        status: 'scheduled'
+      }).returning();
+
+      expect(schedule).toBeDefined();
+      expect(schedule.memberId).toBe(testMember.id);
+      expect(schedule.trainerId).toBe(testTrainer.id);
+      expect(schedule.status).toBe('scheduled');
+    });
+
+    it('should validate trainer availability before scheduling', async () => {
+      const sessionDate = new Date();
+      // Create a conflicting schedule
+      await db.insert(schedules).values({
+        memberId: testMember.id,
+        trainerId: testTrainer.id,
+        date: sessionDate,
+        status: 'scheduled'
+      });
+
+      // Attempt to schedule another session at the same time
+      await expect(
+        db.insert(schedules).values({
+          memberId: testMember.id,
+          trainerId: testTrainer.id,
+          date: sessionDate,
+          status: 'scheduled'
+        })
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('Membership Type Transitions', () => {
+    let testMember: Member;
+    let testUser: User;
+
+    beforeEach(async () => {
+      [testUser] = await db.insert(users).values({
+        username: `test_member_transition_${Date.now()}`,
+        password: 'password123',
+        role: 'user',
+        email: `member_transition_${Date.now()}@test.com`,
+        name: 'Test Member Transition',
+        createdAt: new Date()
+      }).returning();
+
+      [testMember] = await db.insert(members).values({
+        userId: testUser.id,
+        membershipType: 'luxe_essentials',
+        membershipStatus: 'active',
+        gymLocationId: testGymLocation.id,
+        startDate: new Date()
+      }).returning();
+    });
+
+    it('should upgrade membership type', async () => {
+      await db.update(members)
+        .set({ membershipType: 'luxe_all_access' })
+        .where(eq(members.id, testMember.id));
+
+      const upgradedMember = await db.query.members.findFirst({
+        where: eq(members.id, testMember.id)
+      });
+
+      expect(upgradedMember).toBeDefined();
+      expect(upgradedMember?.membershipType).toBe('luxe_all_access');
+    });
+
+    it('should handle membership suspension', async () => {
+      await db.update(members)
+        .set({ membershipStatus: sql`'suspended'` })
+        .where(eq(members.id, testMember.id));
+
+      const suspendedMember = await db.query.members.findFirst({
+        where: eq(members.id, testMember.id)
+      });
+
+      expect(suspendedMember).toBeDefined();
+      expect(suspendedMember?.membershipStatus).toBe('suspended');
+    });
+
+    it('should track membership history', async () => {
+      // Update membership multiple times
+      const updates = [
+        { type: sql`'luxe_strive'`, status: sql`'active'` },
+        { type: sql`'luxe_all_access'`, status: sql`'active'` },
+        { type: sql`'luxe_all_access'`, status: sql`'suspended'` },
+        { type: sql`'luxe_all_access'`, status: sql`'active'` }
+      ];
+
+      for (const update of updates) {
+        await db.update(members)
+          .set({
+            membershipType: update.type,
+            membershipStatus: update.status
+          })
+          .where(eq(members.id, testMember.id));
+      }
+
+      const finalMember = await db.query.members.findFirst({
+        where: eq(members.id, testMember.id)
+      });
+
+      expect(finalMember).toBeDefined();
+      expect(finalMember?.membershipType).toBe('luxe_all_access');
+      expect(finalMember?.membershipStatus).toBe('active');
+    });
+  });
+
+  describe('Edge Cases and Validation', () => {
+    it('should validate required fields on member creation', async () => {
+      await expect(
+        db.insert(members).values({
+          // Missing required userId
+          membershipType: 'luxe_essentials',
+          membershipStatus: 'active',
+          gymLocationId: testGymLocation.id,
+          startDate: new Date()
+        } as any)
+      ).rejects.toThrow();
+    });
+
+    it('should validate membership type values', async () => {
+      const [testUser] = await db.insert(users).values({
+        username: `test_member_validation_${Date.now()}`,
+        password: 'password123',
+        role: 'user',
+        email: `member_validation_${Date.now()}@test.com`,
+        name: 'Test Member Validation',
+        createdAt: new Date()
+      }).returning();
+
+      await expect(
+        db.insert(members).values({
+          userId: testUser.id,
+          membershipType: sql`'invalid_type'::text`, // Cast invalid type to text to test DB constraint
+          membershipStatus: 'active',
+          gymLocationId: testGymLocation.id,
+          startDate: new Date()
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should prevent duplicate active memberships for the same user', async () => {
+      const [testUser] = await db.insert(users).values({
+        username: `test_member_duplicate_${Date.now()}`,
+        password: 'password123',
+        role: 'user',
+        email: `member_duplicate_${Date.now()}@test.com`,
+        name: 'Test Member Duplicate',
+        createdAt: new Date()
+      }).returning();
+
+      // Create first membership
+      await db.insert(members).values({
+        userId: testUser.id,
+        membershipType: 'luxe_essentials',
+        membershipStatus: 'active',
+        gymLocationId: testGymLocation.id,
+        startDate: new Date()
+      });
+
+      // Attempt to create second active membership
+      await expect(
+        db.insert(members).values({
+          userId: testUser.id,
+          membershipType: 'luxe_strive',
+          membershipStatus: 'active',
+          gymLocationId: testGymLocation.id,
+          startDate: new Date()
+        })
+      ).rejects.toThrow();
     });
   });
 });
