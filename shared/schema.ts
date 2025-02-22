@@ -918,3 +918,7 @@ export type ClassTemplate = typeof classTemplates.$inferSelect;
 export type InsertClassTemplate = z.infer<typeof insertClassTemplateSchema>;
 export type ClassWaitlist = typeof classWaitlist.$inferSelect;
 export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
+
+// Add new payment-related tables after the existing tables
+import { payments, paymentsRelations, insertPaymentSchema, Payment, InsertPayment } from './payments';
+import { subscriptions, subscriptionsRelations, insertSubscriptionSchema, Subscription, InsertSubscription } from './subscriptions';
