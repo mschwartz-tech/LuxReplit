@@ -56,7 +56,7 @@ export default function BillingPage() {
       paymentMethod: "cash",
       description: "",
       amount: "",
-      memberId: undefined,
+      memberId: "",
     },
   });
 
@@ -67,6 +67,8 @@ export default function BillingPage() {
 
   const createPayment = useMutation({
     mutationFn: async (data: PaymentFormValues) => {
+      console.log("Submitting payment data:", data);
+
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,22 +85,26 @@ export default function BillingPage() {
         try {
           if (contentType?.includes("application/json")) {
             const errorData = await response.json();
+            console.error("API error response:", errorData);
             errorMessage = errorData.message || errorMessage;
           } else {
             const errorText = await response.text();
+            console.error("API error text:", errorText);
             errorMessage = errorText.includes("<!DOCTYPE")
               ? "Server error occurred. Please try again."
               : errorText;
           }
         } catch (parseError) {
-          console.error("Error parsing response:", parseError);
+          console.error("Error parsing API response:", parseError);
           errorMessage = "An unexpected error occurred while processing the response";
         }
 
         throw new Error(errorMessage);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log("Payment creation successful:", result);
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
@@ -110,6 +116,7 @@ export default function BillingPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Payment creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create payment. Please try again.",
@@ -120,6 +127,7 @@ export default function BillingPage() {
 
   const onSubmit = async (data: PaymentFormValues) => {
     try {
+      console.log("Form submission started with data:", data);
       await createPayment.mutateAsync(data);
     } catch (error) {
       console.error("Payment submission error:", error);
