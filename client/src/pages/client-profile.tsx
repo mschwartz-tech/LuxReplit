@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ProgressChart } from "@/components/ui/progress-chart";
 import {
   Table,
   TableBody,
@@ -195,75 +196,108 @@ export default function ClientProfilePage() {
           </TabsContent>
 
           <TabsContent value="assessments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Assessment History</CardTitle>
-                <CardDescription>
-                  Track client's progress through regular assessments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px]">
-                  {!assessments?.length ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No assessments recorded yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-8">
-                      {assessments?.map((assessment) => {
-                        const measurements = assessment.measurements as Measurements;
-                        return (
-                          <div key={assessment.id} className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <h3 className="font-medium">
-                                Assessment on {format(new Date(assessment.assessmentDate), 'MMMM d, yyyy')}
-                              </h3>
-                              <LineChart className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                              <div>
-                                <p className="text-sm font-medium">Measurements</p>
-                                <div className="space-y-2 mt-2">
-                                  {Object.entries(measurements).map(([key, value]) => (
-                                    <div key={key} className="flex justify-between">
-                                      <span className="text-sm text-muted-foreground capitalize">
-                                        {key}
-                                      </span>
-                                      <span className="text-sm">{value ? `${value} cm` : 'Not recorded'}</span>
-                                    </div>
-                                  ))}
-                                </div>
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Progress Overview</CardTitle>
+                  <CardDescription>
+                    Track measurements and body composition over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <ProgressChart
+                      data={assessments || []}
+                      metric="measurements"
+                      title="Body Measurements"
+                      description="Track changes in body measurements over time"
+                    />
+                    <ProgressChart
+                      data={assessments || []}
+                      metric="weight"
+                      title="Weight Progress"
+                      description="Track weight changes over time"
+                    />
+                    <ProgressChart
+                      data={assessments || []}
+                      metric="bodyFat"
+                      title="Body Fat Percentage"
+                      description="Track body composition changes"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assessment History</CardTitle>
+                  <CardDescription>
+                    Detailed assessment records
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    {!assessments?.length ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        No assessments recorded yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-8">
+                        {assessments?.map((assessment) => {
+                          const measurements = assessment.measurements as Measurements;
+                          return (
+                            <div key={assessment.id} className="space-y-4">
+                              <div className="flex justify-between items-center">
+                                <h3 className="font-medium">
+                                  Assessment on {format(new Date(assessment.assessmentDate), 'MMMM d, yyyy')}
+                                </h3>
+                                <LineChart className="h-4 w-4 text-muted-foreground" />
                               </div>
-                              <div>
-                                <p className="text-sm font-medium">Other Metrics</p>
-                                <div className="space-y-2 mt-2">
-                                  <div className="flex justify-between">
-                                    <span className="text-sm text-muted-foreground">Weight</span>
-                                    <span className="text-sm">{assessment.weight} kg</span>
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <div>
+                                  <p className="text-sm font-medium">Measurements</p>
+                                  <div className="space-y-2 mt-2">
+                                    {Object.entries(measurements).map(([key, value]) => (
+                                      <div key={key} className="flex justify-between">
+                                        <span className="text-sm text-muted-foreground capitalize">
+                                          {key}
+                                        </span>
+                                        <span className="text-sm">{value ? `${value} cm` : 'Not recorded'}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                  {assessment.bodyFatPercentage && (
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium">Other Metrics</p>
+                                  <div className="space-y-2 mt-2">
                                     <div className="flex justify-between">
-                                      <span className="text-sm text-muted-foreground">Body Fat %</span>
-                                      <span className="text-sm">{assessment.bodyFatPercentage}%</span>
+                                      <span className="text-sm text-muted-foreground">Weight</span>
+                                      <span className="text-sm">{assessment.weight} kg</span>
                                     </div>
-                                  )}
+                                    {assessment.bodyFatPercentage && (
+                                      <div className="flex justify-between">
+                                        <span className="text-sm text-muted-foreground">Body Fat %</span>
+                                        <span className="text-sm">{assessment.bodyFatPercentage}%</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                              {assessment.notes && (
+                                <div>
+                                  <p className="text-sm font-medium">Notes</p>
+                                  <p className="text-sm text-muted-foreground mt-1">{assessment.notes}</p>
+                                </div>
+                              )}
                             </div>
-                            {assessment.notes && (
-                              <div>
-                                <p className="text-sm font-medium">Notes</p>
-                                <p className="text-sm text-muted-foreground mt-1">{assessment.notes}</p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="progress">
