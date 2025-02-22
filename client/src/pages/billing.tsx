@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Payment } from "@shared/schema"; // Fix the import
+import { type Payment } from "@shared/schema";
 import { Link } from "wouter";
 import {
   Card,
@@ -45,14 +45,14 @@ export default function BillingPage() {
   const isAdmin = user?.role === "admin";
   const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
 
-  // Update defaultValues in the form initialization
+  // Update defaultValues in the form initialization with proper types
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       paymentMethod: "cash",
       description: "",
-      amount: undefined as unknown as number,
-      memberId: "",
+      amount: 0,
+      memberId: undefined,
     },
   });
 
@@ -221,7 +221,7 @@ export default function BillingPage() {
                                   const value = e.target.value;
                                   const numValue = parseFloat(value);
                                   if (value === '') {
-                                    field.onChange(undefined);
+                                    field.onChange(0);
                                   } else if (!isNaN(numValue)) {
                                     field.onChange(numValue);
                                   }

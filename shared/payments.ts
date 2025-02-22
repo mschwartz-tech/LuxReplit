@@ -4,6 +4,12 @@ import { relations } from "drizzle-orm";
 import { z } from "zod";
 import { members } from "./schema";
 
+// Define payment types
+export type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "cash";
+export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
+export type SubscriptionStatus = "active" | "cancelled" | "expired";
+export type SubscriptionPeriod = "monthly" | "quarterly" | "yearly";
+
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id),

@@ -3,7 +3,7 @@ import { relations } from "drizzle-orm";
 import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
-import { payments, paymentsRelations, type Payment, type InsertPayment } from './payments';
+import { payments, paymentsRelations, type Payment, type InsertPayment, insertPaymentSchema } from './payments';
 import { subscriptions, subscriptionsRelations, type Subscription, type InsertSubscription } from './subscriptions';
 
 // Table Definitions
@@ -328,6 +328,29 @@ updatedAt: timestamp("updated_at").notNull().defaultNow()
  }
 });
 
+const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
+  .extend({
+    membershipTier1: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    membershipTier2: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    membershipTier3: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    membershipTier4: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    isActive: z.boolean().default(true),
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
+
+type InsertMembershipPricing = z.infer<typeof insertMembershipPricingSchema>;
+
 const mealPlans = pgTable("meal_plans", {
 id: serial("id").primaryKey(),
 trainerId: integer("trainer_id").references(() => users.id),
@@ -598,6 +621,43 @@ createdAt: timestamp("created_at").notNull().defaultNow()
  }
 });
 
+// Add progress schema definitions after the progress table definition
+const insertProgressSchema = createInsertSchema(progress)
+  .extend({
+    memberId: z.string().transform(val => parseInt(val)),
+    progressDate: z.coerce.date(),
+    weight: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ).optional(),
+    bodyFatPercentage: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ).optional(),
+    measurements: z.record(z.unknown()).or(z.string()).transform(val =>
+      typeof val === 'string' ? JSON.parse(val) : val
+    ),
+  })
+  .omit({
+    updatedAt: true,
+  });
+
+const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
+  .extend({
+    progressId: z.string().transform(val => parseInt(val)),
+    exerciseId: z.string().transform(val => parseInt(val)),
+    weightAmount: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ).optional(),
+    numberOfSets: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseInt(val) : val
+    ),
+    numberOfReps: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseInt(val) : val
+    ),
+  })
+  .omit({
+    createdAt: true,
+  });
+
 const progressRelations = relations(progress, ({ one, many }) => ({
 member: one(members, {
   fields: [progress.memberId],
@@ -778,7 +838,7 @@ const insertMemberProfileSchema = createInsertSchema(memberProfiles)
     birthDate: z.coerce.date().optional(),
     fitnessGoals: z.array(z.string()).optional(),
     healthConditions: z.array(z.string()).optional(),
-    medications: z.array(z.string()).optional(), // Fixed: Added parentheses
+    medications: z.array(z.string()).optional(), 
     injuries: z.array(z.string()).optional(),
     preferredContactMethod: z.enum(["email", "phone", "text"]).optional(),
     marketingOptIn: z.boolean().optional(),
@@ -854,13 +914,18 @@ export {
   // Insert Schemas
   insertMealPlanSchema,
   insertMemberMealPlanSchema,
-  insertInvoiceSchema,
   insertMarketingCampaignSchema,
   insertMemberAssessmentSchema,
   insertMemberProgressPhotoSchema,
-  insertPricingPlanSchema,insertMemberProfileSchema,
+  insertPricingPlanSchema,
+  insertMemberProfileSchema,
   insertMemberSchema,
   insertGymMembershipPricingSchema,
+  insertMembershipPricingSchema,
+  insertPaymentSchema,
+  insertProgressSchema,
+  insertStrengthMetricSchema,
+  insertInvoiceSchema,
 
   // Types
   Payment,
@@ -881,4 +946,5 @@ export {
   InsertPricingPlan,
   InsertMember,
   InsertGymMembershipPricing,
+  InsertMembershipPricing,
 };

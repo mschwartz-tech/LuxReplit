@@ -1,9 +1,13 @@
 // Import and re-export everything from schema
 export * from './schema';
 
-// Import and re-export types
-export * from './types';
+// Re-export only payment and subscription specific items not in schema
+export { 
+  type PaymentMethod,
+  type PaymentStatus,
+  type SubscriptionStatus,
+  type SubscriptionPeriod
+} from './payments';
 
-// Import and re-export payment and subscription types
-export * from './payments';
-export * from './subscriptions';
+// We only need the base Subscription type from subscriptions
+export { type Subscription } from './subscriptions';
