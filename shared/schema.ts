@@ -342,13 +342,13 @@ export const memberMealPlans = pgTable("member_meal_plans", {
   }).notNull(),
 });
 
-// Update sessions table with proper time constraints
+// Update sessions table with correct column names
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   date: timestamp("date").notNull(),
-  startTime: text("start_time").notNull(),
+  time: text("time").notNull(),
   duration: integer("duration").notNull(), // in minutes
   status: text("status", {
     enum: ["scheduled", "completed", "canceled"]
@@ -360,28 +360,28 @@ export const sessions = pgTable("sessions", {
   return {
     // Add time format check constraint
     timeFormatCheck: sql`CONSTRAINT sessions_time_format_check CHECK (
-      start_time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+      time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
     )`,
     // Add exclusion constraint for overlapping sessions
     sessionOverlapCheck: sql`CONSTRAINT session_overlap_exclusion
       EXCLUDE USING gist (
         trainer_id WITH =,
         tsrange(
-          date + start_time::time,
-          date + start_time::time + (duration || ' minutes')::interval
+          date + time::time,
+          date + time::time + (duration || ' minutes')::interval
         ) WITH &&
       ) WHERE (status = 'scheduled' AND deleted_at IS NULL)`
   }
 });
 
-// Update classes table with similar constraints
+// Update classes table with correct column names
 export const classes = pgTable("classes", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
-  startTime: text("start_time").notNull(),
+  time: text("time").notNull(),
   duration: integer("duration").notNull(), // in minutes
   capacity: integer("capacity").notNull(),
   status: text("status", {
@@ -398,28 +398,28 @@ export const classes = pgTable("classes", {
   return {
     // Add time format check constraint
     timeFormatCheck: sql`CONSTRAINT classes_time_format_check CHECK (
-      start_time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+      time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
     )`,
     // Add exclusion constraint for overlapping classes
     classOverlapCheck: sql`CONSTRAINT class_overlap_exclusion
       EXCLUDE USING gist (
         trainer_id WITH =,
         tsrange(
-          date + start_time::time,
-          date + start_time::time + (duration || ' minutes')::interval
+          date + time::time,
+          date + time::time + (duration || ' minutes')::interval
         ) WITH &&
       ) WHERE (status = 'scheduled')`
   }
 });
 
-// Create the scheduled_blocks view using raw SQL
+// Update the scheduled_blocks view creation SQL
 export const createScheduledBlocksView = sql`
   CREATE OR REPLACE VIEW scheduled_blocks_view AS
   SELECT 
     trainer_id,
     date,
-    start_time,
-    (date + start_time::time + (duration || ' minutes')::interval) as end_time,
+    time,
+    (date + time::time + (duration || ' minutes')::interval) as end_time,
     'session' as type,
     id
   FROM sessions 
@@ -428,19 +428,19 @@ export const createScheduledBlocksView = sql`
   SELECT 
     trainer_id,
     date,
-    start_time,
-    (date + start_time::time + (duration || ' minutes')::interval) as end_time,
+    time,
+    (date + time::time + (duration || ' minutes')::interval) as end_time,
     'class' as type,
     id
   FROM classes 
   WHERE status = 'scheduled'
 `;
 
-// Define the view structure for TypeScript type safety
+// Update the view structure for TypeScript type safety
 export const scheduledBlocks = pgTable("scheduled_blocks_view", {
   trainerId: integer("trainer_id").notNull(),
   date: timestamp("date").notNull(),
-  startTime: text("start_time").notNull(),
+  time: text("time").notNull(),
   endTime: timestamp("end_time").notNull(),
   type: text("type", { enum: ["session", "class"] }).notNull(),
   id: integer("id").notNull()
@@ -456,7 +456,7 @@ export const classRegistrations = pgTable("class_registrations", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Previous schema remains unchanged until classTemplates definition
+
 export const classTemplates = pgTable("class_templates", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
@@ -471,7 +471,7 @@ export const classTemplates = pgTable("class_templates", {
 }, (table) => {
   return {
     timeFormatCheck: sql`CONSTRAINT class_templates_time_format_check CHECK (
-      start_time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+      start_time ~ '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
     )`
   }
 });
@@ -757,7 +757,7 @@ export const insertMembershipPricingSchema = createInsertSchema(membershipPricin
   .extend({
     gymLocation: z.string().min(1, "Gym location is required"),
     membershipTier1: z.number().min(0, "Price must be positive"),
-    membershipTier2:z.number().min(0, "Price must be positive"),
+    membershipTier2:z.number().min(0,"Price must be positive"),
     membershipTier3: z.number().min(0, "Price must be positive"),
     membershipTier4: z.number().min(0, "Price must be positive"),
   })
