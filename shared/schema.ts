@@ -342,22 +342,13 @@ export const memberMealPlans = pgTable("member_meal_plans", {
   }).notNull(),
 });
 
-// Scheduled Blocks View
-export const scheduledBlocks = pgTable("scheduled_blocks", {
-  trainerId: integer("trainer_id").references(() => users.id).notNull(),
-  date: timestamp("date").notNull(),
-  startTime: text("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
-  type: text("type", { enum: ["session", "class"] }).notNull(),
-  id: integer("id").notNull()
-});
-
+// Update sessions table with proper time constraints
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   date: timestamp("date").notNull(),
-  time: text("time").notNull(),
+  startTime: text("start_time").notNull(),
   duration: integer("duration").notNull(), // in minutes
   status: text("status", {
     enum: ["scheduled", "completed", "canceled"]
@@ -365,15 +356,32 @@ export const sessions = pgTable("sessions", {
   notes: text("notes"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    // Add time format check constraint
+    timeFormatCheck: sql`CONSTRAINT sessions_time_format_check CHECK (
+      start_time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+    )`,
+    // Add exclusion constraint for overlapping sessions
+    sessionOverlapCheck: sql`CONSTRAINT session_overlap_exclusion
+      EXCLUDE USING gist (
+        trainer_id WITH =,
+        tsrange(
+          date + start_time::time,
+          date + start_time::time + (duration || ' minutes')::interval
+        ) WITH &&
+      ) WHERE (status = 'scheduled' AND deleted_at IS NULL)`
+  }
 });
 
+// Update classes table with similar constraints
 export const classes = pgTable("classes", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
-  time: text("time").notNull(),
+  startTime: text("start_time").notNull(),
   duration: integer("duration").notNull(), // in minutes
   capacity: integer("capacity").notNull(),
   status: text("status", {
@@ -386,6 +394,56 @@ export const classes = pgTable("classes", {
   cancelationDeadline: timestamp("cancelation_deadline"),
   recurring: boolean("recurring").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    // Add time format check constraint
+    timeFormatCheck: sql`CONSTRAINT classes_time_format_check CHECK (
+      start_time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+    )`,
+    // Add exclusion constraint for overlapping classes
+    classOverlapCheck: sql`CONSTRAINT class_overlap_exclusion
+      EXCLUDE USING gist (
+        trainer_id WITH =,
+        tsrange(
+          date + start_time::time,
+          date + start_time::time + (duration || ' minutes')::interval
+        ) WITH &&
+      ) WHERE (status = 'scheduled')`
+  }
+});
+
+// Create the scheduled_blocks view using raw SQL
+export const createScheduledBlocksView = sql`
+  CREATE OR REPLACE VIEW scheduled_blocks_view AS
+  SELECT 
+    trainer_id,
+    date,
+    start_time,
+    (date + start_time::time + (duration || ' minutes')::interval) as end_time,
+    'session' as type,
+    id
+  FROM sessions 
+  WHERE status = 'scheduled' AND deleted_at IS NULL
+  UNION ALL
+  SELECT 
+    trainer_id,
+    date,
+    start_time,
+    (date + start_time::time + (duration || ' minutes')::interval) as end_time,
+    'class' as type,
+    id
+  FROM classes 
+  WHERE status = 'scheduled'
+`;
+
+// Define the view structure for TypeScript type safety
+export const scheduledBlocks = pgTable("scheduled_blocks_view", {
+  trainerId: integer("trainer_id").notNull(),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  type: text("type", { enum: ["session", "class"] }).notNull(),
+  id: integer("id").notNull()
 });
 
 export const classRegistrations = pgTable("class_registrations", {
@@ -534,6 +592,7 @@ export const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => 
   })
 }));
 
+// Update the validateSchedulingConflict function to use the view
 export const validateSchedulingConflict = async (
   db: any,
   trainerId: number,
@@ -543,33 +602,16 @@ export const validateSchedulingConflict = async (
 ): Promise<{ hasConflict: boolean; error?: string }> => {
   try {
     const [conflict] = await db.execute(sql`
-      WITH new_slot AS (
-        SELECT 
-          ${trainerId} as trainer_id,
-          ${date}::date as date,
-          (${date}::date + ${startTime}::time)::timestamp as start_timestamp,
-          (${date}::date + ${startTime}::time + interval '${duration} minutes')::timestamp as end_timestamp
-      ),
-      existing_blocks AS (
-        SELECT 
-          trainer_id,
-          date,
-          (date + start_time::time)::timestamp as start_timestamp,
-          end_time as end_timestamp
-        FROM scheduled_blocks
+      SELECT EXISTS (
+        SELECT 1 FROM scheduled_blocks_view
         WHERE trainer_id = ${trainerId}
         AND date::date = ${date}::date
-      )
-      SELECT EXISTS (
-        SELECT 1 FROM existing_blocks eb, new_slot ns
-        WHERE eb.trainer_id = ns.trainer_id
-        AND eb.date::date = ns.date::date
-        AND (
-          (eb.start_timestamp <= ns.start_timestamp AND eb.end_timestamp > ns.start_timestamp)
-          OR 
-          (eb.start_timestamp < ns.end_timestamp AND eb.end_timestamp >= ns.end_timestamp)
-          OR
-          (ns.start_timestamp <= eb.start_timestamp AND ns.end_timestamp > eb.start_timestamp)
+        AND tsrange(
+          date + start_time::time,
+          end_time
+        ) && tsrange(
+          ${date}::timestamp + ${startTime}::time,
+          ${date}::timestamp + ${startTime}::time + (${duration} || ' minutes')::interval
         )
       ) as has_conflict;
     `);
@@ -585,16 +627,17 @@ export const validateSchedulingConflict = async (
   }
 };
 
+// Update insert schemas to include proper time validation
 export const insertSessionSchema = createInsertSchema(sessions)
   .extend({
-    time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
     duration: z.number().min(15, "Session must be at least 15 minutes").max(180, "Session cannot exceed 3 hours"),
   })
   .omit({ createdAt: true, deletedAt: true });
 
 export const insertClassSchema = createInsertSchema(classes)
   .extend({
-    time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
     duration: z.number().min(15, "Class must be at least 15 minutes").max(180, "Class cannot exceed 3 hours"),
     capacity: z.number().min(1, "Class must have at least 1 spot"),
   })
@@ -708,13 +751,13 @@ export const insertGymMembershipPricingSchema = createInsertSchema(gymMembership
       typeof val === 'string' ? parseFloat(val) : val
     ),
   })
-  .omit({ createdAt: true, updatedAt: true });
+  .omit({ createdAt: true, updatedAt: true});
 
 export const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
   .extend({
     gymLocation: z.string().min(1, "Gym location is required"),
     membershipTier1: z.number().min(0, "Price must be positive"),
-    membershipTier2: z.number().min(0, "Price must be positive"),
+    membershipTier2:z.number().min(0, "Price must be positive"),
     membershipTier3: z.number().min(0, "Price must be positive"),
     membershipTier4: z.number().min(0, "Price must be positive"),
   })
