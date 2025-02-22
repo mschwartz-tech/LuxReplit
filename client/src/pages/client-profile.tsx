@@ -8,10 +8,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Dumbbell, LineChart, Camera, Receipt } from "lucide-react";
+import { ArrowLeft, Calendar, Download, Dumbbell, LineChart, Camera, Receipt } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { Member, MemberProfile, MemberAssessment, Invoice } from "@shared/schema";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -46,6 +47,7 @@ export default function ClientProfilePage() {
   const clientId = parseInt(location.split('/').pop() || '0');
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
+  const [comparisonDate, setComparisonDate] = useState<Date | undefined>(undefined);
 
   const { data: member, isLoading: isLoadingMember } = useQuery<Member>({
     queryKey: [`/api/members/${clientId}`],
@@ -83,13 +85,47 @@ export default function ClientProfilePage() {
     return <div className="p-8">Client not found</div>;
   }
 
-  // Transform assessments data for charts
   const chartData: ChartData[] = assessments?.map(assessment => ({
-    progressDate: assessment.assessmentDate,
+    progressDate: new Date(assessment.assessmentDate),
     measurements: assessment.measurements as Measurements,
     weight: assessment.weight || '0',
     bodyFatPercentage: assessment.bodyFatPercentage
   })) || [];
+
+  const exportProgress = () => {
+    const data = assessments?.map(assessment => ({
+      date: format(new Date(assessment.assessmentDate), 'yyyy-MM-dd'),
+      ...assessment.measurements,
+      weight: assessment.weight,
+      bodyFatPercentage: assessment.bodyFatPercentage,
+      notes: assessment.notes
+    }));
+
+    const csv = [
+      ['Date', 'Weight', 'Body Fat %', 'Chest', 'Waist', 'Hips', 'Thighs', 'Arms', 'Notes'].join(','),
+      ...data.map(row => [
+        row.date,
+        row.weight || '',
+        row.bodyFatPercentage || '',
+        row.chest || '',
+        row.waist || '',
+        row.hips || '',
+        row.thighs || '',
+        row.arms || '',
+        `"${row.notes || ''}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `progress-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="p-8">
@@ -202,10 +238,32 @@ export default function ClientProfilePage() {
             <div className="grid gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Progress Overview</CardTitle>
-                  <CardDescription>
-                    Track measurements and body composition over time
-                  </CardDescription>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Progress Overview</CardTitle>
+                      <CardDescription>
+                        Track measurements and body composition over time
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setComparisonDate(subDays(new Date(), 30))}
+                      >
+                        Compare to Last Month
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportProgress}
+                        className="gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Export Data
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-6 md:grid-cols-2">
@@ -214,18 +272,22 @@ export default function ClientProfilePage() {
                       metric="measurements"
                       title="Body Measurements"
                       description="Track changes in body measurements over time"
+                      comparisonDate={comparisonDate}
                     />
                     <ProgressChart
                       data={chartData}
                       metric="weight"
                       title="Weight Progress"
                       description="Track weight changes over time"
+                      comparisonDate={comparisonDate}
                     />
                     <ProgressChart
                       data={chartData}
                       metric="bodyFat"
                       title="Body Fat Percentage"
                       description="Track body composition changes"
+                      comparisonDate={comparisonDate}
+                      className="md:col-span-2"
                     />
                   </div>
                 </CardContent>
