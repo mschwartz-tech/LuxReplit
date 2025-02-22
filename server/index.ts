@@ -5,6 +5,7 @@ import { logError, logInfo } from "./services/logger";
 import { registerRoutes } from "./routes";
 import { ensureDatabaseInitialized } from "./db";
 import { setupVite } from "./vite";
+import { rateLimiter, securityHeaders, wafMiddleware } from "./middleware";
 import { apiLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
 
@@ -16,8 +17,13 @@ app.set('trust proxy', 1);
 
 // Basic middleware setup
 app.use(express.json());
-app.use(apiLimiter);
-app.use(cacheMiddleware);
+
+// Security middleware
+app.use(rateLimiter);  // Rate limiting
+app.use(securityHeaders);  // Security headers (CSP, CORS, etc.)
+app.use(wafMiddleware);  // Web Application Firewall
+app.use(apiLimiter);  // API-specific rate limiting
+app.use(cacheMiddleware);  // Caching
 
 // Session middleware setup
 app.use(
@@ -59,8 +65,8 @@ async function startServer() {
     }
 
     // Start the server
-    const port = Number(process.env.PORT) || 5000; // Changed default port to 5000
-    server.listen(port, '0.0.0.0', () => { // Added host parameter for better accessibility
+    const port = Number(process.env.PORT) || 5000;
+    server.listen(port, '0.0.0.0', () => {
       logInfo(`Server listening on port ${port}`, {
         port,
         env: process.env.NODE_ENV || 'development',
