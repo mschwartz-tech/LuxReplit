@@ -78,6 +78,9 @@ export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaig
 export const insertMuscleGroupSchema = createInsertSchema(muscleGroups).omit({ createdAt: true });
 export const insertExerciseSchema = createInsertSchema(exercises).omit({ createdAt: true });
 export const insertPricingPlanSchema = createInsertSchema(pricingPlans).omit({ createdAt: true });
+import { createInsertSchema } from "drizzle-zod";
+import { gymMembershipPricing, membershipPricing, mealPlans, memberMealPlans, sessions, classes, classRegistrations, classTemplates, classWaitlist, progress, strengthMetrics, invoices, marketingCampaigns } from './schema';
+
 export const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing).omit({ createdAt: true });
 export const insertMembershipPricingSchema = createInsertSchema(membershipPricing).omit({ createdAt: true });
 export const insertMealPlanSchema = createInsertSchema(mealPlans).omit({ createdAt: true });
@@ -89,6 +92,8 @@ export const insertClassTemplateSchema = createInsertSchema(classTemplates).omit
 export const insertClassWaitlistSchema = createInsertSchema(classWaitlist).omit({ createdAt: true });
 export const insertProgressSchema = createInsertSchema(progress).omit({ createdAt: true });
 export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics).omit({ createdAt: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ createdAt: true });
+export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({ createdAt: true });
 
 export const insertMovementPatternSchema = createInsertSchema(movementPatterns)
   .extend({
