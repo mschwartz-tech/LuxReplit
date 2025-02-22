@@ -13,9 +13,10 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, Loader2, AlertCircle } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "./button";
-import { Alert, AlertDescription } from "./alert";
+import { Alert, AlertDescription, AlertTitle } from "./alert";
+import { Skeleton } from "./skeleton";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -43,6 +44,7 @@ interface ServiceStatus {
   servicesInitialized: boolean;
   error: string | null;
   apiKeyPresent: boolean;
+  isInitializing: boolean;
 }
 
 export const AddressAutocomplete = forwardRef<
@@ -62,7 +64,8 @@ export const AddressAutocomplete = forwardRef<
     scriptLoaded: false,
     servicesInitialized: false,
     error: null,
-    apiKeyPresent: false
+    apiKeyPresent: false,
+    isInitializing: true
   });
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
@@ -73,6 +76,7 @@ export const AddressAutocomplete = forwardRef<
 
     setServiceStatus(prev => ({
       ...prev,
+      isInitializing: true,
       apiKeyPresent: !!apiKey
     }));
 
@@ -81,7 +85,8 @@ export const AddressAutocomplete = forwardRef<
       console.error(error);
       setServiceStatus(prev => ({
         ...prev,
-        error
+        error,
+        isInitializing: false
       }));
       return;
     }
@@ -113,7 +118,8 @@ export const AddressAutocomplete = forwardRef<
       setServiceStatus(prev => ({
         ...prev,
         error: errorMessage,
-        scriptLoaded: false
+        scriptLoaded: false,
+        isInitializing: false
       }));
 
       if (retryCount < MAX_RETRIES) {
@@ -146,7 +152,8 @@ export const AddressAutocomplete = forwardRef<
       setServiceStatus(prev => ({
         ...prev,
         error: null,
-        servicesInitialized: true
+        servicesInitialized: true,
+        isInitializing: false
       }));
 
       console.log("AddressAutocomplete: Services initialized successfully");
@@ -155,7 +162,8 @@ export const AddressAutocomplete = forwardRef<
       setServiceStatus(prev => ({
         ...prev,
         error: "Failed to initialize address service",
-        servicesInitialized: false
+        servicesInitialized: false,
+        isInitializing: false
       }));
     }
   }, []);
@@ -168,7 +176,8 @@ export const AddressAutocomplete = forwardRef<
       console.log("AddressAutocomplete: Google Maps already loaded");
       setServiceStatus(prev => ({
         ...prev,
-        scriptLoaded: true
+        scriptLoaded: true,
+        isInitializing: true
       }));
       initializeServices();
       return;
@@ -280,29 +289,47 @@ export const AddressAutocomplete = forwardRef<
       scriptLoaded: false,
       servicesInitialized: false,
       error: null,
-      apiKeyPresent: false
+      apiKeyPresent: false,
+      isInitializing: true
     });
     loadGoogleMapsScript();
   };
 
-  // Display service status for debugging
+  if (serviceStatus.isInitializing) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-9 w-full" />
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <p className="text-sm text-muted-foreground">
+            Initializing address service...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (serviceStatus.error) {
     return (
       <div className="space-y-2">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {serviceStatus.error}
-            {serviceStatus.apiKeyPresent ? "" : " (API Key missing)"}
+          <AlertTitle>Address Service Error</AlertTitle>
+          <AlertDescription className="flex flex-col space-y-2">
+            <span>
+              {serviceStatus.error}
+              {!serviceStatus.apiKeyPresent && " (API Key missing)"}
+            </span>
+            <Button
+              variant="outline"
+              onClick={handleRetry}
+              className="w-full mt-2"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry Loading Address Service
+            </Button>
           </AlertDescription>
         </Alert>
-        <Button
-          variant="outline"
-          onClick={handleRetry}
-          className="w-full"
-        >
-          Retry Loading Address Service
-        </Button>
       </div>
     );
   }
