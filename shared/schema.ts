@@ -1,54 +1,9 @@
 import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { relations, type RelationConfig } from "drizzle-orm";
 import { sql } from 'drizzle-orm';
 
-/*
-Next Implementation Steps (2025-02-22):
-
-1. Completed Steps:
-- Base schema implemented with core entities (users, members, trainers)
-- Progress tracking tables implemented with proper relations:
-  * Progress table for tracking member metrics
-  * Strength metrics table for exercise-specific progress
-  * All necessary indices and constraints in place
-  * Proper cascade rules for data integrity
-
-2. Next Steps:
-- Implement remaining schema components:
-  * Class scheduling system
-  * Attendance tracking
-  * Equipment inventory management
-  * Membership billing and invoicing
-  * Notification preferences and history
-
-3. API Implementation Required:
-- Member management endpoints
-- Progress tracking endpoints
-- Class scheduling endpoints
-- Billing and payment endpoints
-
-4. Storage Interface Updates Needed:
-- Implement DatabaseStorage class with new entity methods
-- Add proper error handling and validation
-- Implement caching strategy for frequently accessed data
-
-Current Status:
-- Core schema is stable and ready for API implementation
-- Progress tracking tables are complete with proper relations
-- Basic user authentication schema is in place
-- Member profiles and assessments are properly structured
-
-Testing Requirements:
-- Add integration tests for database operations
-- Verify cascade behavior for related entities
-- Test concurrent access patterns
-- Validate constraint enforcement
-*/
-
-// Users table and relations
-export const users = pgTable("users", {
+// Table Definitions
+const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -60,15 +15,14 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+const usersRelations = relations(users, ({ many }) => ({
   members: many(members),
   trainers: many(members, { relationName: "trainer" }),
   marketingCampaigns: many(marketingCampaigns),
   mealPlans: many(mealPlans)
 }));
 
-// Members table and relations
-export const members = pgTable("members", {
+const members = pgTable("members", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   assignedTrainerId: integer("assigned_trainer_id").references(() => users.id),
@@ -95,7 +49,7 @@ export const members = pgTable("members", {
   }
 });
 
-export const membersRelations = relations(members, ({ one, many }) => ({
+const membersRelations = relations(members, ({ one, many }) => ({
   user: one(users, {
     fields: [members.userId],
     references: [users.id],
@@ -118,7 +72,7 @@ export const membersRelations = relations(members, ({ one, many }) => ({
   })
 }));
 
-export const memberProfiles = pgTable("member_profiles", {
+const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   // Personal Information
@@ -163,7 +117,7 @@ export const memberProfiles = pgTable("member_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-export const memberAssessments = pgTable("member_assessments", {
+const memberAssessments = pgTable("member_assessments", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   assessmentDate: timestamp("assessment_date").notNull(),
@@ -175,7 +129,7 @@ export const memberAssessments = pgTable("member_assessments", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const memberProgressPhotos = pgTable("member_progress_photos", {
+const memberProgressPhotos = pgTable("member_progress_photos", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   photoUrl: text("photo_url").notNull(),
@@ -185,7 +139,7 @@ export const memberProgressPhotos = pgTable("member_progress_photos", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const workoutPlans = pgTable("workout_plans", {
+const workoutPlans = pgTable("workout_plans", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -202,7 +156,7 @@ export const workoutPlans = pgTable("workout_plans", {
   }
 });
 
-export const workoutLogs = pgTable("workout_logs", {
+const workoutLogs = pgTable("workout_logs", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   workoutPlanId: integer("workout_plan_id").references(() => workoutPlans.id).notNull(),
@@ -212,8 +166,7 @@ export const workoutLogs = pgTable("workout_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Update schedules table definition
-export const schedules = pgTable("schedules", {
+const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id, { onDelete: 'cascade' }),
   memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }),
@@ -236,7 +189,7 @@ export const schedules = pgTable("schedules", {
   }
 });
 
-export const invoices = pgTable("invoices", {
+const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id),
   amount: numeric("amount").notNull(),
@@ -246,7 +199,7 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const marketingCampaigns = pgTable("marketing_campaigns", {
+const marketingCampaigns = pgTable("marketing_campaigns", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -257,14 +210,14 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
   createdBy: integer("created_by").references(() => users.id)
 });
 
-export const muscleGroups = pgTable("muscle_groups", {
+const muscleGroups = pgTable("muscle_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
   description: text("description").notNull(),
   bodyRegion: text("body_region", { enum: ["upper", "lower", "core"] }).notNull()
 });
 
-export const exercises = pgTable("exercises", {
+const exercises = pgTable("exercises", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
   description: text("description").notNull(),
@@ -280,7 +233,7 @@ export const exercises = pgTable("exercises", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const pricingPlans = pgTable("pricing_plans", {
+const pricingPlans = pgTable("pricing_plans", {
   id: serial("id").primaryKey(),
   sessionsPerWeek: integer("sessions_per_week").notNull(),
   duration: integer("duration").notNull(), // 30 or 60 minutes
@@ -291,7 +244,7 @@ export const pricingPlans = pgTable("pricing_plans", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-export const gymMembershipPricing = pgTable("gym_membership_pricing", {
+const gymMembershipPricing = pgTable("gym_membership_pricing", {
   id: serial("id").primaryKey(),
   gymName: text("gym_name").notNull().unique(),
   luxeEssentialsPrice: numeric("luxe_essentials_price").notNull(),
@@ -302,8 +255,7 @@ export const gymMembershipPricing = pgTable("gym_membership_pricing", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Update membership_pricing table definition to ensure safe creation
-export const membershipPricing = pgTable("membership_pricing", {
+const membershipPricing = pgTable("membership_pricing", {
   id: serial("id").primaryKey(),
   gymLocation: text("gym_location").notNull(),
   membershipTier1: numeric("membership_tier_1").notNull(),
@@ -320,7 +272,7 @@ export const membershipPricing = pgTable("membership_pricing", {
   }
 });
 
-export const mealPlans = pgTable("meal_plans", {
+const mealPlans = pgTable("meal_plans", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id),
   name: text("name").notNull(),
@@ -329,7 +281,7 @@ export const mealPlans = pgTable("meal_plans", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-export const memberMealPlans = pgTable("member_meal_plans", {
+const memberMealPlans = pgTable("member_meal_plans", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   mealPlanId: integer("meal_plan_id").references(() => mealPlans.id).notNull(),
@@ -342,8 +294,7 @@ export const memberMealPlans = pgTable("member_meal_plans", {
   }).notNull(),
 });
 
-// Update sessions table with correct column names
-export const sessions = pgTable("sessions", {
+const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -374,8 +325,7 @@ export const sessions = pgTable("sessions", {
   }
 });
 
-// Update classes table with correct column names
-export const classes = pgTable("classes", {
+const classes = pgTable("classes", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
@@ -412,8 +362,7 @@ export const classes = pgTable("classes", {
   }
 });
 
-// Update the scheduled_blocks view creation SQL
-export const createScheduledBlocksView = sql`
+const createScheduledBlocksView = sql`
   CREATE OR REPLACE VIEW scheduled_blocks_view AS
   SELECT 
     trainer_id,
@@ -436,8 +385,7 @@ export const createScheduledBlocksView = sql`
   WHERE status = 'scheduled'
 `;
 
-// Update the view structure for TypeScript type safety
-export const scheduledBlocks = pgTable("scheduled_blocks_view", {
+const scheduledBlocks = pgTable("scheduled_blocks_view", {
   trainerId: integer("trainer_id").notNull(),
   date: timestamp("date").notNull(),
   time: text("time").notNull(),
@@ -446,7 +394,7 @@ export const scheduledBlocks = pgTable("scheduled_blocks_view", {
   id: integer("id").notNull()
 });
 
-export const classRegistrations = pgTable("class_registrations", {
+const classRegistrations = pgTable("class_registrations", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").references(() => classes.id).notNull(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -457,7 +405,7 @@ export const classRegistrations = pgTable("class_registrations", {
 });
 
 
-export const classTemplates = pgTable("class_templates", {
+const classTemplates = pgTable("class_templates", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
@@ -476,8 +424,7 @@ export const classTemplates = pgTable("class_templates", {
   }
 });
 
-// Add check constraint for waitlist capacity
-export const classWaitlist = pgTable("class_waitlist", {
+const classWaitlist = pgTable("class_waitlist", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").references(() => classes.id).notNull(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -493,8 +440,7 @@ export const classWaitlist = pgTable("class_waitlist", {
   }
 });
 
-// Add relations
-export const sessionsRelations = relations(sessions, ({ one }) => ({
+const sessionsRelations = relations(sessions, ({ one }) => ({
   trainer: one(users, {
     fields: [sessions.trainerId],
     references: [users.id],
@@ -505,7 +451,7 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   })
 }));
 
-export const classesRelations = relations(classes, ({ one, many }) => ({
+const classesRelations = relations(classes, ({ one, many }) => ({
   trainer: one(users, {
     fields: [classes.trainerId],
     references: [users.id],
@@ -518,7 +464,7 @@ export const classesRelations = relations(classes, ({ one, many }) => ({
   waitlist: many(classWaitlist)
 }));
 
-export const classRegistrationsRelations = relations(classRegistrations, ({ one }) => ({
+const classRegistrationsRelations = relations(classRegistrations, ({ one }) => ({
   class: one(classes, {
     fields: [classRegistrations.classId],
     references: [classes.id],
@@ -529,8 +475,7 @@ export const classRegistrationsRelations = relations(classRegistrations, ({ one 
   })
 }));
 
-// Add relations for schedules and exercises
-export const schedulesRelations = relations(schedules, ({ one }) => ({
+const schedulesRelations = relations(schedules, ({ one }) => ({
   trainer: one(users, {
     fields: [schedules.trainerId],
     references: [users.id],
@@ -541,7 +486,7 @@ export const schedulesRelations = relations(schedules, ({ one }) => ({
   })
 }));
 
-export const exercisesRelations = relations(exercises, ({ one, many }) => ({
+const exercisesRelations = relations(exercises, ({ one, many }) => ({
   primaryMuscleGroup: one(muscleGroups, {
     fields: [exercises.primaryMuscleGroupId],
     references: [muscleGroups.id],
@@ -550,220 +495,7 @@ export const exercisesRelations = relations(exercises, ({ one, many }) => ({
   strengthMetrics: many(strengthMetrics)
 }));
 
-
-// Add insert schemas
-export const insertMealPlanSchema = createInsertSchema(mealPlans)
-  .extend({
-    meals: z.array(z.object({
-      meal: z.string(),
-      food: z.string(),
-      calories: z.number().optional(),
-      protein: z.number().optional(),
-      carbs: z.number().optional(),
-      fats: z.number().optional()
-    })).min(1, "At least one meal is required")
-  });
-
-export const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans);
-
-// Add types for meal plans and relations
-export type MealPlan = typeof mealPlans.$inferSelect;
-export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
-export type MemberMealPlan = typeof memberMealPlans.$inferSelect;
-export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
-
-// Add relations for meal plans
-export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
-  trainer: one(users, {
-    fields: [mealPlans.trainerId],
-    references: [users.id],
-  }),
-  memberMealPlans: many(memberMealPlans)
-}));
-
-export const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => ({
-  member: one(members, {
-    fields: [memberMealPlans.memberId],
-    references: [members.id],
-  }),
-  mealPlan: one(mealPlans, {
-    fields: [memberMealPlans.mealPlanId],
-    references: [mealPlans.id],
-  })
-}));
-
-// Update the validateSchedulingConflict function to use the view
-export const validateSchedulingConflict = async (
-  db: any,
-  trainerId: number,
-  date: Date,
-  startTime: string,
-  duration: number
-): Promise<{ hasConflict: boolean; error?: string }> => {
-  try {
-    const [conflict] = await db.execute(sql`
-      SELECT EXISTS (
-        SELECT 1 FROM scheduled_blocks_view
-        WHERE trainer_id = ${trainerId}
-        AND date::date = ${date}::date
-        AND tsrange(
-          date + start_time::time,
-          end_time
-        ) && tsrange(
-          ${date}::timestamp + ${startTime}::time,
-          ${date}::timestamp + ${startTime}::time + (${duration} || ' minutes')::interval
-        )
-      ) as has_conflict;
-    `);
-
-    return {
-      hasConflict: conflict?.has_conflict || false
-    };
-  } catch (error) {
-    return {
-      hasConflict: false,
-      error: `Failed to validate scheduling: ${error instanceof Error ? error.message : 'Unknown error'}`
-    };
-  }
-};
-
-// Update insert schemas to include proper time validation
-export const insertSessionSchema = createInsertSchema(sessions)
-  .extend({
-    startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    duration: z.number().min(15, "Session must be at least 15 minutes").max(180, "Session cannot exceed 3 hours"),
-  })
-  .omit({ createdAt: true, deletedAt: true });
-
-export const insertClassSchema = createInsertSchema(classes)
-  .extend({
-    startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    duration: z.number().min(15, "Class must be at least 15 minutes").max(180, "Class cannot exceed 3 hours"),
-    capacity: z.number().min(1, "Class must have at least 1 spot"),
-  })
-  .omit({ createdAt: true });
-
-export const insertClassRegistrationSchema = createInsertSchema(classRegistrations).omit({ createdAt: true });
-
-// Add types
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type Member = typeof members.$inferSelect;
-export type InsertMember = z.infer<typeof insertMemberSchema>;
-export type MemberProfile = typeof memberProfiles.$inferSelect;
-export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
-export type MemberAssessment = typeof memberAssessments.$inferSelect;
-export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
-export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
-export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
-export type WorkoutPlan = typeof workoutPlans.$inferSelect;
-export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
-export type WorkoutLog = typeof workoutLogs.$inferSelect;
-export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
-export type Schedule = typeof schedules.$inferSelect;
-export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
-export type Invoice = typeof invoices.$inferSelect;
-export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
-export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
-export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
-export type MuscleGroup = typeof muscleGroups.$inferSelect;
-export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
-export type Exercise = typeof exercises.$inferSelect;
-export type InsertExercise = z.infer<typeof insertExerciseSchema>;
-export type PricingPlan = typeof pricingPlans.$inferSelect;
-export type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
-export type GymMembershipPricing = typeof gymMembershipPricing.$inferSelect;
-export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
-export type MembershipPricing = typeof membershipPricing.$inferSelect;
-export type InsertMembershipPricing = z.infer<typeof insertMembershipPricingSchema>;
-export type Session = typeof sessions.$inferSelect;
-export type InsertSession = z.infer<typeof insertSessionSchema>;
-export type Class = typeof classes.$inferSelect;
-export type InsertClass = z.infer<typeof insertClassSchema>;
-export type ClassRegistration = typeof classRegistrations.$inferSelect;
-export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
-
-
-
-export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
-export const insertMemberSchema = createInsertSchema(members)
-  .extend({
-    membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
-    gymLocationId: z.number(),
-  })
-  .omit({ createdAt: true });
-export const insertMemberProfileSchema = createInsertSchema(memberProfiles)
-  .extend({
-    fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
-    healthConditions: z.array(z.string()).optional(),
-    medications: z.array(z.string()).optional(),
-    injuries: z.array(z.string()).optional(),
-    height: z.string().min(1, "Height must not be empty"),
-    weight: z.string().min(1, "Weight must not be empty"),
-    phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
-    zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
-    preferredContactMethod: z.enum(["email", "phone", "text"]),
-  })
-  .omit({ createdAt: true, updatedAt: true });
-export const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
-  .extend({
-    measurements: z.object({
-      chest: z.number().optional(),
-      waist: z.number().optional(),
-      hips: z.number().optional(),
-      thighs: z.number().optional(),
-      arms: z.number().optional()
-    })
-  });
-export const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos);
-export const insertWorkoutPlanSchema = createInsertSchema(workoutPlans);
-export const insertWorkoutLogSchema = createInsertSchema(workoutLogs);
-export const insertScheduleSchema = createInsertSchema(schedules);
-export const insertInvoiceSchema = createInsertSchema(invoices);
-export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns);
-export const insertMuscleGroupSchema = createInsertSchema(muscleGroups);
-export const insertExerciseSchema = createInsertSchema(exercises)
-  .extend({
-    name: z.string().min(3, "Name must be at least 3 characters"),
-    description: z.string().min(10, "Description must be at least 10 characters"),
-    instructions: z.array(z.string()).min(1, "Must include at least one instruction"),
-    difficulty: z.enum(["beginner", "intermediate", "advanced"]),
-  });
-
-export const insertPricingPlanSchema = createInsertSchema(pricingPlans)
-  .extend({
-    costPerSession: z.string().min(1, "Cost per session is required"),
-    biweeklyPrice: z.string().min(1, "Bi-weekly price is required"),
-    pifPrice: z.string().min(1, "PIF price is required"),
-  })
-  .omit({ createdAt: true, updatedAt: true });
-
-export const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
-  .extend({
-    gymName: z.string().min(1, "Gym name is required"),
-    luxeEssentialsPrice: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-    luxeStrivePrice: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-    luxeAllAccessPrice: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-  })
-  .omit({ createdAt: true, updatedAt: true });
-
-export const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
-  .extend({
-    gymLocation: z.string().min(1, "Gym location is required"),
-    membershipTier1: z.number().min(0, "Price must be positive"),
-    membershipTier2: z.number().min(0, "Price must be positive"),
-    membershipTier3: z.number().min(0, "Price must be positive"),
-    membershipTier4: z.number().min(0, "Price must be positive"),
-  })
-  .omit({ id: true, createdAt: true, updatedAt: true, isActive: true });
-
-export const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => ({
+const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => ({
   trainer: one(users, {
     fields: [workoutPlans.trainerId],
     references: [users.id],
@@ -775,13 +507,11 @@ export const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => 
   workoutLogs: many(workoutLogs)
 }));
 
-// Add relations for membership_pricing
-export const membershipPricingRelations = relations(membershipPricing, ({ many }) => ({
+const membershipPricingRelations = relations(membershipPricing, ({ many }) => ({
   members: many(members)
 }));
 
-// Add new tables for strength metrics and progress tracking
-export const progress = pgTable("progress", {
+const progress = pgTable("progress", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }).notNull(),
   progressDate: timestamp("progress_date").notNull().defaultNow(),
@@ -797,7 +527,7 @@ export const progress = pgTable("progress", {
   }
 });
 
-export const strengthMetrics = pgTable("strength_metrics", {
+const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
   progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
   exerciseId: integer("exercise_id").references(() => exercises.id, { onDelete: 'restrict' }).notNull(),
@@ -813,8 +543,7 @@ export const strengthMetrics = pgTable("strength_metrics", {
   }
 });
 
-// Add new relations for progress tracking
-export const progressRelations = relations(progress, ({ one, many }) => ({
+const progressRelations = relations(progress, ({ one, many }) => ({
   member: one(members, {
     fields: [progress.memberId],
     references: [members.id],
@@ -822,7 +551,7 @@ export const progressRelations = relations(progress, ({ one, many }) => ({
   strengthMetrics: many(strengthMetrics)
 }));
 
-export const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
+const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
   progress: one(progress, {
     fields: [strengthMetrics.progressId],
     references: [progress.id],
@@ -833,53 +562,7 @@ export const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => 
   })
 }));
 
-// Update insert schemas with stronger validation
-export const insertProgressSchema = createInsertSchema(progress)
-  .extend({
-    weight: z.string()
-      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-        "Weight must be a positive number")
-      .optional(),
-    bodyFatPercentage: z.string()
-      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0 && parseFloat(val) <= 100,
-        "Body fat percentage must be between 0 and 100")
-      .optional(),
-    measurements: z.object({
-      chest: z.number().positive("Chest measurement must be positive").optional(),
-      waist: z.number().positive("Waist measurement must be positive").optional(),
-      hips: z.number().positive("Hips measurement must be positive").optional(),
-      thighs: z.number().positive("Thigh measurement must be positive").optional(),
-      arms: z.number().positive("Arm measurement must be positive").optional()
-    }).default({}),
-    notes: z.string().optional()
-  })
-  .omit({ progressDate: true, updatedAt: true });
-
-export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
-  .extend({
-    weightAmount: z.string()
-      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-        "Weight must be a positive number")
-      .optional(),
-    numberOfSets: z.number()
-      .int("Number of sets must be a whole number")
-      .positive("Must have at least one set")
-      .optional(),
-    numberOfReps: z.number()
-      .int("Number of reps must be a whole number")
-      .positive("Must have at least one rep")
-      .optional(),
-    exerciseNotes: z.string().optional()
-  })
-  .omit({ id: true, createdAt: true });
-
-// Add corresponding types
-export type Progress = typeof progress.$inferSelect;
-export type InsertProgress = z.infer<typeof insertProgressSchema>;
-export type StrengthMetric = typeof strengthMetrics.$inferSelect;
-export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
-
-export const classTemplatesRelations = relations(classTemplates, ({ one, many }) => ({
+const classTemplatesRelations = relations(classTemplates, ({ one, many }) => ({
   trainer: one(users, {
     fields: [classTemplates.trainerId],
     references: [users.id],
@@ -887,7 +570,7 @@ export const classTemplatesRelations = relations(classTemplates, ({ one, many })
   classes: many(classes)
 }));
 
-export const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
+const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
   class: one(classes, {
     fields: [classWaitlist.classId],
     references: [classes.id],
@@ -898,31 +581,131 @@ export const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
   })
 }));
 
-// Add insert schemas
-export const insertClassTemplateSchema = createInsertSchema(classTemplates)
-  .extend({
-    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    duration: z.number().min(15, "Class must be at least 15 minutes").max(180, "Class cannot exceed 3 hours"),
-    capacity: z.number().min(1, "Class must have at least 1 spot"),
-    dayOfWeek: z.number().min(0, "Invalid day").max(6, "Invalid day")
+//Import payment and subscription related tables and types after other tables.
+import { payments, paymentsRelations} from './payments';
+import { subscriptions, subscriptionsRelations} from './subscriptions';
+
+// Import necessary parts from movement_patterns, training_packages tables
+// Add after the existing table definitions but before the relations
+
+const movementPatterns = pgTable("movement_patterns", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  type: text("type", {
+    enum: ["compound", "isolation", "plyometric", "bodyweight"]
+  }).notNull()
+});
+
+const trainingPackages = pgTable("training_packages", {
+  id: serial("id").primaryKey(),
+  sessionDuration: integer("session_duration").notNull(),
+  sessionsPerWeek: integer("sessions_per_week").notNull(),
+  costPerSession: numeric("cost_per_session").notNull(),
+  costBiWeekly: numeric("cost_bi_weekly").notNull(),
+  pifAmount: numeric("pif_amount").notNull(),
+  additionalBenefits: text("additional_benefits").array(),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+const trainingClients = pgTable("training_clients", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  assignedTrainerId: integer("assigned_trainer_id").references(() => users.id),
+  clientStatus: text("client_status", {
+    enum: ["active", "inactive", "on_hold"]
+  }).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  packageType: text("package_type").notNull(),
+  sessionsRemaining: integer("sessions_remaining"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+// Add relations for new tables
+const movementPatternsRelations = relations(movementPatterns, ({ many }) => ({
+  exercises: many(exercises)
+}));
+
+const trainingPackagesRelations = relations(trainingPackages, ({ many }) => ({
+  trainingClients: many(trainingClients)
+}));
+
+const trainingClientsRelations = relations(trainingClients, ({ one }) => ({
+  user: one(users, {
+    fields: [trainingClients.userId],
+    references: [users.id],
+  }),
+  trainer: one(users, {
+    fields: [trainingClients.assignedTrainerId],
+    references: [users.id],
+  }),
+  package: one(trainingPackages, {
+    fields: [trainingClients.packageType],
+    references: [trainingPackages.id],
   })
-  .omit({ createdAt: true });
+}));
 
-export const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
-  .extend({
-    position: z.number().min(1, "Position must be positive")
+// Add movement pattern relation to exercises
+// Remove the incorrect relation and use proper TypeScript
+const exercisesWithMovementPatterns = exercises.$inferSelect;
+const exercisesMovementRelations = relations(exercises, ({ one }) => ({
+  movementPattern: one(movementPatterns, {
+    fields: [exercises.primaryMuscleGroupId],
+    references: [movementPatterns.id],
   })
-  .omit({ createdAt: true });
+}));
 
-// Add types
-export type ClassTemplate = typeof classTemplates.$inferSelect;
-export type InsertClassTemplate = z.infer<typeof insertClassTemplateSchema>;
-export type ClassWaitlist = typeof classWaitlist.$inferSelect;
-export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
-
-// Add new payment-related tables after the existing tables
-import { payments, paymentsRelations, insertPaymentSchema, Payment, InsertPayment } from './payments';
-import { subscriptions, subscriptionsRelations, insertSubscriptionSchema, Subscription, InsertSubscription } from './subscriptions';
-// Re-export payment and subscription types
-export * from './payments';
-export * from './subscriptions';
+// Export all the tables and relations
+export {
+  movementPatterns,
+  movementPatternsRelations,
+  trainingPackages,
+  trainingPackagesRelations,
+  trainingClients,
+  trainingClientsRelations,
+  exercisesMovementRelations,
+  users,
+  usersRelations,
+  members,
+  membersRelations,
+  memberProfiles,
+  memberAssessments,
+  memberProgressPhotos,
+  workoutPlans,
+  workoutPlansRelations,
+  workoutLogs,
+  schedules,
+  schedulesRelations,
+  invoices,
+  marketingCampaigns,
+  muscleGroups,
+  exercises,
+  exercisesRelations,
+  pricingPlans,
+  gymMembershipPricing,
+  membershipPricing,
+  membershipPricingRelations,
+  mealPlans,
+  memberMealPlans,
+  sessions,
+  sessionsRelations,
+  classes,
+  classesRelations,
+  classRegistrations,
+  classRegistrationsRelations,
+  classTemplates,
+  classTemplatesRelations,
+  classWaitlist,
+  classWaitlistRelations,
+  progress,
+  progressRelations,
+  strengthMetrics,
+  strengthMetricsRelations,
+  payments,
+  paymentsRelations,
+  subscriptions,
+  subscriptionsRelations,
+  scheduledBlocks
+};
