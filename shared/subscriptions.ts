@@ -2,11 +2,13 @@ import { pgTable, serial, integer, text, timestamp, numeric, boolean } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
-import { members, pricingPlans, gymMembershipPricing } from "./schema";
+
+// Import only the type references
+import type { Member } from "./schema";
 
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").references(() => members.id).notNull(),
+  memberId: integer("member_id").notNull(),  // Remove direct reference
   type: text("type", {
     enum: ["membership", "training"]
   }).notNull(),
@@ -20,8 +22,6 @@ export const subscriptions = pgTable("subscriptions", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   nextBillingDate: timestamp("next_billing_date"),
-  pricingPlanId: integer("pricing_plan_id").references(() => pricingPlans.id),
-  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id),
   autoRenew: boolean("auto_renew").notNull().default(true),
   canceledAt: timestamp("canceled_at"),
   metadata: text("metadata"),  // For storing subscription-specific details
@@ -30,17 +30,9 @@ export const subscriptions = pgTable("subscriptions", {
 });
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
-  member: one(members, {
+  member: one(subscriptions, {
     fields: [subscriptions.memberId],
-    references: [members.id],
-  }),
-  pricingPlan: one(pricingPlans, {
-    fields: [subscriptions.pricingPlanId],
-    references: [pricingPlans.id],
-  }),
-  gymLocation: one(gymMembershipPricing, {
-    fields: [subscriptions.gymLocationId],
-    references: [gymMembershipPricing.id],
+    references: [subscriptions.id],
   })
 }));
 

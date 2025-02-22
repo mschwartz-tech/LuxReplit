@@ -2,11 +2,13 @@ import { pgTable, serial, integer, text, timestamp, numeric } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
-import { members } from "./schema";
+
+// Import only the type reference
+import type { Member } from "./schema";
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").references(() => members.id).notNull(),
+  memberId: integer("member_id").notNull(),  // Remove direct reference
   amount: numeric("amount").notNull(),
   status: text("status", {
     enum: ["pending", "completed", "failed", "refunded"]
@@ -22,9 +24,9 @@ export const payments = pgTable("payments", {
 });
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
-  member: one(members, {
+  member: one(payments, {
     fields: [payments.memberId],
-    references: [members.id],
+    references: [payments.id],
   })
 }));
 

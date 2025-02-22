@@ -47,6 +47,15 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from 'drizzle-orm';
 
+// Import types from payments and subscriptions (only types to avoid circular deps)
+import type { Payment, InsertPayment } from './payments';
+import type { Subscription, InsertSubscription } from './subscriptions';
+
+// Re-export payment and subscription types
+export type { Payment, InsertPayment, Subscription, InsertSubscription };
+export { payments, insertPaymentSchema } from './payments';
+export { subscriptions, insertSubscriptionSchema } from './subscriptions';
+
 // Users table and relations
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -684,7 +693,6 @@ export type ClassRegistration = typeof classRegistrations.$inferSelect;
 export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
 
 
-
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
 export const insertMemberSchema = createInsertSchema(members)
   .extend({
@@ -751,13 +759,13 @@ export const insertGymMembershipPricingSchema = createInsertSchema(gymMembership
       typeof val === 'string' ? parseFloat(val) : val
     ),
   })
-  .omit({ createdAt: true, updatedAt: true});
+  .omit({ createdAt: true, updatedAt: true });
 
 export const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
   .extend({
     gymLocation: z.string().min(1, "Gym location is required"),
     membershipTier1: z.number().min(0, "Price must be positive"),
-    membershipTier2:z.number().min(0,"Price must be positive"),
+    membershipTier2: z.number().min(0, "Price must be positive"),
     membershipTier3: z.number().min(0, "Price must be positive"),
     membershipTier4: z.number().min(0, "Price must be positive"),
   })
@@ -792,7 +800,8 @@ export const progress = pgTable("progress", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 }, (table) => {
   return {
-    memberProgressIdx: uniqueIndex("member_progress_idx").on(table.memberId, table.progressDate),    progressDateIdx: uniqueIndex("progress_date_idx").on(table.progressDate)
+    memberProgressIdx: uniqueIndex("member_progress_idx").on(table.memberId, table.progressDate),
+    progressDateIdx: uniqueIndex("progress_date_idx").on(table.progressDate)
   }
 });
 
@@ -922,3 +931,6 @@ export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
 // Add new payment-related tables after the existing tables
 import { payments, paymentsRelations, insertPaymentSchema, Payment, InsertPayment } from './payments';
 import { subscriptions, subscriptionsRelations, insertSubscriptionSchema, Subscription, InsertSubscription } from './subscriptions';
+// Re-export payment and subscription types
+export * from './payments';
+export * from './subscriptions';
