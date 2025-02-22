@@ -6,7 +6,7 @@ import { members } from "./schema";
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").references(() => members.id),  // Optional to allow non-member payments
+  memberId: integer("member_id").references(() => members.id),
   amount: numeric("amount").notNull(),
   status: text("status", {
     enum: ["pending", "completed", "failed", "refunded"]
@@ -14,9 +14,9 @@ export const payments = pgTable("payments", {
   paymentMethod: text("payment_method", {
     enum: ["credit_card", "debit_card", "bank_transfer", "cash"]
   }).notNull(),
-  transactionId: text("transaction_id"),  // Will store Stripe transaction ID when integrated
+  transactionId: text("transaction_id"),
   description: text("description").notNull(),
-  metadata: text("metadata"),  // For storing additional payment details
+  metadata: text("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -33,7 +33,7 @@ export const insertPaymentSchema = createInsertSchema(payments)
     amount: z.number().or(z.string()).transform(val =>
       typeof val === 'string' ? parseFloat(val) : val
     ),
-    memberId: z.string().transform(val => parseInt(val)).optional(),  // Make memberId optional
+    memberId: z.string().transform(val => parseInt(val)).optional(),
     status: z.enum(["pending", "completed", "failed", "refunded"]).default("pending"),
   })
   .omit({ 

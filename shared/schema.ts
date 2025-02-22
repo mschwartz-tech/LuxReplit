@@ -1,8 +1,10 @@
 import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations, type RelationConfig } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
+import { payments, paymentsRelations, type Payment, type InsertPayment } from './payments';
+import { subscriptions, subscriptionsRelations, type Subscription, type InsertSubscription } from './subscriptions';
 
 // Table Definitions
 const users = pgTable("users", {
@@ -639,12 +641,6 @@ const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
     assignedAt: true
   });
 
-//Type definitions
-type MealPlan = typeof mealPlans.$inferSelect;
-type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
-type MemberMealPlan = typeof memberMealPlans.$inferSelect;
-type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
-
 const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
   .extend({
     startDate: z.coerce.date(),
@@ -669,10 +665,6 @@ const insertInvoiceSchema = createInsertSchema(invoices)
     createdAt: true,
   });
 
-
-// Import payment and subscription related tables and types after other tables.
-import { payments, paymentsRelations, Payment, InsertPayment } from './payments';
-import { subscriptions, subscriptionsRelations} from './subscriptions';
 
 // Import necessary parts from movement_patterns, training_packages tables
 // Add after the existing table definitions but before the relations
@@ -766,6 +758,11 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
 }));
 
 //Type definitions
+type MealPlan = typeof mealPlans.$inferSelect;
+type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+type MemberMealPlan = typeof memberMealPlans.$inferSelect;
+type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+
 type Invoice = typeof invoices.$inferSelect;
 type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 type MemberAssessment = typeof memberAssessments.$inferSelect;
@@ -781,7 +778,7 @@ const insertMemberProfileSchema = createInsertSchema(memberProfiles)
     birthDate: z.coerce.date().optional(),
     fitnessGoals: z.array(z.string()).optional(),
     healthConditions: z.array(z.string()).optional(),
-    medications: z.array(z.string()).optional(),
+    medications: z.array(z.string()).optional(), // Fixed: Added parentheses
     injuries: z.array(z.string()).optional(),
     preferredContactMethod: z.enum(["email", "phone", "text"]).optional(),
     marketingOptIn: z.boolean().optional(),
@@ -792,6 +789,43 @@ const insertMemberProfileSchema = createInsertSchema(memberProfiles)
     createdAt: true,
     updatedAt: true,
   });
+
+// Add member schema definition and export
+const insertMemberSchema = createInsertSchema(members)
+  .extend({
+    userId: z.string().transform(val => parseInt(val)),
+    assignedTrainerId: z.string().transform(val => parseInt(val)).optional(),
+    gymLocationId: z.string().transform(val => parseInt(val)),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date().optional(),
+  })
+  .omit({
+    createdAt: true,
+  });
+
+// Export type
+type InsertMember = z.infer<typeof insertMemberSchema>;
+
+// Add gym membership pricing schema
+const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
+  .extend({
+    luxeEssentialsPrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeStrivePrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeAllAccessPrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
+
+// Export type
+type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
 
 // Export all the tables and relations
 export {
@@ -824,10 +858,15 @@ export {
   insertMarketingCampaignSchema,
   insertMemberAssessmentSchema,
   insertMemberProgressPhotoSchema,
-  insertPricingPlanSchema,
-  insertMemberProfileSchema,
-  // Types Payment,
+  insertPricingPlanSchema,insertMemberProfileSchema,
+  insertMemberSchema,
+  insertGymMembershipPricingSchema,
+
+  // Types
+  Payment,
   InsertPayment,
+  Subscription,
+  InsertSubscription,
   MealPlan,
   InsertMealPlan,
   MemberMealPlan,
@@ -840,4 +879,6 @@ export {
   InsertMemberProgressPhoto,
   PricingPlan,
   InsertPricingPlan,
+  InsertMember,
+  InsertGymMembershipPricing,
 };
