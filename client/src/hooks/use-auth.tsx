@@ -94,14 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!res.ok) {
           throw new Error("Logout failed. Please try again.");
         }
+        // Wait for the server response before proceeding
+        await res.text();
       } catch (error) {
         console.error("Logout error:", error);
         throw error;
       }
     },
     onSuccess: () => {
+      // Clear all query caches to prevent stale data
+      queryClient.clear();
+      // Explicitly set user data to null
       queryClient.setQueryData(["/api/user"], null);
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      // Reset all queries to their initial state
+      queryClient.resetQueries();
     },
     onError: (error: Error) => {
       console.error("Logout mutation error:", error);
