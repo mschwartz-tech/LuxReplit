@@ -8,7 +8,7 @@ import {
   insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
   insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
   insertGymMembershipPricingSchema, insertMembershipPricingSchema,
-  insertProgressSchema, insertStrengthMetricSchema
+  insertProgressSchema, insertStrengthMetricSchema, insertPaymentSchema, insertMealPlanSchema, insertMemberMealPlanSchema
 } from "@shared/schema";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
@@ -428,6 +428,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const pricing = await storage.getAllMembershipPricing();
     logInfo("All membership pricing retrieved", { count: pricing.length });
     res.json(pricing);
+  }));
+
+  // Add payment routes after line 377
+  app.post("/api/payments", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
+    const parsed = insertPaymentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      logError("Payment creation validation failed", { errors: parsed.error.errors });
+      return res.status(400).json({ error: parsed.error.errors });
+    }
+
+    try {
+      const payment = await storage.createPayment(parsed.data);
+      logInfo("New payment created", { paymentId: payment.id });
+      res.status(201).json(payment);
+    } catch (error) {
+      logError("Payment creation failed", { error });
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  }));
+
+  app.get("/api/payments", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
+    const payments = await storage.getPayments();
+    logInfo("Payments retrieved", { count: payments.length });
+    res.json(payments);
   }));
 
   // Meal Plans Routes
