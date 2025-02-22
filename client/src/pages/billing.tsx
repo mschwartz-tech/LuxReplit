@@ -22,11 +22,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
 const paymentSchema = z.object({
-  memberId: z.string().optional().transform(val => {
-    if (!val || val.trim() === '') return undefined;
-    const parsed = parseInt(val);
-    return isNaN(parsed) ? undefined : parsed;
-  }),
+  memberId: z.string().optional(),
   amount: z.string().transform(val => parseFloat(val)),
   paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"]),
   description: z.string().min(1, "Description is required"),
@@ -46,7 +42,7 @@ export default function BillingPage() {
     defaultValues: {
       paymentMethod: "cash",
       description: "",
-      memberId: "",
+      memberId: undefined,
     },
   });
 
@@ -63,20 +59,19 @@ export default function BillingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...data,
-            status: "completed"  // Set default status
+            memberId: data.memberId ? parseInt(data.memberId) : undefined,
+            status: "completed"
           }),
         });
 
         const contentType = response.headers.get("content-type");
         if (!response.ok) {
-          // Try to get error message from response
           let errorMessage = "Failed to create payment";
           if (contentType?.includes("application/json")) {
             const errorData = await response.json();
             errorMessage = errorData.message || errorMessage;
           } else {
             const errorText = await response.text();
-            // If it's HTML, provide a generic error instead
             errorMessage = errorText.includes("<!DOCTYPE") 
               ? "Server error occurred. Please try again."
               : errorText;
@@ -84,10 +79,8 @@ export default function BillingPage() {
           throw new Error(errorMessage);
         }
 
-        const responseData = await response.json();
-        return responseData;
+        return await response.json();
       } catch (error) {
-        // Handle network errors or JSON parsing errors
         const message = error instanceof Error ? error.message : "An unexpected error occurred";
         throw new Error(message);
       }
@@ -168,7 +161,6 @@ export default function BillingPage() {
                             <FormControl>
                               <Input 
                                 {...field} 
-                                value={field.value ?? ''} 
                                 placeholder="Leave empty for non-member payment"
                               />
                             </FormControl>
