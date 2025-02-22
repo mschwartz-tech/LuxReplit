@@ -1,5 +1,6 @@
 import rateLimit from 'express-rate-limit';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
+import { logError } from "../services/logger";
 
 // Rate limiting middleware
 export const rateLimiter = rateLimit({
@@ -96,17 +97,15 @@ export const wafMiddleware = (req: Request, res: Response, next: NextFunction) =
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Request body size validation for POST/PUT requests
-  if (['POST', 'PUT'].includes(requestMethod) && requestBody) {
+  // Request body size validation for POST/PUT requests with content
+  if (['POST', 'PUT'].includes(requestMethod) && Object.keys(requestBody || {}).length > 0) {
     const maxSize = 1024 * 1024; // 1MB
     const contentLength = parseInt(req.headers['content-length'] || '0');
     if (contentLength > maxSize) {
       return res.status(413).json({ error: 'Request entity too large' });
     }
-  }
 
-  // Content-Type validation for POST/PUT requests
-  if (['POST', 'PUT'].includes(requestMethod)) {
+    // Content-Type validation only for requests with body
     const contentType = req.headers['content-type'];
     if (!contentType || !contentType.includes('application/json')) {
       return res.status(415).json({ error: 'Unsupported Media Type' });
