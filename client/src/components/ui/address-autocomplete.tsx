@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef } from "react";
+import { useState, useEffect, forwardRef, useCallback } from "react";
 import { Input } from "./input";
 import {
   Command,
@@ -55,104 +55,90 @@ export const AddressAutocomplete = forwardRef<
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
-  const removeExistingScript = () => {
+  const loadGoogleMapsScript = useCallback(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+    console.log("Attempting to load Google Maps with key present:", !!apiKey);
+
+    if (!apiKey) {
+      console.error("Google Places API key is missing");
+      setError("API configuration error");
+      return;
+    }
+
+    // Remove existing script if any
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript && existingScript.parentNode) {
-      try {
-        existingScript.parentNode.removeChild(existingScript);
-      } catch (err) {
-        console.error("Error removing existing script:", err);
-      }
+      existingScript.parentNode.removeChild(existingScript);
     }
-  };
 
-  useEffect(() => {
-    const loadGoogleMapsScript = () => {
-      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-      console.log("Attempting to load Google Maps with key available:", !!apiKey);
+    // Define callback before creating script
+    window.initGoogleMaps = () => {
+      console.log("Google Maps callback initiated");
+      initializeServices();
+    };
 
-      if (!apiKey) {
-        console.error("Google Places API key is missing");
-        setError("API configuration error");
-        return;
-      }
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
+    script.async = true;
+    script.defer = true;
 
-      // Check if script is already loaded
-      if (typeof window.google !== 'undefined' && window.google?.maps?.places) {
-        console.log("Google Maps script already loaded");
-        initializeServices();
-        return;
-      }
-
-      // Remove any existing script first
-      removeExistingScript();
-
-      try {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
-        script.async = true;
-        script.defer = true;
-
-        // Define the callback
-        window.initGoogleMaps = () => {
-          console.log("Google Maps callback initiated");
-          setScriptLoaded(true);
-          setError(null);
-          initializeServices();
-        };
-
-        script.onerror = () => {
-          console.error("Failed to load Google Places script");
-          setError("Failed to load address service");
-
-          // Retry logic
-          if (retryCount < MAX_RETRIES) {
-            setTimeout(() => {
-              setRetryCount(prev => prev + 1);
-              removeExistingScript();
-              loadGoogleMapsScript();
-            }, 2000 * Math.pow(2, retryCount)); // Exponential backoff
-          }
-        };
-
-        document.body.appendChild(script);
-        console.log("Google Maps script appended to document");
-      } catch (err) {
-        console.error("Error loading script:", err);
-        setError("Failed to initialize address service");
+    script.onerror = () => {
+      console.error("Failed to load Google Places script");
+      setError("Failed to load address service");
+      if (retryCount < MAX_RETRIES) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          loadGoogleMapsScript();
+        }, 2000 * Math.pow(2, retryCount));
       }
     };
 
-    loadGoogleMapsScript();
-
-    // Cleanup
-    return () => {
-      removeExistingScript();
-      // @ts-ignore - Clean up the global callback
-      delete window.initGoogleMaps;
-    };
+    document.body.appendChild(script);
+    console.log("Google Maps script appended to document");
   }, [retryCount]);
 
-  const initializeServices = () => {
+  const initializeServices = useCallback(() => {
     try {
-      if (window.google?.maps?.places) {
-        const autoService = new window.google.maps.places.AutocompleteService();
-        const placeService = new window.google.maps.places.PlacesService(
-          document.createElement("div")
-        );
-        setAutocompleteService(autoService);
-        setPlacesService(placeService);
-        setError(null);
-        setScriptLoaded(true);
-      } else {
+      if (!window.google?.maps?.places) {
         throw new Error("Google Maps places library not available");
       }
+
+      const autoService = new window.google.maps.places.AutocompleteService();
+      const placeService = new window.google.maps.places.PlacesService(
+        document.createElement("div")
+      );
+
+      setAutocompleteService(autoService);
+      setPlacesService(placeService);
+      setError(null);
+      setScriptLoaded(true);
+      console.log("Google Places services initialized successfully");
     } catch (err) {
       console.error("Error initializing services:", err);
       setError("Failed to initialize address service");
       setScriptLoaded(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Check if script is already loaded
+    if (window.google?.maps?.places) {
+      console.log("Google Maps already loaded, initializing services");
+      initializeServices();
+      return;
+    }
+
+    loadGoogleMapsScript();
+
+    return () => {
+      // Cleanup
+      delete window.initGoogleMaps;
+      const script = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (script && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, [loadGoogleMapsScript, initializeServices]);
 
   const getPlacePredictions = async (input: string) => {
     if (!input || !autocompleteService) return;
