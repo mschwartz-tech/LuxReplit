@@ -35,43 +35,51 @@ function Router() {
     <Suspense fallback={<LoadingSpinner />}>
       <Switch>
         <Route path="/auth">
-          {() => <AuthPage />}
+          <AuthPage />
         </Route>
         <Route path="/">
-          {() => <ProtectedRoute component={Dashboard} />}
+          <ProtectedRoute component={Dashboard} />
         </Route>
         <Route path="/gym-members">
-          {() => <ProtectedRoute component={GymMembersPage} />}
+          <ProtectedRoute component={GymMembersPage} />
         </Route>
         <Route path="/member-onboarding">
-          {() => <ProtectedRoute component={MemberOnboardingPage} />}
+          <ProtectedRoute component={MemberOnboardingPage} />
         </Route>
         <Route path="/training-clients">
-          {() => <ProtectedRoute component={TrainingClientsPage} />}
+          <ProtectedRoute component={TrainingClientsPage} />
         </Route>
         <Route path="/client/:id">
-          {(params) => <ProtectedRoute component={() => <ClientProfilePage params={params} />} />}
+          {(params) => (
+            <ProtectedRoute 
+              component={() => <ClientProfilePage params={params} />} 
+            />
+          )}
         </Route>
         <Route path="/member/:id/profile">
-          {(params) => <ProtectedRoute component={() => <MemberProfilePage params={params} />} />}
+          {(params) => (
+            <ProtectedRoute 
+              component={() => <MemberProfilePage params={params} />} 
+            />
+          )}
         </Route>
         <Route path="/training-management">
-          {() => <ProtectedRoute component={TrainingManagementPage} />}
+          <ProtectedRoute component={TrainingManagementPage} />
         </Route>
         <Route path="/invoices">
-          {() => <ProtectedRoute component={InvoicesPage} />}
+          <ProtectedRoute component={InvoicesPage} />
         </Route>
         <Route path="/exercise-library">
-          {() => <ProtectedRoute component={ExerciseLibrary} />}
+          <ProtectedRoute component={ExerciseLibrary} />
         </Route>
         <Route path="/pricing">
-          {() => <ProtectedRoute component={PricingPage} />}
+          <ProtectedRoute component={PricingPage} />
         </Route>
         <Route path="/billing">
-          {() => <ProtectedRoute component={BillingPage} />}
+          <ProtectedRoute component={BillingPage} />
         </Route>
         <Route>
-          {() => <NotFound />}
+          <NotFound />
         </Route>
       </Switch>
     </Suspense>

@@ -14,21 +14,22 @@ export const rateLimiter = rateLimit({
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
   // Basic security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  
+
   // Content Security Policy
   res.setHeader('Content-Security-Policy', `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval';
     style-src 'self' 'unsafe-inline';
-    img-src 'self' data: https:;
+    img-src 'self' data: https: blob:;
     font-src 'self' data:;
-    connect-src 'self' https://api.openai.com;
+    connect-src 'self' *;
+    worker-src 'self' blob:;
   `.replace(/\s+/g, ' ').trim());
 
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', process.env.CLIENT_URL || '*');
+  // CORS headers - more permissive for development
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -40,7 +41,7 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 export const wafMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const requestUrl = req.url.toLowerCase();
   const userAgent = req.headers['user-agent']?.toLowerCase() || '';
-  
+
   // Block suspicious URL patterns
   const suspiciousPatterns = [
     /\.\./,             // Directory traversal

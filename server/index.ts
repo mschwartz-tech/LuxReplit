@@ -8,6 +8,7 @@ import { setupVite } from "./vite";
 import { rateLimiter, securityHeaders, wafMiddleware } from "./middleware";
 import { apiLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
+import cors from "cors";
 
 const app = express();
 const pgSession = connectPgSimple(session);
@@ -18,7 +19,13 @@ app.set('trust proxy', 1);
 // Basic middleware setup
 app.use(express.json());
 
-// Security middleware
+// CORS configuration
+app.use(cors({
+  origin: true, // Allow all origins in development
+  credentials: true
+}));
+
+// Security middleware but with relaxed settings for development
 app.use(rateLimiter);  // Rate limiting
 app.use(securityHeaders);  // Security headers (CSP, CORS, etc.)
 app.use(wafMiddleware);  // Web Application Firewall
@@ -40,6 +47,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
@@ -70,9 +78,10 @@ async function startServer() {
       logInfo(`Server listening on port ${port}`, {
         port,
         env: process.env.NODE_ENV || 'development',
-        time: new Date().toISOString()
+        time: new Date().toISOString(),
+        address: '0.0.0.0'
       });
-      console.log(`Server is running on port ${port}`);
+      console.log(`Server is running at http://0.0.0.0:${port}`);
     });
 
     // Handle server errors
