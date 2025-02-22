@@ -8,16 +8,11 @@ A comprehensive fitness studio management platform leveraging modern web technol
 
 ### Immediate Priority (Week 1)
 1. Security & API Hardening
+   - ⚡ Fix logout functionality issue (HIGH PRIORITY)
    - ⚡ Implement rate limiting and WAF
    - ⚡ Complete schema validation for API endpoints
    - ⚡ Add security headers (CSP, CORS)
    - ⚡ Implement proper error handling
-
-2. Core Infrastructure Completion
-   - ⚡ Finalize API Layer with validation
-   - ⚡ Complete database optimization
-   - ⚡ Implement proper logging
-   - ⚡ Add basic monitoring
 
 ### Secondary Priority (Week 2)
 1. AI Integration Foundation
@@ -111,16 +106,25 @@ A comprehensive fitness studio management platform leveraging modern web technol
 | API Security | 🟡 In Progress | JWT implementation and rate limiting |
 | Data Encryption | 🟡 In Progress | At-rest encryption setup |
 | Audit Logging | 🔴 Pending | Security event tracking |
+| Logout Functionality | 🔴 Critical Bug | Current issue: Page flashes but user remains logged in |
 
-### Performance & Scaling
-| Feature | Status | Notes |
-|---------|--------|-------|
-| CDN Integration | 🔴 Pending | Asset delivery optimization |
-| Database Indexing | 🟡 In Progress | Query performance tuning |
-| Cache Strategy | 🔴 Pending | Redis implementation |
-| Load Testing | 🔴 Pending | K6 testing implementation |
-| Auto-scaling | 🔴 Pending | Horizontal scaling setup |
-| API Documentation | 🟡 In Progress | OpenAPI specification |
+## Known Issues & Debugging Status
+
+### Authentication Issues
+1. Logout Functionality Bug
+   - **Description**: When clicking logout, the page briefly flashes but user remains logged in
+   - **Current Status**: Under Investigation
+   - **Attempted Solutions**:
+     - Updated logout mutation in useAuth hook to clear query cache
+     - Added session destruction logging on server
+     - Modified App.tsx routing structure
+     - Investigated potential race conditions in state management
+   - **Next Steps**:
+     - Investigate potential session persistence issues
+     - Check for circular dependencies in protected routes
+     - Review authentication state management
+     - Add comprehensive logging throughout the logout flow
+
 
 ## 📝 Updated Technical Notes
 - Security implementation is now top priority
