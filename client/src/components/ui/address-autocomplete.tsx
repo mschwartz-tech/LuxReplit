@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "./input";
 import {
   Command,
@@ -28,306 +28,161 @@ interface AddressAutocompleteProps
   }) => void;
 }
 
-interface AddressComponent {
-  long_name: string;
-  short_name: string;
-  types: string[];
-}
-
-interface PlaceResult {
-  address_components?: AddressComponent[];
-  formatted_address?: string;
-}
-
-interface ServiceStatus {
-  scriptLoaded: boolean;
-  servicesInitialized: boolean;
-  error: string | null;
-  apiKeyPresent: boolean;
-  isInitializing: boolean;
-}
-
-const testGooglePlacesApiKey = async (apiKey: string): Promise<{ isValid: boolean; error?: string }> => {
-  try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=test&key=${apiKey}`
-    );
-    const data = await response.json();
-
-    console.log("AddressAutocomplete: API Key test response:", data.status);
-
-    if (data.error_message) {
-      return { isValid: false, error: `API Error: ${data.error_message}` };
-    }
-
-    if (data.status === "REQUEST_DENIED") {
-      return { isValid: false, error: "Invalid API key or API not enabled" };
-    }
-
-    return { isValid: true };
-  } catch (error) {
-    console.error("AddressAutocomplete: API Key test failed:", error);
-    return { isValid: false, error: "Failed to test API key" };
-  }
-};
-
-export const AddressAutocomplete = forwardRef<
-  HTMLInputElement,
-  AddressAutocompleteProps
->(({ className, onAddressSelect, ...props }, ref) => {
-  const [open, setOpen] = useState(false);
+export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: AddressAutocompleteProps) => {
+  const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<Array<{
-    description: string;
-    place_id: string;
-  }>>([]);
-  const [autocompleteService, setAutocompleteService] = useState<any>(null);
-  const [placesService, setPlacesService] = useState<any>(null);
-  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>({
-    scriptLoaded: false,
-    servicesInitialized: false,
-    error: null,
-    apiKeyPresent: false,
-    isInitializing: true
-  });
-  const [retryCount, setRetryCount] = useState(0);
-  const MAX_RETRIES = 3;
 
-  const loadGoogleMapsScript = useCallback(async () => {
-    const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-    console.log("AddressAutocomplete: Attempting to load Google Maps");
+  const autocompleteService = useRef<any>(null);
+  const placesService = useRef<any>(null);
+  const retryTimeoutRef = useRef<any>(null);
 
-    setServiceStatus(prev => ({
-      ...prev,
-      isInitializing: true,
-      apiKeyPresent: !!apiKey
-    }));
-
-    if (!apiKey) {
-      const error = "Google Places API key is missing";
-      console.error(error);
-      setServiceStatus(prev => ({
-        ...prev,
-        error,
-        isInitializing: false
-      }));
-      return;
-    }
-
-    const keyTest = await testGooglePlacesApiKey(apiKey);
-    if (!keyTest.isValid) {
-      console.error("AddressAutocomplete: API key validation failed:", keyTest.error);
-      setServiceStatus(prev => ({
-        ...prev,
-        error: keyTest.error || "Invalid API key",
-        isInitializing: false
-      }));
-      return;
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript && existingScript.parentNode) {
-      existingScript.parentNode.removeChild(existingScript);
-    }
-
-    window.initGoogleMaps = () => {
-      console.log("AddressAutocomplete: Google Maps callback initiated");
-      setServiceStatus(prev => ({
-        ...prev,
-        scriptLoaded: true
-      }));
-      initializeServices();
-    };
-
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
-    script.async = true;
-    script.defer = true;
-
-    script.onerror = (error) => {
-      console.error("AddressAutocomplete: Failed to load Google Places script", error);
-      const errorMessage = "Failed to load address service";
-      setServiceStatus(prev => ({
-        ...prev,
-        error: errorMessage,
-        scriptLoaded: false,
-        isInitializing: false
-      }));
-
-      if (retryCount < MAX_RETRIES) {
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          loadGoogleMapsScript();
-        }, 2000 * Math.pow(2, retryCount));
-      }
-    };
-
-    document.body.appendChild(script);
-    console.log("AddressAutocomplete: Google Maps script appended to document");
-  }, [retryCount]);
-
-  const initializeServices = useCallback(() => {
+  const initializePlacesAPI = async () => {
     try {
-      console.log("AddressAutocomplete: Initializing services");
+      setStatus('loading');
+      setErrorMessage('');
 
-      if (!window.google?.maps?.places) {
-        throw new Error("Google Maps places library not available");
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      if (!apiKey) {
+        throw new Error('Google Places API key is missing');
       }
 
-      const autoService = new window.google.maps.places.AutocompleteService();
-      const placeService = new window.google.maps.places.PlacesService(
-        document.createElement("div")
+      // Clean up any existing scripts
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+
+      // Load the Places API script
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load Google Places API'));
+        document.head.appendChild(script);
+      });
+
+      // Initialize services
+      if (!window.google?.maps?.places) {
+        throw new Error('Google Places API not available');
+      }
+
+      autocompleteService.current = new window.google.maps.places.AutocompleteService();
+      placesService.current = new window.google.maps.places.PlacesService(
+        document.createElement('div')
       );
 
-      setAutocompleteService(autoService);
-      setPlacesService(placeService);
-      setServiceStatus(prev => ({
-        ...prev,
-        error: null,
-        servicesInitialized: true,
-        isInitializing: false
-      }));
+      setStatus('ready');
+    } catch (error) {
+      console.error('Places API initialization error:', error);
+      setStatus('error');
+      setErrorMessage(error.message || 'Failed to initialize address service');
 
-      console.log("AddressAutocomplete: Services initialized successfully");
-    } catch (err) {
-      console.error("AddressAutocomplete: Error initializing services:", err);
-      setServiceStatus(prev => ({
-        ...prev,
-        error: "Failed to initialize address service",
-        servicesInitialized: false,
-        isInitializing: false
-      }));
+      // Retry after 3 seconds
+      retryTimeoutRef.current = setTimeout(() => {
+        initializePlacesAPI();
+      }, 3000);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    console.log("AddressAutocomplete: Component mounted");
-
-    if (window.google?.maps?.places) {
-      console.log("AddressAutocomplete: Google Maps already loaded");
-      setServiceStatus(prev => ({
-        ...prev,
-        scriptLoaded: true,
-        isInitializing: true
-      }));
-      initializeServices();
-      return;
-    }
-
-    loadGoogleMapsScript();
-
+    initializePlacesAPI();
     return () => {
-      console.log("AddressAutocomplete: Component cleanup");
-      delete window.initGoogleMaps;
-      const script = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (script && script.parentNode) {
-        script.parentNode.removeChild(script);
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
       }
     };
-  }, [loadGoogleMapsScript, initializeServices]);
+  }, []);
 
   const getPlacePredictions = async (input: string) => {
-    if (!input || !autocompleteService) return;
+    if (!input || !autocompleteService.current) return;
 
     setIsLoading(true);
-    console.log("AddressAutocomplete: Fetching predictions for:", input);
-
     try {
-      autocompleteService.getPlacePredictions(
-        {
-          input,
-          componentRestrictions: { country: "us" },
-          types: ["address"],
-        },
-        (predictions: Array<{ description: string; place_id: string }> | null, status: string) => {
-          if (status === "OK" && predictions) {
-            console.log("AddressAutocomplete: Predictions received:", predictions.length);
-            setSuggestions(predictions);
-          } else {
-            console.error("AddressAutocomplete: Prediction error:", status);
-            setSuggestions([]);
-            if (status !== "ZERO_RESULTS") {
-              setServiceStatus(prev => ({
-                ...prev,
-                error: "Failed to get address suggestions"
-              }));
+      const predictions = await new Promise<any[]>((resolve, reject) => {
+        autocompleteService.current.getPlacePredictions(
+          {
+            input,
+            componentRestrictions: { country: 'us' },
+            types: ['address']
+          },
+          (results: any[] | null, status: string) => {
+            if (status === 'OK' && results) {
+              resolve(results);
+            } else if (status === 'ZERO_RESULTS') {
+              resolve([]);
+            } else {
+              reject(new Error(`Failed to get predictions: ${status}`));
             }
           }
-          setIsLoading(false);
-        }
-      );
+        );
+      });
+
+      setSuggestions(predictions);
     } catch (error) {
-      console.error("AddressAutocomplete: Error fetching suggestions:", error);
-      setServiceStatus(prev => ({
-        ...prev,
-        error: "Failed to get address suggestions"
-      }));
+      console.error('Error getting predictions:', error);
+      setErrorMessage('Failed to get address suggestions');
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAddressSelect = (placeId: string, description: string) => {
-    if (!placesService) {
-      console.error("AddressAutocomplete: Places service not initialized");
-      return;
-    }
+  const handleAddressSelect = async (placeId: string, description: string) => {
+    if (!placesService.current) return;
 
-    console.log("AddressAutocomplete: Fetching details for place:", placeId);
     setValue(description);
     setOpen(false);
+    setIsLoading(true);
 
-    placesService.getDetails(
-      {
-        placeId,
-        fields: ["address_components", "formatted_address"],
-      },
-      (place: PlaceResult | null, status: string) => {
-        if (status === "OK" && place?.address_components) {
-          console.log("AddressAutocomplete: Place details received");
-          const addressData = {
-            address: place.formatted_address || "",
-            city: "",
-            state: "",
-            zipCode: "",
-          };
-
-          place.address_components.forEach((component: AddressComponent) => {
-            if (component.types.includes("locality")) {
-              addressData.city = component.long_name;
-            } else if (component.types.includes("administrative_area_level_1")) {
-              addressData.state = component.short_name;
-            } else if (component.types.includes("postal_code")) {
-              addressData.zipCode = component.long_name;
+    try {
+      const place = await new Promise<any>((resolve, reject) => {
+        placesService.current.getDetails(
+          {
+            placeId,
+            fields: ['address_components', 'formatted_address']
+          },
+          (result: any, status: string) => {
+            if (status === 'OK' && result) {
+              resolve(result);
+            } else {
+              reject(new Error(`Failed to get place details: ${status}`));
             }
-          });
+          }
+        );
+      });
 
-          onAddressSelect(addressData);
-        } else {
-          console.error("AddressAutocomplete: Error getting place details:", status);
-          setServiceStatus(prev => ({
-            ...prev,
-            error: "Failed to get address details"
-          }));
+      const addressData = {
+        address: place.formatted_address || '',
+        city: '',
+        state: '',
+        zipCode: ''
+      };
+
+      place.address_components.forEach((component: any) => {
+        if (component.types.includes('locality')) {
+          addressData.city = component.long_name;
+        } else if (component.types.includes('administrative_area_level_1')) {
+          addressData.state = component.short_name;
+        } else if (component.types.includes('postal_code')) {
+          addressData.zipCode = component.long_name;
         }
-      }
-    );
+      });
+
+      onAddressSelect(addressData);
+    } catch (error) {
+      console.error('Error getting place details:', error);
+      setErrorMessage('Failed to get address details');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRetry = () => {
-    console.log("AddressAutocomplete: Retrying service initialization");
-    setRetryCount(0);
-    setServiceStatus({
-      scriptLoaded: false,
-      servicesInitialized: false,
-      error: null,
-      apiKeyPresent: false,
-      isInitializing: true
-    });
-    loadGoogleMapsScript();
-  };
-
-  if (serviceStatus.isInitializing) {
+  if (status === 'loading') {
     return (
       <div className="space-y-2">
         <Skeleton className="h-9 w-full" />
@@ -341,20 +196,17 @@ export const AddressAutocomplete = forwardRef<
     );
   }
 
-  if (serviceStatus.error) {
+  if (status === 'error') {
     return (
       <div className="space-y-2">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Address Service Error</AlertTitle>
           <AlertDescription className="flex flex-col space-y-2">
-            <span>
-              {serviceStatus.error}
-              {!serviceStatus.apiKeyPresent && " (API Key missing)"}
-            </span>
+            <span>{errorMessage}</span>
             <Button
               variant="outline"
-              onClick={handleRetry}
+              onClick={() => initializePlacesAPI()}
               className="w-full mt-2"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -375,9 +227,9 @@ export const AddressAutocomplete = forwardRef<
           aria-expanded={open}
           className={cn(
             "w-full justify-between h-9 font-normal",
-            !value && "text-muted-foreground"
+            !value && "text-muted-foreground",
+            className
           )}
-          disabled={!serviceStatus.servicesInitialized}
         >
           {value || "Enter address..."}
           {isLoading ? (
@@ -398,7 +250,7 @@ export const AddressAutocomplete = forwardRef<
             }}
           />
           <CommandEmpty>
-            {serviceStatus.error ? serviceStatus.error : "No address found."}
+            {errorMessage || "No address found."}
           </CommandEmpty>
           <CommandGroup>
             {suggestions.map((suggestion) => (
@@ -421,13 +273,6 @@ export const AddressAutocomplete = forwardRef<
       </PopoverContent>
     </Popover>
   );
-});
+};
 
 AddressAutocomplete.displayName = "AddressAutocomplete";
-
-declare global {
-  interface Window {
-    google?: any;
-    initGoogleMaps?: () => void;
-  }
-}
