@@ -29,12 +29,14 @@ const paymentSchema = z.object({
       message: "Member ID must be a valid number",
     })
     .transform(val => val ? parseInt(val) : undefined),
-  amount: z.string()
-    .min(1, "Amount is required")
-    .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-      message: "Amount must be a positive number",
-    })
-    .transform(val => parseFloat(val)),
+  amount: z.number().positive("Amount must be greater than 0").or(
+    z.string()
+      .min(1, "Amount is required")
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+        message: "Amount must be a positive number",
+      })
+      .transform(val => parseFloat(val))
+  ),
   paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"], {
     required_error: "Payment method is required",
   }),
@@ -55,7 +57,7 @@ export default function BillingPage() {
     defaultValues: {
       paymentMethod: "cash",
       description: "",
-      amount: "",
+      amount: 0,
       memberId: "",
     },
   });
@@ -67,27 +69,31 @@ export default function BillingPage() {
 
   const createPayment = useMutation({
     mutationFn: async (data: PaymentFormValues) => {
-      console.log("Submitting payment data:", data);
+      console.log("Starting payment submission with data:", data);
 
       const paymentData = {
-        ...data,
-        status: "completed",
-        amount: parseFloat(data.amount.toString())
+        memberId: data.memberId,
+        amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount,
+        paymentMethod: data.paymentMethod,
+        description: data.description,
+        status: "completed"
       };
 
       console.log("Formatted payment data:", paymentData);
 
-      try {
-        const response = await fetch("/api/payments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(paymentData),
-        });
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(paymentData),
+      });
 
-        const contentType = response.headers.get("content-type");
-        if (!response.ok) {
-          let errorMessage = "Failed to create payment";
-
+      const contentType = response.headers.get("content-type");
+      if (!response.ok) {
+        let errorMessage = "Failed to create payment";
+        try {
           if (contentType?.includes("application/json")) {
             const errorData = await response.json();
             console.error("API error response:", errorData);
@@ -95,30 +101,22 @@ export default function BillingPage() {
           } else {
             const errorText = await response.text();
             console.error("API error text:", errorText);
-            // Handle HTML error responses
-            if (errorText.includes("<!DOCTYPE")) {
-              console.error("Received HTML error response");
-              errorMessage = "Server error occurred. Please try again.";
-            } else {
-              errorMessage = errorText;
-            }
+            errorMessage = "Server error occurred. Please try again.";
           }
-
-          throw new Error(errorMessage);
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError);
+          errorMessage = "An unexpected error occurred";
         }
+        throw new Error(errorMessage);
+      }
 
-        // Ensure we have a JSON response
-        if (!contentType?.includes("application/json")) {
-          console.error("Unexpected response type:", contentType);
-          throw new Error("Invalid server response format");
-        }
-
+      try {
         const result = await response.json();
         console.log("Payment creation successful:", result);
         return result;
       } catch (error) {
-        console.error("Payment request failed:", error);
-        throw error;
+        console.error("Error parsing success response:", error);
+        throw new Error("Invalid response format from server");
       }
     },
     onSuccess: () => {
@@ -225,6 +223,7 @@ export default function BillingPage() {
                                 min="0.01"
                                 placeholder="0.00"
                                 {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                               />
                             </FormControl>
                             <FormMessage />
