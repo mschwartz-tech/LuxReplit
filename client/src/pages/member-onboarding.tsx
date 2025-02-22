@@ -781,7 +781,6 @@ const PackageSelectionStep = ({ form, gymLocations }: StepProps) => (
   </div>
 );
 
-// Main Component
 // Validation middleware
 const validateFormData = (data: OnboardingForm) => {
   const errors: Partial<Record<keyof OnboardingForm, string>> = {};
@@ -941,22 +940,21 @@ export default function MemberOnboardingPage() {
       // Validate form data
       try {
         validateFormData(data);
-      }<replit_final_file>
       } catch (error) {
         const errors = JSON.parse((error as Error).message);
         Object.entries(errors).forEach(([field, message]) => {
-          form.setError(field as any, { message: message as string });
+          form.setError(field as any, { message: message as string});
         });
         throw new Error("Form validation failed");
       }
+
       console.log('Submitting form data:', data);
 
       // Prepare user data
       const userData = {
-        username: data.email,
+        email: data.email,
         password: "temporary123", // This should be changed on first login
         role: "user",
-        email: data.email,
         name: `${data.firstName}${data.middleInitial ? ` ${data.middleInitial}` : ''} ${data.lastName}`,
       };
 
@@ -968,7 +966,7 @@ export default function MemberOnboardingPage() {
         try {
           const response = await fetch(url, {
             ...options,
-            signal: controller.signal
+            signal: controller.signal,
           });
           clearTimeout(timeoutId);
           return response;
@@ -978,132 +976,147 @@ export default function MemberOnboardingPage() {
         }
       };
 
-      const retryFetch = async (url: string, options: RequestInit, maxRetries = 3) => {
-        for (let i = 0; i < maxRetries; i++) {
-          try {
-            return await fetchWithTimeout(url, options);
-          } catch (error) {
-            if (i === maxRetries - 1) throw error;
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      const maxRetries = 3;
+      let userResponse;
+      let retryCount = 0;
+
+      while (retryCount < maxRetries) {
+        try {
+          userResponse = await fetchWithTimeout('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+          });
+
+          if (!userResponse.ok) {
+            const errorText = await userResponse.text();
+            throw new Error(errorText);
           }
+
+          break;
+        } catch (error) {
+          retryCount++;
+          if (retryCount === maxRetries) {
+            throw error;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
-      };
-
-      const userResponse = await retryFetch("/api/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(userData),
-      });
-
-      let errorText;
-      try {
-        errorText = await userResponse.text();
-      } catch (e) {
-        errorText = "Unknown error occurred";
       }
 
-      if (!userResponse.ok) {
-        throw new Error(`Failed to create user account: ${errorText}`);
-      }
-
-      let newUser;
-      try {
-        newUser = await userResponse.json();
-      } catch (e) {
-        throw new Error("Invalid response from server when creating user");
-      }
-
-      // Prepare member data
-      const memberData = {
-        userId: newUser.id,
-        membershipType: data.membershipType || "training_only",
-        membershipStatus: "active",
-        startDate: new Date().toISOString(),
-        gymLocationId: data.gymLocationId,
-        sessionDuration: data.sessionDuration,
-        sessionsPerWeek: parseInt(data.sessionsPerWeek || "0"),
-        paymentType: data.paymentType,
-      };
-
-      // Create member record
-      const memberResponse = await fetch("/api/members", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(memberData),
-      });
-
-      let memberResponseText;
-      try {
-        memberResponseText = await memberResponse.text();
-      } catch (e) {
-        memberResponseText = "Unknown error occurred";
-      }
-
-      if (!memberResponse.ok) {
-        throw new Error(`Failed to create member record: ${memberResponseText}`);
-      }
-
-      let newMember;
-      try {
-        newMember = await memberResponse.json();
-      } catch (e) {
-        console.error("Member creation error:", e);
-        throw new Error("Invalid response from server when creating member");
-      }
-
-      // Prepare profile data
-      const profileData = {
-        userId: newUser.id,
-        birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay).toISOString(),
-        gender: data.gender,
-        height: `${data.heightFeet}'${data.heightInches}"`,
-        weight: data.weight,
-        address: data.address,
-        city: data.city,
-        state: data.state,
-        zipCode: data.zipCode,
-        phoneNumber: data.phoneNumber,
-        fitnessGoals: data.fitnessGoals || [],
-        healthConditions: data.healthConditions || [],
-        medications: data.medications || [],
-        injuries: data.injuries || [],
-        emergencyContactName: data.emergencyContactName,
-        emergencyContactPhone: data.emergencyContactPhone,
-        emergencyContactRelation: data.emergencyContactRelation,
-        liabilityWaiverSigned: data.liabilityWaiverSigned,
-        liabilityWaiverSignedDate: new Date().toISOString(),
-        liabilityWaiverSignature: liabilitySignaturePad.current?.toDataURL() || null,
-        photoReleaseWaiverSigned: data.photoReleaseWaiverSigned,
-        photoReleaseWaiverSignedDate: new Date().toISOString(),
-        photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL() || null,
-        marketingOptIn: data.marketingOptIn,
-      };
+      const newUser = await userResponse.json();
+      const userId = newUser.id;
 
       // Create member profile
-      const profileResponse = await fetch(`/api/members/${newMember.id}/profile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(profileData),
-      });
+      const memberData = {
+        userId,
+        ...data,
+        startDate: new Date().toISOString(),
+        membershipStatus: 'active',
+      };
 
-      let profileResponseText;
-      try {
-        profileResponseText = await profileResponse.text();
-      } catch (e) {
-        profileResponseText = "Unknown error occurred";
+      let memberResponse;
+      retryCount = 0;
+
+      while (retryCount < maxRetries) {
+        try {
+          memberResponse = await fetchWithTimeout('/api/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(memberData),
+          });
+
+          if (!memberResponse.ok) {
+            const memberResponseText = await memberResponse.text();
+            throw new Error(memberResponseText);
+          }
+
+          break;
+        } catch (e) {
+          retryCount++;
+          if (retryCount === maxRetries) {
+            throw e;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
       }
 
-      if (!profileResponse.ok) {
-        throw new Error(`Failed to create member profile: ${profileResponseText}`);
+      const newMember = await memberResponse.json();
+
+      // Save signature data if available
+      if (liabilitySignaturePad.current?.toData().length) {
+        const signatureData = {
+          memberId: newMember.id,
+          userId,
+          signatureType: 'liability',
+          signatureData: liabilitySignaturePad.current.toDataURL(),
+          timestamp: new Date().toISOString(),
+        };
+
+        let profileResponse;
+        retryCount = 0;
+
+        while (retryCount < maxRetries) {
+          try {
+            profileResponse = await fetchWithTimeout('/api/signatures', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(signatureData),
+            });
+
+            if (!profileResponse.ok) {
+              const profileResponseText = await profileResponse.text();
+              throw new Error(profileResponseText);
+            }
+
+            break;
+          } catch (error) {
+            toast({
+              title: "Warning",
+              description: "Failed to save liability signature, but member was created",
+              variant: "warning",
+            });
+            console.error('Error saving liability signature:', error);
+            break;
+          }
+        }
+      }
+
+      if (photoReleaseSignaturePad.current?.toData().length) {
+        const signatureData = {
+          memberId: newMember.id,
+          userId,
+          signatureType: 'photo_release',
+          signatureData: photoReleaseSignaturePad.current.toDataURL(),
+          timestamp: new Date().toISOString(),
+        };
+
+        let profileResponse;
+        retryCount = 0;
+
+        while (retryCount < maxRetries) {
+          try {
+            profileResponse = await fetchWithTimeout('/api/signatures', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(signatureData),
+            });
+
+            if (!profileResponse.ok) {
+              const profileResponseText = await profileResponse.text();
+              throw new Error(profileResponseText);
+            }
+
+            break;
+          } catch (error) {
+            toast({
+              title: "Warning",
+              description: "Failed to save photo release signature, but member was created",
+              variant: "warning",
+            });
+            console.error('Error saving photo release signature:', error);
+            break;
+          }
+        }
       }
 
       toast({
@@ -1111,16 +1124,15 @@ export default function MemberOnboardingPage() {
         description: "Member onboarding completed successfully",
       });
 
-      navigate(`/member-checkout?memberId=${newMember.id}&sessionDuration=${data.sessionDuration}&sessionsPerWeek=${data.sessionsPerWeek}&paymentType=${data.paymentType}&membershipType=${data.membershipType}&gymLocationId=${data.gymLocationId}`);
+      navigate('/member/' + newMember.id + '/profile');
     } catch (error) {
-      console.error("Onboarding error:", error);
+      console.error('Error during member onboarding:', error);
+      setIsSubmitting(false);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to complete member onboarding",
+        description: error instanceof Error ? error.message : "Failed to create member",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
