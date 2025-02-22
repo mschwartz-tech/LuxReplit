@@ -8,12 +8,26 @@ if (!existsSync(logsDir)) {
   mkdirSync(logsDir);
 }
 
+// Custom format to handle circular references
+const safeStringify = (obj: any) => {
+  const cache = new Set();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (cache.has(value)) {
+        return '[Circular]';
+      }
+      cache.add(value);
+    }
+    return value;
+  });
+};
+
 // Custom format for console output
 const consoleFormat = format.combine(
   format.colorize(),
   format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
   format.printf(({ timestamp, level, message, ...meta }) => {
-    const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : "";
+    const metaStr = Object.keys(meta).length ? safeStringify(meta) : "";
     return `${timestamp} [${level}]: ${message} ${metaStr}`;
   })
 );
@@ -21,7 +35,10 @@ const consoleFormat = format.combine(
 // Custom format for file output (without colors)
 const fileFormat = format.combine(
   format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-  format.json()
+  format.printf(info => {
+    const { timestamp, level, message, ...meta } = info;
+    return safeStringify({ timestamp, level, message, ...meta });
+  })
 );
 
 // Create logger instance

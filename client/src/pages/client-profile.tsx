@@ -33,6 +33,13 @@ interface Measurements {
   arms?: number;
 }
 
+interface ChartData {
+  progressDate: Date;
+  measurements: Measurements;
+  weight: string;
+  bodyFatPercentage?: string;
+}
+
 export default function ClientProfilePage() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
@@ -57,7 +64,7 @@ export default function ClientProfilePage() {
 
   const { data: invoices, isLoading: isLoadingInvoices } = useQuery<Invoice[]>({
     queryKey: [`/api/members/${clientId}/invoices`],
-    enabled: !!clientId && isAdmin, // Only load invoices for admin users
+    enabled: !!clientId && isAdmin,
   });
 
   if (!user || (!isAdmin && !isTrainer)) {
@@ -76,6 +83,14 @@ export default function ClientProfilePage() {
     return <div className="p-8">Client not found</div>;
   }
 
+  // Transform assessments data for charts
+  const chartData: ChartData[] = assessments?.map(assessment => ({
+    progressDate: assessment.assessmentDate,
+    measurements: assessment.measurements as Measurements,
+    weight: assessment.weight || '0',
+    bodyFatPercentage: assessment.bodyFatPercentage
+  })) || [];
+
   return (
     <div className="p-8">
       <div className="flex flex-col gap-6">
@@ -92,7 +107,7 @@ export default function ClientProfilePage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Client #{member.id}</h1>
             <p className="text-muted-foreground">
-              Member since {format(new Date(member.joinDate), 'MMMM d, yyyy')}
+              Member since {format(new Date(member.createdAt), 'MMMM d, yyyy')}
             </p>
           </div>
           <div className="flex gap-2">
@@ -141,15 +156,9 @@ export default function ClientProfilePage() {
                   <Separator />
                   <div>
                     <p className="text-sm font-medium">Goals</p>
-                    {profile?.goals?.length ? (
-                      <ul className="list-disc list-inside text-sm text-muted-foreground">
-                        {profile.goals.map((goal, index) => (
-                          <li key={index}>{goal}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No goals recorded</p>
-                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {profile?.fitnessGoals || 'No goals recorded'}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -161,15 +170,9 @@ export default function ClientProfilePage() {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm font-medium">Health Conditions</p>
-                    {profile?.healthConditions?.length ? (
-                      <ul className="list-disc list-inside text-sm text-muted-foreground">
-                        {profile.healthConditions.map((condition, index) => (
-                          <li key={index}>{condition}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No health conditions recorded</p>
-                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {profile?.medicalConditions || 'No health conditions recorded'}
+                    </p>
                   </div>
                   <Separator />
                   <div>
@@ -207,19 +210,19 @@ export default function ClientProfilePage() {
                 <CardContent>
                   <div className="grid gap-6 md:grid-cols-2">
                     <ProgressChart
-                      data={assessments || []}
+                      data={chartData}
                       metric="measurements"
                       title="Body Measurements"
                       description="Track changes in body measurements over time"
                     />
                     <ProgressChart
-                      data={assessments || []}
+                      data={chartData}
                       metric="weight"
                       title="Weight Progress"
                       description="Track weight changes over time"
                     />
                     <ProgressChart
-                      data={assessments || []}
+                      data={chartData}
                       metric="bodyFat"
                       title="Body Fat Percentage"
                       description="Track body composition changes"
