@@ -744,10 +744,10 @@ export const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
   progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
   exerciseId: integer("exercise_id").references(() => exercises.id, { onDelete: 'restrict' }).notNull(),
-  weightAmount: numeric("weight_amount"),  // Renamed from weight to avoid conflicts
-  numberOfSets: integer("number_of_sets"), // Renamed from sets to avoid conflicts
-  numberOfReps: integer("number_of_reps"), // Renamed from reps to avoid conflicts
-  exerciseNotes: text("exercise_notes"),   // Renamed from notes to be more specific
+  weightAmount: numeric("weight_amount"), // Using consistent naming with snake_case for DB columns
+  numberOfSets: integer("number_of_sets").notNull(),
+  numberOfReps: integer("number_of_reps").notNull(),
+  exerciseNotes: text("exercise_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 }, (table) => {
   return {
@@ -776,17 +776,23 @@ export const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => 
   })
 }));
 
-// Add missing insert schemas with validation
+// Update insert schemas with stronger validation
 export const insertProgressSchema = createInsertSchema(progress)
   .extend({
-    weight: z.number().min(0, "Weight must be positive").optional(),
-    bodyFatPercentage: z.number().min(0, "Body fat percentage must be positive").max(100, "Body fat percentage cannot exceed 100").optional(),
+    weight: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+        "Weight must be a positive number")
+      .optional(),
+    bodyFatPercentage: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0 && parseFloat(val) <= 100,
+        "Body fat percentage must be between 0 and 100")
+      .optional(),
     measurements: z.object({
-      chest: z.number().optional(),
-      waist: z.number().optional(),
-      hips: z.number().optional(),
-      thighs: z.number().optional(),
-      arms: z.number().optional()
+      chest: z.number().positive("Chest measurement must be positive").optional(),
+      waist: z.number().positive("Waist measurement must be positive").optional(),
+      hips: z.number().positive("Hips measurement must be positive").optional(),
+      thighs: z.number().positive("Thigh measurement must be positive").optional(),
+      arms: z.number().positive("Arm measurement must be positive").optional()
     }).default({}),
     notes: z.string().optional()
   })
@@ -794,16 +800,26 @@ export const insertProgressSchema = createInsertSchema(progress)
 
 export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
   .extend({
-    weightAmount: z.number().min(0, "Weight must be positive").optional(),
-    numberOfSets: z.number().min(1, "Must have at least one set").optional(),
-    numberOfReps: z.number().min(1, "Must have at least one rep").optional(),
+    weightAmount: z.string()
+      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+        "Weight must be a positive number")
+      .optional(),
+    numberOfSets: z.number()
+      .int("Number of sets must be a whole number")
+      .positive("Must have at least one set")
+      .optional(),
+    numberOfReps: z.number()
+      .int("Number of reps must be a whole number")
+      .positive("Must have at least one rep")
+      .optional(),
     exerciseNotes: z.string().optional()
   })
   .omit({ id: true, createdAt: true });
 
 // Add corresponding types
 export type Progress = typeof progress.$inferSelect;
-export type InsertProgress = z.infer<typeof insertProgressSchema>;export type StrengthMetric = typeof strengthMetrics.$inferSelect;
+export type InsertProgress = z.infer<typeof insertProgressSchema>;
+export type StrengthMetric = typeof strengthMetrics.$inferSelect;
 export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
 
 export const classTemplatesRelations = relations(classTemplates, ({ one, many }) => ({
