@@ -384,6 +384,7 @@ export const classRegistrations = pgTable("class_registrations", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
+// Previous schema remains unchanged until classTemplates definition
 export const classTemplates = pgTable("class_templates", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
@@ -395,8 +396,15 @@ export const classTemplates = pgTable("class_templates", {
   startTime: text("start_time").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    timeFormatCheck: sql`CONSTRAINT class_templates_time_format_check CHECK (
+      start_time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+    )`
+  }
 });
 
+// Add check constraint for waitlist capacity
 export const classWaitlist = pgTable("class_waitlist", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").references(() => classes.id).notNull(),
@@ -512,7 +520,6 @@ export const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => 
   })
 }));
 
-
 export const validateSchedulingConflict = async (
   db: any,
   trainerId: number,
@@ -618,6 +625,7 @@ export type Class = typeof classes.$inferSelect;
 export type InsertClass = z.infer<typeof insertClassSchema>;
 export type ClassRegistration = typeof classRegistrations.$inferSelect;
 export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
+
 
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });
@@ -736,13 +744,13 @@ export const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
   progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
   exerciseId: integer("exercise_id").references(() => exercises.id, { onDelete: 'restrict' }).notNull(),
-  weight: numeric("weight"),
-  sets: integer("sets"),
-  reps: integer("reps"),
-  notes: text("notes"),
+  weightAmount: numeric("weight_amount"),  // Renamed from weight to avoid conflicts
+  numberOfSets: integer("number_of_sets"), // Renamed from sets to avoid conflicts
+  numberOfReps: integer("number_of_reps"), // Renamed from reps to avoid conflicts
+  exerciseNotes: text("exercise_notes"),   // Renamed from notes to be more specific
   createdAt: timestamp("created_at").notNull().defaultNow()
 }, (table) => {
-    return {
+  return {
     progressExerciseIdx: uniqueIndex("progress_exercise_idx").on(table.progressId, table.exerciseId),
     strengthMetricsDateIdx: uniqueIndex("strength_metrics_date_idx").on(table.createdAt)
   }
@@ -786,12 +794,12 @@ export const insertProgressSchema = createInsertSchema(progress)
 
 export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
   .extend({
-    weight: z.number().min(0, "Weight must be positive").optional(),
-    sets: z.number().min(1, "Must have at least one set").optional(),
-    reps: z.number().min(1, "Must have at least one rep").optional(),
-    notes: z.string().optional()
+    weightAmount: z.number().min(0, "Weight must be positive").optional(),
+    numberOfSets: z.number().min(1, "Must have at least one set").optional(),
+    numberOfReps: z.number().min(1, "Must have at least one rep").optional(),
+    exerciseNotes: z.string().optional()
   })
-  .omit({ createdAt: true });
+  .omit({ id: true, createdAt: true });
 
 // Add corresponding types
 export type Progress = typeof progress.$inferSelect;
