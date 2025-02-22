@@ -69,6 +69,8 @@ export const AddressAutocomplete = forwardRef<
   useEffect(() => {
     const loadGoogleMapsScript = () => {
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      console.log("Attempting to load Google Maps with key available:", !!apiKey);
+
       if (!apiKey) {
         console.error("Google Places API key is missing");
         setError("API configuration error");
@@ -76,7 +78,7 @@ export const AddressAutocomplete = forwardRef<
       }
 
       // Check if script is already loaded
-      if (window.google?.maps?.places) {
+      if (typeof window.google !== 'undefined' && window.google?.maps?.places) {
         console.log("Google Maps script already loaded");
         initializeServices();
         return;
@@ -87,12 +89,13 @@ export const AddressAutocomplete = forwardRef<
 
       try {
         const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
         script.async = true;
         script.defer = true;
 
-        script.onload = () => {
-          console.log("Google Maps script loaded successfully");
+        // Define the callback
+        window.initGoogleMaps = () => {
+          console.log("Google Maps callback initiated");
           setScriptLoaded(true);
           setError(null);
           initializeServices();
@@ -113,6 +116,7 @@ export const AddressAutocomplete = forwardRef<
         };
 
         document.body.appendChild(script);
+        console.log("Google Maps script appended to document");
       } catch (err) {
         console.error("Error loading script:", err);
         setError("Failed to initialize address service");
