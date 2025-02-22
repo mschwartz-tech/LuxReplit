@@ -6,7 +6,7 @@ import { registerRoutes } from "./routes";
 import { ensureDatabaseInitialized } from "./db";
 import { setupVite } from "./vite";
 import { rateLimiter, securityHeaders, wafMiddleware } from "./middleware";
-import { apiLimiter } from "./middleware/rate-limit";
+import { apiLimiter, authenticatedLimiter, getRouteLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
 import cors from "cors";
 
@@ -26,10 +26,19 @@ app.use(cors({
 }));
 
 // Security middleware but with relaxed settings for development
-app.use(rateLimiter);  // Rate limiting
+app.use(rateLimiter);  // Global rate limiting
 app.use(securityHeaders);  // Security headers (CSP, CORS, etc.)
 app.use(wafMiddleware);  // Web Application Firewall
-app.use(apiLimiter);  // API-specific rate limiting
+
+// Apply route-specific rate limiting
+app.use('/api', (req, res, next) => {
+  const routeLimiter = getRouteLimiter(req.path);
+  routeLimiter(req, res, next);
+});
+
+// Apply authenticated rate limiting to protected routes
+app.use('/api/protected', authenticatedLimiter);
+
 app.use(cacheMiddleware);  // Caching
 
 // Session middleware setup
