@@ -671,7 +671,7 @@ const insertInvoiceSchema = createInsertSchema(invoices)
 
 
 // Import payment and subscription related tables and types after other tables.
-import { payments, paymentsRelations} from './payments';
+import { payments, paymentsRelations, Payment, InsertPayment } from './payments';
 import { subscriptions, subscriptionsRelations} from './subscriptions';
 
 // Import necessary parts from movement_patterns, training_packages tables
@@ -826,7 +826,8 @@ export {
   insertMemberProgressPhotoSchema,
   insertPricingPlanSchema,
   insertMemberProfileSchema,
-  // Types
+  // Types Payment,
+  InsertPayment,
   MealPlan,
   InsertMealPlan,
   MemberMealPlan,

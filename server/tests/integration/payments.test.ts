@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { db } from '../../db';
-import { payments } from '../../../shared/payments';
+import { eq } from 'drizzle-orm';
+import { payments } from '../../../shared/schema';
 import { createTestUser, createTestGymLocation, createTestMember, cleanupTestData } from '../utils/test-helpers';
 
 describe('Payment Integration Tests', () => {
@@ -14,12 +15,10 @@ describe('Payment Integration Tests', () => {
 
   describe('Payment Creation', () => {
     it('should create a payment with member association', async () => {
-      // Create test user and member
       const user = await createTestUser({ role: 'user' });
       const gymLocation = await createTestGymLocation();
       const member = await createTestMember(user, gymLocation);
 
-      // Create payment
       const [payment] = await db.insert(payments).values({
         memberId: member.id,
         amount: "100.00",
@@ -69,6 +68,88 @@ describe('Payment Integration Tests', () => {
         paymentMethod: 'credit_card',
         status: 'invalid_status' as any,
         description: 'Test payment',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })).rejects.toThrow();
+    });
+  });
+
+  describe('Payment Status Updates', () => {
+    it('should update payment status from pending to completed', async () => {
+      const user = await createTestUser({ role: 'user' });
+      const gymLocation = await createTestGymLocation();
+      const member = await createTestMember(user, gymLocation);
+
+      const [payment] = await db.insert(payments).values({
+        memberId: member.id,
+        amount: "150.00",
+        paymentMethod: 'credit_card',
+        status: 'pending',
+        description: 'Membership renewal',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      const [updatedPayment] = await db
+        .update(payments)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(eq(payments.id, payment.id))
+        .returning();
+
+      expect(updatedPayment.status).toBe('completed');
+      expect(updatedPayment.updatedAt).not.toEqual(payment.updatedAt);
+    });
+
+    it('should handle payment failure', async () => {
+      const [payment] = await db.insert(payments).values({
+        amount: "200.00",
+        paymentMethod: 'bank_transfer',
+        status: 'pending',
+        description: 'Advance booking',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      const [failedPayment] = await db
+        .update(payments)
+        .set({ status: 'failed', updatedAt: new Date() })
+        .where(eq(payments.id, payment.id))
+        .returning();
+
+      expect(failedPayment.status).toBe('failed');
+      expect(failedPayment.updatedAt).not.toEqual(payment.updatedAt);
+    });
+  });
+
+  describe('Payment Validation', () => {
+    it('should require valid amount format', async () => {
+      await expect(db.insert(payments).values({
+        amount: "invalid_amount",
+        paymentMethod: 'credit_card',
+        status: 'pending',
+        description: 'Test payment',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })).rejects.toThrow();
+    });
+
+    it('should require non-negative amount', async () => {
+      await expect(db.insert(payments).values({
+        amount: "-50.00",
+        paymentMethod: 'credit_card',
+        status: 'pending',
+        description: 'Test payment',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })).rejects.toThrow();
+    });
+
+    it('should require payment description', async () => {
+      await expect(db.insert(payments).values({
+        amount: "50.00",
+        paymentMethod: 'credit_card',
+        status: 'pending',
+        description: '',
         createdAt: new Date(),
         updatedAt: new Date()
       })).rejects.toThrow();

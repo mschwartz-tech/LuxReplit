@@ -6,15 +6,19 @@ import {
   classWaitlist, classRegistrations, classes,
   payments
 } from '../../../shared/schema';
-import type { User, Member, GymMembershipPricing } from '../../../shared/schema';
 import { eq, like } from 'drizzle-orm';
+
+// Define types using Drizzle's type inference
+type UserType = typeof users.$inferSelect;
+type MemberType = typeof members.$inferSelect;
+type GymLocationType = typeof gymMembershipPricing.$inferSelect;
 
 interface CreateTestUserOptions {
   role?: 'admin' | 'trainer' | 'user';
   prefix?: string;
 }
 
-export async function createTestUser(options: CreateTestUserOptions = {}): Promise<User> {
+export async function createTestUser(options: CreateTestUserOptions = {}): Promise<UserType> {
   const { role = 'user', prefix = 'test' } = options;
   const timestamp = Date.now();
 
@@ -30,7 +34,7 @@ export async function createTestUser(options: CreateTestUserOptions = {}): Promi
   return user;
 }
 
-export async function createTestGymLocation(): Promise<GymMembershipPricing> {
+export async function createTestGymLocation(): Promise<GymLocationType> {
   const [gymLocation] = await db.insert(gymMembershipPricing).values({
     gymName: `Test Gym ${Date.now()}`,
     luxeEssentialsPrice: '50.00',
@@ -45,10 +49,10 @@ export async function createTestGymLocation(): Promise<GymMembershipPricing> {
 }
 
 export async function createTestMember(
-  user: User,
-  gymLocation: GymMembershipPricing,
-  trainer?: User
-): Promise<Member> {
+  user: UserType,
+  gymLocation: GymLocationType,
+  trainer?: UserType
+): Promise<MemberType> {
   const [member] = await db.insert(members).values({
     userId: user.id,
     membershipType: 'luxe_essentials',
@@ -61,14 +65,11 @@ export async function createTestMember(
   return member;
 }
 
-// Updated cleanupTestData function with proper ordering and error handling
 export async function cleanupTestData() {
   try {
-    // Start a transaction for atomic cleanup
     await db.transaction(async (tx) => {
       // Delete in correct order based on dependencies
-      // 1. Delete dependent records first
-      await tx.delete(payments);  // Add payments cleanup
+      await tx.delete(payments);
       await tx.delete(strengthMetrics);
       await tx.delete(progress);
       await tx.delete(memberProgressPhotos);
@@ -80,14 +81,13 @@ export async function cleanupTestData() {
       await tx.delete(classRegistrations);
       await tx.delete(classes);
 
-      // 2. Delete main records
+      // Delete main records
       await tx.delete(members);
       await tx.delete(users).where(like(users.username, '%_test_%'));
       await tx.delete(gymMembershipPricing).where(like(gymMembershipPricing.gymName, 'Test Gym%'));
     });
   } catch (error) {
     console.error('Error in cleanupTestData:', error);
-    // Re-throw the error to ensure test failure
     throw new Error(`Failed to clean up test data: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
