@@ -29,14 +29,7 @@ const paymentSchema = z.object({
       message: "Member ID must be a valid number",
     })
     .transform(val => val ? parseInt(val) : undefined),
-  amount: z.number().positive("Amount must be greater than 0").or(
-    z.string()
-      .min(1, "Amount is required")
-      .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-        message: "Amount must be a positive number",
-      })
-      .transform(val => parseFloat(val))
-  ),
+  amount: z.number().positive("Amount must be greater than 0"),
   paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"], {
     required_error: "Payment method is required",
   }),
@@ -90,11 +83,10 @@ export default function BillingPage() {
         body: JSON.stringify(paymentData),
       });
 
-      const contentType = response.headers.get("content-type");
       if (!response.ok) {
         let errorMessage = "Failed to create payment";
         try {
-          if (contentType?.includes("application/json")) {
+          if (response.headers.get("content-type")?.includes("application/json")) {
             const errorData = await response.json();
             console.error("API error response:", errorData);
             errorMessage = errorData.message || errorMessage;
@@ -225,7 +217,8 @@ export default function BillingPage() {
                                 {...field}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  field.onChange(value === '' ? 0 : parseFloat(value));
+                                  const numValue = parseFloat(value);
+                                  field.onChange(isNaN(numValue) ? 0 : numValue);
                                 }}
                               />
                             </FormControl>
