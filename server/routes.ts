@@ -10,14 +10,18 @@ import {
   insertMarketingCampaignSchema,
   insertPricingPlanSchema,
   insertGymMembershipPricingSchema,
-  insertMembershipPricingSchema,
   insertPaymentSchema,
   insertMealPlanSchema,
   insertMemberMealPlanSchema,
   insertProgressSchema,
   insertStrengthMetricSchema,
-  insertUserSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
-  insertScheduleSchema, insertInvoiceSchema, insertExerciseSchema, insertMuscleGroupSchema
+  insertUserSchema,
+  insertWorkoutPlanSchema,
+  insertWorkoutLogSchema,
+  insertScheduleSchema,
+  insertInvoiceSchema,
+  exercisesSchema as insertExerciseSchema,
+  muscleGroupSchema as insertMuscleGroupSchema
 } from "@shared/schema";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
@@ -346,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   app.post("/api/gym-membership-pricing", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
-    const parsed = insertMembershipPricingSchema.safeParse(req.body);
+    const parsed = insertGymMembershipPricingSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Membership pricing creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
@@ -362,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const pricing = await storage.getMembershipPricingById(pricingId);
     if (!pricing) return res.sendStatus(404);
 
-    const parsed = insertMembershipPricingSchema.partial().safeParse(req.body);
+    const parsed = insertGymMembershipPricingSchema.partial().safeParse(req.body);
     if (!parsed.success) {
       logError("Membership pricing update validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
@@ -396,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   app.post("/api/membership-pricing", requireRole(["admin"]), asyncHandler(async (req: Request, res: Response) => {
-    const parsed = insertMembershipPricingSchema.safeParse(req.body);
+    const parsed = insertGymMembershipPricingSchema.safeParse(req.body);
     if (!parsed.success) {
       logError("Membership pricing creation validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);
@@ -412,7 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const pricing = await storage.getMembershipPricingById(pricingId);
     if (!pricing) return res.sendStatus(404);
 
-    const parsed = insertMembershipPricingSchema.partial().safeParse(req.body);
+    const parsed = insertGymMembershipPricingSchema.partial().safeParse(req.body);
     if (!parsed.success) {
       logError("Membership pricing update validation failed", { errors: parsed.error.errors });
       return res.status(400).json(parsed.error);

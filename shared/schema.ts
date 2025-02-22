@@ -3,8 +3,24 @@ import { relations } from "drizzle-orm";
 import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
+
+// Import types from other modules
 import { payments, paymentsRelations, type Payment, type InsertPayment, insertPaymentSchema } from './payments';
 import { subscriptions, subscriptionsRelations, type Subscription, type InsertSubscription } from './subscriptions';
+
+// Define base types first
+type User = typeof users.$inferSelect;
+type MealPlan = typeof mealPlans.$inferSelect;
+type MemberMealPlan = typeof memberMealPlans.$inferSelect;
+type WorkoutPlan = typeof workoutPlans.$inferSelect;
+type WorkoutLog = typeof workoutLogs.$inferSelect;
+type Schedule = typeof schedules.$inferSelect;
+type Exercise = typeof exercises.$inferSelect;
+type MuscleGroup = typeof muscleGroups.$inferSelect;
+type Invoice = typeof invoices.$inferSelect;
+type MemberAssessment = typeof memberAssessments.$inferSelect;
+type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
+type PricingPlan = typeof pricingPlans.$inferSelect;
 
 // Table Definitions
 const users = pgTable("users", {
@@ -349,7 +365,22 @@ const insertMembershipPricingSchema = createInsertSchema(membershipPricing)
     updatedAt: true,
   });
 
-type InsertMembershipPricing = z.infer<typeof insertMembershipPricingSchema>;
+const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
+  .extend({
+    luxeEssentialsPrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeStrivePrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeAllAccessPrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
 
 const mealPlans = pgTable("meal_plans", {
 id: serial("id").primaryKey(),
@@ -776,11 +807,10 @@ trainingClients: many(trainingClients)
 const trainingClientsRelations = relations(trainingClients, ({ one }) => ({
 user: one(users, {
   fields: [trainingClients.userId],
-  references: [users.id],
-}),
+  references: [users.id],}),
 trainer: one(users, {
   fields: [trainingClients.assignedTrainerId],
-  references: [users.id],
+  references:[users.id],
 }),
 package: one(trainingPackages, {
   fields: [trainingClients.packageType],
@@ -817,20 +847,55 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
  })
 }));
 
-//Type definitions
-type MealPlan = typeof mealPlans.$inferSelect;
-type InsertMealPlan =z.infer<typeof insertMealPlanSchema>;
-type MemberMealPlan = typeof memberMealPlans.$inferSelect;
-type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+// Add missing type exports for WorkoutPlan, WorkoutLog, Schedule, Exercise, and MuscleGroup
+// These were causing TypeScripterrors in the schema file
 
-type Invoice = typeof invoices.$inferSelect;
-type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
-type MemberAssessment = typeof memberAssessments.$inferSelect;
-type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
-type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
-type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
-type PricingPlan = typeof pricingPlans.$inferSelect;
-type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
+type WorkoutPlan = typeof workoutPlans.$inferSelect;
+type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
+type WorkoutLog = typeof workoutLogs.$inferSelect;
+type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
+type Schedule = typeof schedules.$inferSelect;
+type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+type Exercise = typeof exercises.$inferSelect;
+type InsertExercise = z.infer<typeof exercisesSchema>;
+type MuscleGroup = typeof muscleGroups.$inferSelect;
+type InsertMuscleGroup = z.infer<typeof muscleGroupSchema>;
+
+// Add missing exercise and muscle group schemas
+const exercisesSchema = createInsertSchema(exercises)
+  .extend({
+    primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
+    secondaryMuscleGroupIds: z.array(z.number()),
+    instructions: z.array(z.string()),
+    tips: z.array(z.string()).optional(),
+    equipment: z.array(z.string()).optional(),
+    videoUrl: z.string().url().optional(),
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+  });
+
+const muscleGroupSchema = createInsertSchema(muscleGroups)
+  .extend({
+    bodyRegion: z.enum(["upper", "lower", "core"])
+  })
+  .omit({
+    id: true,
+  });
+
+// Add schema definitions that were missing
+const insertUserSchema = createInsertSchema(users)
+  .extend({
+    role: z.enum(["admin", "trainer", "user"]).default("user"),
+    email: z.string().email("Invalid email format"),
+    name: z.string().min(1, "Name is required"),
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .omit({
+    createdAt: true,
+  });
 
 const insertMemberProfileSchema = createInsertSchema(memberProfiles)
   .extend({
@@ -850,7 +915,6 @@ const insertMemberProfileSchema = createInsertSchema(memberProfiles)
     updatedAt: true,
   });
 
-// Add member schema definition and export
 const insertMemberSchema = createInsertSchema(members)
   .extend({
     userId: z.string().transform(val => parseInt(val)),
@@ -863,31 +927,6 @@ const insertMemberSchema = createInsertSchema(members)
     createdAt: true,
   });
 
-// Export type
-type InsertMember = z.infer<typeof insertMemberSchema>;
-
-// Add gym membership pricing schema
-const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
-  .extend({
-    luxeEssentialsPrice: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-    luxeStrivePrice: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-    luxeAllAccessPrice: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-    })
-  .omit({
-    createdAt: true,
-    updatedAt: true,
-  });
-
-// Export type
-type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
-
-// Add new schema definitions after line 800
 const insertWorkoutPlanSchema = createInsertSchema(workoutPlans)
   .extend({
     trainerId: z.string().transform(val => parseInt(val)).optional(),
@@ -919,106 +958,51 @@ const insertScheduleSchema = createInsertSchema(schedules)
     status: z.enum(["scheduled", "completed", "cancelled"]).default("scheduled"),
   });
 
-const insertExerciseSchema = createInsertSchema(exercises)
-  .extend({
-    difficulty: z.enum(["beginner", "intermediate", "advanced"]),
-    primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
-    secondaryMuscleGroupIds: z.array(z.number()),
-    instructions: z.array(z.string()),
-    tips: z.array(z.string()).optional(),
-    equipment: z.array(z.string()).optional(),
-  })
-  .omit({
-    createdAt: true,
-  });
-
-const insertMuscleGroupSchema = createInsertSchema(muscleGroups)
-  .extend({
-    bodyRegion: z.enum(["upper", "lower", "core"]),
-  });
-
-// Add user schema definition and export
-const insertUserSchema = createInsertSchema(users)
-  .extend({
-    role: z.enum(["admin", "trainer", "user"]).default("user"),
-    email: z.string().email("Invalid email format"),
-    name: z.string().min(1, "Name is required"),
-    username: z.string().min(3, "Username must be at least 3 characters"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-  })
-  .omit({
-    createdAt: true,
-  });
-
-type User = typeof users.$inferSelect;
+// Define insert types based on schemas
 type InsertUser = z.infer<typeof insertUserSchema>;
+type InsertMember = z.infer<typeof insertMemberSchema>;
+type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
+type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
+type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+type InsertExercise = z.infer<typeof exercisesSchema>;
+type InsertMuscleGroup = z.infer<typeof muscleGroupSchema>;
+type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
+type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
+type InsertPricingPlan = z.infer<typeof insertPricingPlanSchema>;
+type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
+
+// Add missing export for GymMembershipPricing schema
+const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
+  .extend({
+    luxeEssentialsPrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeStrivePrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    luxeAllAccessPrice: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  });
 
 // Add to exports
-export {
-  // Tables
-  users, members, memberProfiles, memberAssessments,
-  memberProgressPhotos, workoutPlans, workoutLogs,
-  schedules, invoices, marketingCampaigns, muscleGroups,
-  exercises, pricingPlans, gymMembershipPricing,
-  membershipPricing, mealPlans, memberMealPlans,
-  sessions, classes, classRegistrations, classTemplates,
-  classWaitlist, progress, strengthMetrics, payments,
-  subscriptions, scheduledBlocks, movementPatterns,
-  trainingPackages, trainingClients,
+export { insertGymMembershipPricingSchema };
 
-  // Relations
-  usersRelations, membersRelations, sessionsRelations,
-  classesRelations, classRegistrationsRelations,
-  schedulesRelations, exercisesRelations,
-  workoutPlansRelations, membershipPricingRelations,
-  progressRelations, strengthMetricsRelations,
-  paymentsRelations, subscriptionsRelations,
-  movementPatternsRelations, trainingPackagesRelations,
-  trainingClientsRelations, exercisesMovementRelations,
-  classTemplatesRelations, classWaitlistRelations,
-
-  // Insert Schemas
-  insertMealPlanSchema,
-  insertMemberMealPlanSchema,
-  insertMarketingCampaignSchema,
-  insertMemberAssessmentSchema,
-  insertMemberProgressPhotoSchema,
-  insertPricingPlanSchema,
-  insertMemberProfileSchema,
-  insertMemberSchema,
-  insertGymMembershipPricingSchema,
-  insertMembershipPricingSchema,
-  insertPaymentSchema,
-  insertProgressSchema,
-  insertStrengthMetricSchema,
-  insertInvoiceSchema,
-  insertWorkoutPlanSchema,
-  insertWorkoutLogSchema,
-  insertScheduleSchema,
-  insertExerciseSchema,
-  insertMuscleGroupSchema,
-  insertUserSchema,
-
-  // Types
-  Payment,
-  InsertPayment,
-  Subscription,
-  InsertSubscription,
+// Export all types and schemas
+export type {
+  User,
+  InsertUser,
   MealPlan,
   InsertMealPlan,
   MemberMealPlan,
   InsertMemberMealPlan,
-  Invoice,
-  InsertInvoice,
-  MemberAssessment,
-  InsertMemberAssessment,
-  MemberProgressPhoto,
-  InsertMemberProgressPhoto,
-  PricingPlan,
-  InsertPricingPlan,
-  InsertMember,
-  InsertGymMembershipPricing,
-  InsertMembershipPricing,
   WorkoutPlan,
   InsertWorkoutPlan,
   WorkoutLog,
@@ -1029,6 +1013,59 @@ export {
   InsertExercise,
   MuscleGroup,
   InsertMuscleGroup,
-  User,
-  InsertUser,
+  Invoice,
+  InsertInvoice,
+  MemberAssessment,
+  InsertMemberAssessment,
+  MemberProgressPhoto,
+  InsertMemberProgressPhoto,
+  PricingPlan,
+  InsertPricingPlan,
+  Payment,
+  InsertPayment,
+  Subscription,
+  InsertSubscription,
+  InsertMember,
+  InsertGymMembershipPricing,
+};
+
+// Export all tables, relations, and schemas
+export {
+  // Tables
+  users, members, memberProfiles, memberAssessments,
+  memberProgressPhotos, workoutPlans, workoutLogs,
+  schedules, exercises, muscleGroups, mealPlans,
+  memberMealPlans, invoices, marketingCampaigns,
+  pricingPlans, gymMembershipPricing, membershipPricing,
+  progress, strengthMetrics, movementPatterns,
+  trainingPackages, trainingClients,
+
+  // Relations
+  usersRelations, membersRelations, workoutPlansRelations,
+  schedulesRelations, exercisesRelations, progressRelations,
+  strengthMetricsRelations, movementPatternsRelations,
+  trainingPackagesRelations, trainingClientsRelations,
+  exercisesMovementRelations, classTemplatesRelations,
+  classWaitlistRelations,
+
+  // Schemas
+  insertUserSchema,
+  insertMemberSchema,
+  insertMemberProfileSchema,
+  insertMealPlanSchema,
+  insertMemberMealPlanSchema,
+  insertWorkoutPlanSchema,
+  insertWorkoutLogSchema,
+  insertScheduleSchema,
+  exercisesSchema,
+  muscleGroupSchema,
+  insertMarketingCampaignSchema,
+  insertMemberAssessmentSchema,
+  insertMemberProgressPhotoSchema,
+  insertPricingPlanSchema,
+  insertGymMembershipPricingSchema,
+  insertPaymentSchema,
+  insertProgressSchema,
+  insertStrengthMetricSchema,
+  insertInvoiceSchema,
 };
