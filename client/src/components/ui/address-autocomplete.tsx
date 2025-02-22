@@ -55,6 +55,17 @@ export const AddressAutocomplete = forwardRef<
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
+  const removeExistingScript = () => {
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript && existingScript.parentNode) {
+      try {
+        existingScript.parentNode.removeChild(existingScript);
+      } catch (err) {
+        console.error("Error removing existing script:", err);
+      }
+    }
+  };
+
   useEffect(() => {
     const loadGoogleMapsScript = () => {
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
@@ -70,6 +81,9 @@ export const AddressAutocomplete = forwardRef<
         initializeServices();
         return;
       }
+
+      // Remove any existing script first
+      removeExistingScript();
 
       try {
         const script = document.createElement("script");
@@ -92,7 +106,7 @@ export const AddressAutocomplete = forwardRef<
           if (retryCount < MAX_RETRIES) {
             setTimeout(() => {
               setRetryCount(prev => prev + 1);
-              document.body.removeChild(script);
+              removeExistingScript();
               loadGoogleMapsScript();
             }, 2000 * Math.pow(2, retryCount)); // Exponential backoff
           }
@@ -107,11 +121,9 @@ export const AddressAutocomplete = forwardRef<
 
     loadGoogleMapsScript();
 
+    // Cleanup
     return () => {
-      const script = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (script && document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      removeExistingScript();
     };
   }, [retryCount]);
 
