@@ -3,12 +3,21 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import {
-  insertUserSchema, insertMemberSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
-  insertScheduleSchema, insertInvoiceSchema, insertMarketingCampaignSchema,
-  insertExerciseSchema, insertMuscleGroupSchema, insertMemberProfileSchema,
-  insertMemberAssessmentSchema, insertMemberProgressPhotoSchema, insertPricingPlanSchema,
-  insertGymMembershipPricingSchema, insertMembershipPricingSchema,
-  insertProgressSchema, insertStrengthMetricSchema, insertPaymentSchema, insertMealPlanSchema, insertMemberMealPlanSchema
+  insertMemberSchema,
+  insertMemberProfileSchema,
+  insertMemberAssessmentSchema,
+  insertMemberProgressPhotoSchema,
+  insertMarketingCampaignSchema,
+  insertPricingPlanSchema,
+  insertGymMembershipPricingSchema,
+  insertMembershipPricingSchema,
+  insertPaymentSchema,
+  insertMealPlanSchema,
+  insertMemberMealPlanSchema,
+  insertProgressSchema,
+  insertStrengthMetricSchema,
+  insertUserSchema, insertWorkoutPlanSchema, insertWorkoutLogSchema,
+  insertScheduleSchema, insertInvoiceSchema, insertExerciseSchema, insertMuscleGroupSchema
 } from "@shared/schema";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";

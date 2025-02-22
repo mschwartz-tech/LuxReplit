@@ -819,7 +819,7 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
 
 //Type definitions
 type MealPlan = typeof mealPlans.$inferSelect;
-type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+type InsertMealPlan =z.infer<typeof insertMealPlanSchema>;
 type MemberMealPlan = typeof memberMealPlans.$inferSelect;
 type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
 
@@ -887,7 +887,73 @@ const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing
 // Export type
 type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
 
-// Export all the tables and relations
+// Add new schema definitions after line 800
+const insertWorkoutPlanSchema = createInsertSchema(workoutPlans)
+  .extend({
+    trainerId: z.string().transform(val => parseInt(val)).optional(),
+    memberId: z.string().transform(val => parseInt(val)).optional(),
+    status: z.enum(["active", "completed", "cancelled"]).default("active"),
+    frequencyPerWeek: z.number().min(1).max(7),
+  })
+  .omit({
+    createdAt: true,
+    completionRate: true,
+  });
+
+const insertWorkoutLogSchema = createInsertSchema(workoutLogs)
+  .extend({
+    memberId: z.string().transform(val => parseInt(val)),
+    workoutPlanId: z.string().transform(val => parseInt(val)),
+    completedAt: z.coerce.date(),
+    duration: z.number().min(1),
+  })
+  .omit({
+    createdAt: true,
+  });
+
+const insertScheduleSchema = createInsertSchema(schedules)
+  .extend({
+    trainerId: z.string().transform(val => parseInt(val)).optional(),
+    memberId: z.string().transform(val => parseInt(val)).optional(),
+    date: z.coerce.date(),
+    status: z.enum(["scheduled", "completed", "cancelled"]).default("scheduled"),
+  });
+
+const insertExerciseSchema = createInsertSchema(exercises)
+  .extend({
+    difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+    primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
+    secondaryMuscleGroupIds: z.array(z.number()),
+    instructions: z.array(z.string()),
+    tips: z.array(z.string()).optional(),
+    equipment: z.array(z.string()).optional(),
+  })
+  .omit({
+    createdAt: true,
+  });
+
+const insertMuscleGroupSchema = createInsertSchema(muscleGroups)
+  .extend({
+    bodyRegion: z.enum(["upper", "lower", "core"]),
+  });
+
+// Add user schema definition and export
+const insertUserSchema = createInsertSchema(users)
+  .extend({
+    role: z.enum(["admin", "trainer", "user"]).default("user"),
+    email: z.string().email("Invalid email format"),
+    name: z.string().min(1, "Name is required"),
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .omit({
+    createdAt: true,
+  });
+
+type User = typeof users.$inferSelect;
+type InsertUser = z.infer<typeof insertUserSchema>;
+
+// Add to exports
 export {
   // Tables
   users, members, memberProfiles, memberAssessments,
@@ -926,6 +992,12 @@ export {
   insertProgressSchema,
   insertStrengthMetricSchema,
   insertInvoiceSchema,
+  insertWorkoutPlanSchema,
+  insertWorkoutLogSchema,
+  insertScheduleSchema,
+  insertExerciseSchema,
+  insertMuscleGroupSchema,
+  insertUserSchema,
 
   // Types
   Payment,
@@ -947,4 +1019,16 @@ export {
   InsertMember,
   InsertGymMembershipPricing,
   InsertMembershipPricing,
+  WorkoutPlan,
+  InsertWorkoutPlan,
+  WorkoutLog,
+  InsertWorkoutLog,
+  Schedule,
+  InsertSchedule,
+  Exercise,
+  InsertExercise,
+  MuscleGroup,
+  InsertMuscleGroup,
+  User,
+  InsertUser,
 };
