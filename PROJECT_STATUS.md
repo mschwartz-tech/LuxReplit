@@ -27,6 +27,27 @@ A comprehensive fitness studio management platform leveraging modern web technol
    - 🔐 Enhance session management
    - 🔐 Implement proper role-based access
 
+## 🗃 Data Model & Relationships
+
+### Core Authentication & User Management
+- **Users ↔ Roles**: One-to-many relationship (admin, trainer, member)
+- **Users ↔ Sessions**: One-to-many for session management
+- **Users ↔ Auth_Tokens**: One-to-many for 2FA and social login
+
+### Facility Management
+- **Locations ↔ Various Entities**: One-to-many relationships for location-specific resources
+- **Equipment ↔ Locations**: One-to-many for inventory tracking
+- **Maintenance_Logs ↔ Equipment**: One-to-many for maintenance history
+
+### Training & Progress Tracking
+- **Trainers ↔ Multiple Entities**: One-to-many for sessions, classes, availability
+- **Members ↔ Multiple Entities**: One-to-many for memberships, progress tracking
+- **AI_Recommendations ↔ Members**: One-to-many for personalized suggestions
+
+### Financial Management
+- **Membership_Types ↔ Memberships**: One-to-many relationship
+- **Payments ↔ Various Entities**: Many-to-many with payment types
+- **Invoices/Subscriptions ↔ Members**: One-to-many relationships
 
 ## 🚦 Component Status
 
@@ -83,51 +104,106 @@ A comprehensive fitness studio management platform leveraging modern web technol
 | Mobile Responsiveness | 🟡 In Progress | Adapting UI components |
 | Offline Support | 🔴 Pending | PWA implementation planned |
 
-### Backend Services
-| Service | Status | Notes |
-|---------|--------|-------|
-| User Management | ✅ Complete | Schema validation updated |
-| Session Handling | ✅ Complete | Secure session management |
-| Progress Analytics | ✅ Complete | Data aggregation working |
-| Payment Processing | 🟡 In Progress | Schema validation complete |
-| Subscription Management | 🟡 In Progress | Core schema implemented |
-| AI Integration | 🔴 Pending | OpenAI API setup needed |
-| Email Service | 🔴 Pending | Transactional emails pending |
-| Push Notifications | 🔴 Pending | Real-time alerts system |
-| Data Backup | 🔴 Pending | Automated backup strategy |
+## 🔐 Security Implementation Status
 
-### Security & Compliance
-| Feature | Status | Notes |
-|---------|--------|-------|
-| OAuth Integration | 🟡 In Progress | Google/Apple login setup |
-| 2FA Implementation | 🔴 Pending | TOTP authentication planned |
-| GDPR Compliance | 🔴 Pending | Data protection measures |
-| Security Headers | 🟡 In Progress | CSP implementation ongoing |
-| API Security | 🟡 In Progress | JWT implementation and rate limiting |
-| Data Encryption | 🟡 In Progress | At-rest encryption setup |
-| Audit Logging | 🔴 Pending | Security event tracking |
-| Logout Functionality | ✅ Resolved | Issue fixed |
+### Current Implementation
+1. ✅ Session Management
+   - Secure session handling with Redis/PostgreSQL store
+   - Session encryption and proper cleanup
+   - Token-based authentication
 
+2. 🟡 Access Control
+   - Role-based access control (RBAC)
+   - Resource-level permissions
+   - API rate limiting
 
-## Known Issues & Debugging Status
+3. 🔜 Enhanced Security (Planned)
+   - Two-factor authentication (2FA)
+   - OAuth2 social login integration
+   - Advanced audit logging
 
-### Authentication Issues
-1. Logout Functionality Bug
-   - **Description**: When clicking logout, the page briefly flashes but user remains logged in
-   - **Current Status**: Resolved
-   - **Attempted Solutions**:
-     - Updated logout mutation in useAuth hook to clear query cache
-     - Added session destruction logging on server
-     - Modified App.tsx routing structure
-     - Investigated potential race conditions in state management
-   - **Next Steps**:
-     - Investigate potential session persistence issues
-     - Check for circular dependencies in protected routes
-     - Review authentication state management
-     - Add comprehensive logging throughout the logout flow
+## 🚀 Performance Optimizations
 
+### Current Implementation
+1. Database Optimizations
+   - Indexed queries for common operations
+   - Efficient join strategies
+   - Query result caching
 
-## 📝 Updated Technical Notes
+2. Planned Enhancements
+   - Redis caching layer
+   - Background job processing
+   - Real-time data synchronization
+   - Horizontal scaling support
+
+## 🤖 AI Integration Points
+
+### Current Implementation
+1. Workout Intelligence
+   - ✅ Basic exercise recommendations
+   - 🟡 Form analysis integration
+   - 🔜 Progress prediction models
+
+2. Nutrition Planning
+   - 🟡 Basic meal suggestions
+   - 🔜 Advanced meal optimization
+   - 🔜 Supplement recommendations
+
+3. Business Analytics
+   - 🟡 Basic member insights
+   - 🔜 Advanced retention prediction
+   - 🔜 Resource optimization
+
+## 💾 Data Management
+
+### Backup Strategy
+1. Current Implementation
+   - Daily database backups
+   - Point-in-time recovery
+   - Transaction logs
+
+2. Planned Enhancements
+   - Real-time replication
+   - Automated failover
+   - Cross-region backup storage
+
+## 📊 Database Views & Performance
+
+### Key Views
+1. Scheduled_Blocks View
+   - Purpose: Prevents scheduling conflicts
+   - Status: ✅ Implemented
+   - Components: trainer_id, date, time, duration
+
+2. Member_Analytics View
+   - Purpose: Performance tracking
+   - Status: 🟡 In Progress
+   - Components: sessions, classes, performance
+
+3. AI_Recommendations View
+   - Purpose: Personalized insights
+   - Status: 🔜 Planned
+   - Components: workout, nutrition plans
+
+## 📱 Frontend Architecture
+
+### Component Structure
+1. Core Components
+   - ✅ Authentication flows
+   - ✅ Dashboard layouts
+   - ✅ Form components
+
+2. Feature Components
+   - 🟡 Progress tracking
+   - 🟡 Schedule management
+   - 🔜 AI insight displays
+
+3. Shared Components
+   - ✅ UI components
+   - ✅ Data visualization
+   - 🟡 Error boundaries
+
+## 📝 Technical Notes
 - Security implementation is now top priority
 - API validation to be completed before new feature development
 - AI integration to follow immediately after core infrastructure
@@ -183,16 +259,68 @@ A comprehensive fitness studio management platform leveraging modern web technol
 - 🟡 Staging: In progress
 - ❌ Production: Pending
 
-## 📝 Notes
-- Prioritize trainer dashboard features for immediate impact
-- Focus on AI integration for workout planning
-- Implement real-time analytics for business insights
-- Enhance mobile responsiveness for all dashboards
-- Security implementation remains top priority
+## 📝 Implementation Guidelines
+1. API Development
+   - Use TypeScript for type safety
+   - Implement comprehensive validation
+   - Follow RESTful principles
+   - Document all endpoints
 
-## Technical Details
+2. Database Operations
+   - Use Drizzle ORM for queries
+   - Implement proper indexing
+   - Maintain referential integrity
+   - Regular performance monitoring
+
+3. Security Practices
+   - Implement rate limiting
+   - Use proper authentication
+   - Regular security audits
+   - Maintain audit logs
+
+4. Testing Strategy
+   - Unit tests for core functions
+   - Integration tests for flows
+   - E2E tests for critical paths
+   - Performance benchmarking
+
+## 🔄 Next Steps
+1. Complete API validation
+2. Implement security measures
+3. Set up AI integration
+4. Enhance monitoring system
+5. Implement advanced features
+6. Prepare for production deployment
+
+## Development Notes
 - All schema exports properly defined and working
 - Auth routes updated with proper TypeScript types
 - Server startup successful with new schema configuration
 - Security headers and rate limiting being implemented
 - Database performance optimization in progress
+
+## Known Issues & Debugging Status
+
+### Authentication Issues
+1. Logout Functionality Bug
+   - **Description**: When clicking logout, the page briefly flashes but user remains logged in
+   - **Current Status**: Resolved
+   - **Attempted Solutions**:
+     - Updated logout mutation in useAuth hook to clear query cache
+     - Added session destruction logging on server
+     - Modified App.tsx routing structure
+     - Investigated potential race conditions in state management
+   - **Next Steps**:
+     - Investigate potential session persistence issues
+     - Check for circular dependencies in protected routes
+     - Review authentication state management
+     - Add comprehensive logging throughout the logout flow
+
+
+## 📝 Updated Technical Notes
+- Security implementation is now top priority
+- API validation to be completed before new feature development
+- AI integration to follow immediately after core infrastructure
+- Focus on scalable and maintainable code structure
+- All new features must include proper error handling and logging
+- Testing coverage must be maintained for all new implementations
