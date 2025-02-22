@@ -1,36 +1,44 @@
 /*
-Next Implementation Steps (2025-02-21):
+Next Implementation Steps (2025-02-22):
 
-1. Storage Interface Updates:
-- Implement DatabaseStorage class with new entity methods for:
-  - Member profiles
-  - Assessments
-  - Workout plans
-  - Class scheduling
-  - Meal plans
-  - Progress tracking
+1. Completed Steps:
+- Base schema implemented with core entities (users, members, trainers)
+- Progress tracking tables implemented with proper relations:
+  * Progress table for tracking member metrics
+  * Strength metrics table for exercise-specific progress
+  * All necessary indices and constraints in place
+  * Proper cascade rules for data integrity
 
-2. Route Implementation:
-- Add new API routes for:
-  - Member management (/api/members/*)
-  - Training management (/api/training/*)
-  - Schedule management (/api/schedule/*)
-  - Assessment tracking (/api/assessments/*)
+2. Next Steps:
+- Implement remaining schema components:
+  * Class scheduling system
+  * Attendance tracking
+  * Equipment inventory management
+  * Membership billing and invoicing
+  * Notification preferences and history
 
-3. Validation Layer:
-- Implement request validation using Zod schemas
-- Add middleware for role-based access control
-- Enhance error handling for all new endpoints
+3. API Implementation Required:
+- Member management endpoints
+- Progress tracking endpoints
+- Class scheduling endpoints
+- Billing and payment endpoints
 
-4. Database Relations:
-- Ensure proper implementation of all relations defined in schema
-- Add indexes for frequent queries
-- Implement proper cascade behavior for related entities
+4. Storage Interface Updates Needed:
+- Implement DatabaseStorage class with new entity methods
+- Add proper error handling and validation
+- Implement caching strategy for frequently accessed data
 
-Current Progress:
-- Base schema implemented with all required tables
-- Initial database setup complete
-- Types and insert schemas defined
+Current Status:
+- Core schema is stable and ready for API implementation
+- Progress tracking tables are complete with proper relations
+- Basic user authentication schema is in place
+- Member profiles and assessments are properly structured
+
+Testing Requirements:
+- Add integration tests for database operations
+- Verify cascade behavior for related entities
+- Test concurrent access patterns
+- Validate constraint enforcement
 */
 
 import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
@@ -670,23 +678,34 @@ export const membershipPricingRelations = relations(membershipPricing, ({ many }
 // Add new tables for strength metrics and progress tracking
 export const progress = pgTable("progress", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").references(() => members.id).notNull(),
-  date: timestamp("date").notNull(),
+  memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }).notNull(),
+  progressDate: timestamp("progress_date").notNull().defaultNow(),
   weight: numeric("weight"),
   bodyFatPercentage: numeric("body_fat_percentage"),
-  measurements: jsonb("measurements"),
-  notes: text("notes")
+  measurements: jsonb("measurements").notNull().default(sql`'{}'::jsonb`),
+  notes: text("notes"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    memberProgressIdx: uniqueIndex("member_progress_idx").on(table.memberId, table.progressDate),
+    progressDateIdx: uniqueIndex("progress_date_idx").on(table.progressDate)
+  }
 });
 
 export const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
-  progressId: integer("progress_id").references(() => progress.id).notNull(),
-  exerciseId: integer("exercise_id").references(() => exercises.id).notNull(),
+  progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
+  exerciseId: integer("exercise_id").references(() => exercises.id, { onDelete: 'restrict' }).notNull(),
   weight: numeric("weight"),
   sets: integer("sets"),
   reps: integer("reps"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    progressExerciseIdx: uniqueIndex("progress_exercise_idx").on(table.progressId, table.exerciseId),
+    strengthMetricsDateIdx: uniqueIndex("strength_metrics_date_idx").on(table.createdAt)
+  }
 });
 
 // Add new relations for progress tracking
@@ -720,9 +739,10 @@ export const insertProgressSchema = createInsertSchema(progress)
       hips: z.number().optional(),
       thighs: z.number().optional(),
       arms: z.number().optional()
-    }).optional(),
+    }).default({}),
     notes: z.string().optional()
-  });
+  })
+  .omit({ progressDate: true, updatedAt: true });
 
 export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
   .extend({
@@ -730,10 +750,10 @@ export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
     sets: z.number().min(1, "Must have at least one set").optional(),
     reps: z.number().min(1, "Must have at least one rep").optional(),
     notes: z.string().optional()
-  });
+  })
+  .omit({ createdAt: true });
 
 // Add corresponding types
 export type Progress = typeof progress.$inferSelect;
-export type InsertProgress = z.infer<typeof insertProgressSchema>;
-export type StrengthMetric = typeof strengthMetrics.$inferSelect;
+export type InsertProgress = z.infer<typeof insertProgressSchema>;export type StrengthMetric = typeof strengthMetrics.$inferSelect;
 export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
