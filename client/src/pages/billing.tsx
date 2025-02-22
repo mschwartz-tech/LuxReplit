@@ -45,10 +45,10 @@ type PaymentFormValues = z.infer<typeof paymentSchema>;
 
 export default function BillingPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
   const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
@@ -69,20 +69,25 @@ export default function BillingPage() {
     mutationFn: async (data: PaymentFormValues) => {
       console.log("Submitting payment data:", data);
 
-      const response = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          status: "completed"
-        }),
-      });
+      const paymentData = {
+        ...data,
+        status: "completed",
+        amount: parseFloat(data.amount.toString())
+      };
 
-      if (!response.ok) {
+      console.log("Formatted payment data:", paymentData);
+
+      try {
+        const response = await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(paymentData),
+        });
+
         const contentType = response.headers.get("content-type");
-        let errorMessage = "Failed to create payment";
+        if (!response.ok) {
+          let errorMessage = "Failed to create payment";
 
-        try {
           if (contentType?.includes("application/json")) {
             const errorData = await response.json();
             console.error("API error response:", errorData);
@@ -90,21 +95,31 @@ export default function BillingPage() {
           } else {
             const errorText = await response.text();
             console.error("API error text:", errorText);
-            errorMessage = errorText.includes("<!DOCTYPE")
-              ? "Server error occurred. Please try again."
-              : errorText;
+            // Handle HTML error responses
+            if (errorText.includes("<!DOCTYPE")) {
+              console.error("Received HTML error response");
+              errorMessage = "Server error occurred. Please try again.";
+            } else {
+              errorMessage = errorText;
+            }
           }
-        } catch (parseError) {
-          console.error("Error parsing API response:", parseError);
-          errorMessage = "An unexpected error occurred while processing the response";
+
+          throw new Error(errorMessage);
         }
 
-        throw new Error(errorMessage);
-      }
+        // Ensure we have a JSON response
+        if (!contentType?.includes("application/json")) {
+          console.error("Unexpected response type:", contentType);
+          throw new Error("Invalid server response format");
+        }
 
-      const result = await response.json();
-      console.log("Payment creation successful:", result);
-      return result;
+        const result = await response.json();
+        console.log("Payment creation successful:", result);
+        return result;
+      } catch (error) {
+        console.error("Payment request failed:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
