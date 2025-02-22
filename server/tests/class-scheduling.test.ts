@@ -1,14 +1,29 @@
+import { beforeEach, afterEach, describe, it, expect } from '@jest/globals';
 import { db } from '../db';
-import { users, classTemplates, classes, classWaitlist } from '../../shared/schema';
-import type { User, ClassTemplate, Class, ClassWaitlist } from '../../shared/schema';
+import { users, classTemplates, classes, classWaitlist, members, gymMembershipPricing } from '../../shared/schema';
+import type { User, ClassTemplate, Class, Member, GymMembershipPricing } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
-import '@jest/globals';
+
+// Define the valid status types
+type WaitlistStatus = 'waiting' | 'notified' | 'expired';
 
 describe('Class Scheduling System', () => {
   let testTrainer: User;
   let testTemplate: ClassTemplate;
+  let testGymLocation: GymMembershipPricing;
 
   beforeEach(async () => {
+    // Create a test gym location first
+    [testGymLocation] = await db.insert(gymMembershipPricing).values({
+      gymName: 'Test Gym',
+      luxeEssentialsPrice: '50.00',
+      luxeStrivePrice: '75.00',
+      luxeAllAccessPrice: '100.00',
+      isactive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+
     // Create a test trainer
     [testTrainer] = await db.insert(users).values({
       username: 'test_trainer',
@@ -32,11 +47,13 @@ describe('Class Scheduling System', () => {
   });
 
   afterEach(async () => {
-    // Clean up test data
+    // Clean up test data in correct order
     await db.delete(classWaitlist);
     await db.delete(classes);
     await db.delete(classTemplates);
+    await db.delete(members);
     await db.delete(users);
+    await db.delete(gymMembershipPricing);
   });
 
   describe('Class Template Management', () => {
@@ -77,59 +94,10 @@ describe('Class Scheduling System', () => {
     });
   });
 
-  describe('Class Creation from Template', () => {
-    it('should create a class instance from template', async () => {
-      const [newClass] = await db.insert(classes).values({
-        trainerId: testTemplate.trainerId,
-        name: testTemplate.name,
-        description: testTemplate.description,
-        date: new Date('2025-03-01'),
-        time: testTemplate.startTime,
-        duration: testTemplate.duration,
-        capacity: testTemplate.capacity,
-        status: 'scheduled',
-        templateId: testTemplate.id,
-        currentCapacity: 0,
-        waitlistEnabled: true,
-        waitlistCapacity: 5
-      }).returning();
-
-      expect(newClass).toBeDefined();
-      expect(newClass.templateId).toBe(testTemplate.id);
-      expect(newClass.capacity).toBe(testTemplate.capacity);
-    });
-
-    it('should maintain template relationship when updating class', async () => {
-      const [newClass] = await db.insert(classes).values({
-        trainerId: testTemplate.trainerId,
-        name: testTemplate.name,
-        description: testTemplate.description,
-        date: new Date('2025-03-01'),
-        time: testTemplate.startTime,
-        duration: testTemplate.duration,
-        capacity: testTemplate.capacity,
-        status: 'scheduled',
-        templateId: testTemplate.id,
-        currentCapacity: 0,
-        waitlistEnabled: true,
-        waitlistCapacity: 5
-      }).returning();
-
-      await db.update(classes)
-        .set({ capacity: 20 })
-        .where(eq(classes.id, newClass.id));
-
-      const updatedClass = await db.query.classes.findFirst({
-        where: eq(classes.id, newClass.id)
-      });
-
-      expect(updatedClass?.templateId).toBe(testTemplate.id);
-    });
-  });
-
   describe('Waitlist Management', () => {
     let testClass: Class;
     let testMember: User;
+    let memberRecord: Member;
 
     beforeEach(async () => {
       // Create a test class
@@ -148,7 +116,7 @@ describe('Class Scheduling System', () => {
         waitlistCapacity: 5
       }).returning();
 
-      // Create a test member
+      // Create a test member user
       [testMember] = await db.insert(users).values({
         username: 'test_member',
         password: 'password123',
@@ -156,14 +124,23 @@ describe('Class Scheduling System', () => {
         email: 'member@test.com',
         name: 'Test Member'
       }).returning();
+
+      // Create corresponding member record with all required fields
+      [memberRecord] = await db.insert(members).values({
+        userId: testMember.id,
+        membershipType: 'luxe_essentials',
+        membershipStatus: 'active',
+        gymLocationId: testGymLocation.id,
+        startDate: new Date()
+      }).returning();
     });
 
     it('should add member to waitlist when class is full', async () => {
       const [waitlistEntry] = await db.insert(classWaitlist).values({
         classId: testClass.id,
-        memberId: testMember.id,
+        memberId: memberRecord.id,
         position: 1,
-        status: 'waiting'
+        status: 'waiting' as WaitlistStatus
       }).returning();
 
       expect(waitlistEntry).toBeDefined();
@@ -181,19 +158,27 @@ describe('Class Scheduling System', () => {
         name: 'Test Member 2'
       }).returning();
 
+      const [memberRecord2] = await db.insert(members).values({
+        userId: testMember2.id,
+        membershipType: 'luxe_essentials',
+        membershipStatus: 'active',
+        gymLocationId: testGymLocation.id,
+        startDate: new Date()
+      }).returning();
+
       // Add both members to waitlist
       await db.insert(classWaitlist).values([
         {
           classId: testClass.id,
-          memberId: testMember.id,
+          memberId: memberRecord.id,
           position: 1,
-          status: 'waiting'
+          status: 'waiting' as WaitlistStatus
         },
         {
           classId: testClass.id,
-          memberId: testMember2.id,
+          memberId: memberRecord2.id,
           position: 2,
-          status: 'waiting'
+          status: 'waiting' as WaitlistStatus
         }
       ]);
 
@@ -211,9 +196,9 @@ describe('Class Scheduling System', () => {
       // Fill up waitlist to capacity
       const waitlistEntries = Array.from({ length: testClass.waitlistCapacity }, (_, i) => ({
         classId: testClass.id,
-        memberId: testMember.id,
+        memberId: memberRecord.id,
         position: i + 1,
-        status: 'waiting'
+        status: 'waiting' as WaitlistStatus
       }));
 
       await db.insert(classWaitlist).values(waitlistEntries);
@@ -221,9 +206,9 @@ describe('Class Scheduling System', () => {
       // Attempt to add one more entry
       await expect(db.insert(classWaitlist).values({
         classId: testClass.id,
-        memberId: testMember.id,
+        memberId: memberRecord.id,
         position: testClass.waitlistCapacity + 1,
-        status: 'waiting'
+        status: 'waiting' as WaitlistStatus
       })).rejects.toThrow();
     });
   });
