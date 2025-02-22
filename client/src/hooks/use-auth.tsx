@@ -91,29 +91,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       try {
-        // First, invalidate and remove all queries to prevent stale data
-        queryClient.removeQueries();
+        // First step: Cancel any ongoing queries
+        await queryClient.cancelQueries();
 
+        // Second step: Clear all existing queries
+        queryClient.clear();
+
+        // Third step: Make the logout request
         const res = await apiRequest("POST", "/api/logout");
         if (!res.ok) {
           throw new Error("Logout failed. Please try again.");
         }
 
-        // Ensure we wait for the server response
+        // Fourth step: Wait for response
         await res.text();
 
-        // Clear all queries and cache after successful logout
+        // Fifth step: Clear all authentication state
         queryClient.clear();
-
-        // Reset the user query explicitly
         queryClient.setQueryData(["/api/user"], null);
-
-        // Remove all query subscriptions
-        queryClient.resetQueries();
-
-        // Reset the entire query cache
+        queryClient.removeQueries();
+        await queryClient.resetQueries();
         await queryClient.invalidateQueries();
 
+        // Return success to trigger the navigation
+        return;
       } catch (error) {
         console.error("Logout error:", error);
         throw error;

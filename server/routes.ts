@@ -609,6 +609,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(metrics);
   }));
 
+  app.post("/api/logout", (req, res, next) => {
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          logError("Error destroying session during logout", { error: err });
+          return next(err);
+        }
+
+        // Clear session cookie
+        res.clearCookie('connect.sid');
+
+        // Log successful logout
+        logInfo("User logged out successfully", { userId: (req.user as any)?.id });
+
+        req.logout((err) => {
+          if (err) {
+            logError("Error during logout", { error: err });
+            return next(err);
+          }
+          res.sendStatus(200);
+        });
+      });
+    } else {
+      res.sendStatus(200);
+    }
+  });
+
+
   const httpServer = createServer(app);
   return httpServer;
 }

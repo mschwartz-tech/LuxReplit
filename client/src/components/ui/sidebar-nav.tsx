@@ -20,7 +20,6 @@ import { Loader2 } from "lucide-react";
 
 export function SidebarNav() {
   const [location] = useLocation();
-  const [, setLocation] = useLocation();
   const { user, logoutMutation } = useAuth();
   const userRole = user?.role?.toLowerCase() || '';
 
@@ -108,7 +107,7 @@ export function SidebarNav() {
   const handleLogout = async () => {
     try {
       await logoutMutation.mutateAsync();
-      // Force a hard redirect to auth page after successful logout
+      // Force a full page reload to ensure clean state
       window.location.href = '/auth';
     } catch (error) {
       console.error('Logout failed:', error);
