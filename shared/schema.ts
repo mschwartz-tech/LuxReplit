@@ -1,3 +1,9 @@
+import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+import { sql } from 'drizzle-orm';
+
 /*
 Next Implementation Steps (2025-02-22):
 
@@ -40,21 +46,6 @@ Testing Requirements:
 - Test concurrent access patterns
 - Validate constraint enforcement
 */
-
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-import { sql } from 'drizzle-orm';
-
-// Import types from payments and subscriptions (only types to avoid circular deps)
-import type { Payment, InsertPayment } from './payments';
-import type { Subscription, InsertSubscription } from './subscriptions';
-
-// Re-export payment and subscription types
-export type { Payment, InsertPayment, Subscription, InsertSubscription };
-export { payments, insertPaymentSchema } from './payments';
-export { subscriptions, insertSubscriptionSchema } from './subscriptions';
 
 // Users table and relations
 export const users = pgTable("users", {
@@ -691,6 +682,7 @@ export type Class = typeof classes.$inferSelect;
 export type InsertClass = z.infer<typeof insertClassSchema>;
 export type ClassRegistration = typeof classRegistrations.$inferSelect;
 export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
+
 
 
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true });

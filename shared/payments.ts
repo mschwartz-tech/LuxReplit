@@ -8,7 +8,7 @@ import type { Member } from "./schema";
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id"),  // Remove .notNull() to make it optional
+  memberId: integer("member_id"),  // Optional to allow non-member payments
   amount: numeric("amount").notNull(),
   status: text("status", {
     enum: ["pending", "completed", "failed", "refunded"]
@@ -32,9 +32,11 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 
 export const insertPaymentSchema = createInsertSchema(payments)
   .extend({
-    amount: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
+    amount: z.number().or(z.string())
+      .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+      .refine((val) => val > 0, {
+        message: "Amount must be greater than 0",
+      }),
     memberId: z.string().transform(val => parseInt(val)).optional(),  // Make memberId optional
     status: z.enum(["pending", "completed", "failed", "refunded"]).default("pending"),
   })
