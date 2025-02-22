@@ -22,7 +22,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
 const paymentSchema = z.object({
-  memberId: z.string().transform(val => parseInt(val)),
+  memberId: z.string().transform(val => parseInt(val)).optional(),  // Make memberId optional
   amount: z.string().transform(val => parseFloat(val)),
   paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"]),
   description: z.string().min(1, "Description is required"),
@@ -55,11 +55,17 @@ export default function BillingPage() {
       const response = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          status: "completed"  // Set default status
+        }),
       });
+
       if (!response.ok) {
-        throw new Error("Failed to create payment");
+        const errorData = await response.text();
+        throw new Error(errorData || "Failed to create payment");
       }
+
       return response.json();
     },
     onSuccess: () => {
@@ -67,14 +73,14 @@ export default function BillingPage() {
       setIsNewPaymentOpen(false);
       form.reset();
       toast({
-        title: "Payment Created",
+        title: "Success",
         description: "The payment has been successfully recorded.",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to create payment. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create payment. Please try again.",
         variant: "destructive",
       });
     },

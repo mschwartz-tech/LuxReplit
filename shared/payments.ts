@@ -8,7 +8,7 @@ import type { Member } from "./schema";
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  memberId: integer("member_id").notNull(),  // Remove direct reference
+  memberId: integer("member_id"),  // Remove .notNull() to make it optional
   amount: numeric("amount").notNull(),
   status: text("status", {
     enum: ["pending", "completed", "failed", "refunded"]
@@ -35,6 +35,8 @@ export const insertPaymentSchema = createInsertSchema(payments)
     amount: z.number().or(z.string()).transform(val =>
       typeof val === 'string' ? parseFloat(val) : val
     ),
+    memberId: z.string().transform(val => parseInt(val)).optional(),  // Make memberId optional
+    status: z.enum(["pending", "completed", "failed", "refunded"]).default("pending"),
   })
   .omit({ 
     createdAt: true,
