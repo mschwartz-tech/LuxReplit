@@ -1,7 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
+  if (!res.ok && res.status !== 404) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
@@ -33,12 +33,12 @@ export const getQueryFn: <T>(options: {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+    if ((unauthorizedBehavior === "returnNull" && res.status === 401) || res.status === 404) {
       return null;
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    return res.status === 204 ? null : res.json();
   };
 
 export const queryClient = new QueryClient({
@@ -50,7 +50,6 @@ export const queryClient = new QueryClient({
       staleTime: 300000, // 5 minutes
       gcTime: 3600000, // 1 hour (renamed from cacheTime in v5)
       retry: false,
-      suspense: true,
     },
     mutations: {
       retry: false,
