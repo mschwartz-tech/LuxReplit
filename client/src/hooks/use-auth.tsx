@@ -61,33 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (credentials: InsertUser) => {
-      try {
-        const res = await apiRequest("POST", "/api/register", credentials);
-        if (!res.ok) {
-          throw new Error("Registration failed. Please try again.");
-        }
-        return await res.json();
-      } catch (error) {
-        console.error("Registration error:", error);
-        throw error;
-      }
-    },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-    },
-    onError: (error: Error) => {
-      console.error("Registration mutation error:", error);
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const logoutMutation = useMutation({
     mutationFn: async () => {
       try {
@@ -128,6 +101,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Logout mutation error:", error);
       toast({
         title: "Logout failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (credentials: InsertUser) => {
+      try {
+        const res = await apiRequest("POST", "/api/register", credentials);
+        if (!res.ok) {
+          throw new Error("Registration failed. Please try again.");
+        }
+        return await res.json();
+      } catch (error) {
+        console.error("Registration error:", error);
+        throw error;
+      }
+    },
+    onSuccess: (user: SelectUser) => {
+      queryClient.setQueryData(["/api/user"], user);
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+    onError: (error: Error) => {
+      console.error("Registration mutation error:", error);
+      toast({
+        title: "Registration failed",
         description: error.message,
         variant: "destructive",
       });
