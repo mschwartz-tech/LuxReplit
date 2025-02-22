@@ -12,7 +12,7 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Button } from "./button";
 
 interface AddressAutocompleteProps
@@ -30,21 +30,56 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
 
   useEffect(() => {
-    // Load Google Maps JavaScript API
-    const script = document.createElement('script');
-    const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    document.head.appendChild(script);
+    const loadGoogleMapsScript = () => {
+      console.log("Starting to load Google Maps script");
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      console.log("API Key available:", !!apiKey);
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+
+      script.onload = () => {
+        console.log("Google Maps script loaded successfully");
+        setIsScriptLoaded(true);
+      };
+
+      script.onerror = (error) => {
+        console.error("Error loading Google Maps script:", error);
+      };
+
+      // Remove any existing scripts
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        console.log("Removing existing Google Maps script");
+        existingScript.remove();
+      }
+
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMapsScript();
   }, []);
 
   const handleSearch = async (input: string) => {
-    if (!input || !window.google) return;
+    if (!input) {
+      console.log("No input provided for search");
+      return;
+    }
+
+    if (!window.google?.maps?.places) {
+      console.error("Google Places API not available");
+      return;
+    }
 
     try {
+      console.log("Starting address search for:", input);
       setIsLoading(true);
+
       const autocompleteService = new google.maps.places.AutocompleteService();
       const results = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
         autocompleteService.getPlacePredictions(
@@ -54,9 +89,12 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
             types: ['address']
           },
           (predictions, status) => {
+            console.log("Autocomplete service response status:", status);
             if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              console.log("Received predictions:", predictions.length);
               resolve(predictions);
             } else {
+              console.log("No predictions found or error:", status);
               resolve([]);
             }
           }
@@ -65,7 +103,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
       setSuggestions(results);
     } catch (error) {
-      console.error('Error fetching address suggestions:', error);
+      console.error("Error in handleSearch:", error);
       setSuggestions([]);
     } finally {
       setIsLoading(false);
@@ -73,6 +111,12 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   };
 
   const handleAddressSelect = async (placeId: string, description: string) => {
+    if (!window.google?.maps) {
+      console.error("Google Maps API not available for geocoding");
+      return;
+    }
+
+    console.log("Selected place ID:", placeId);
     setValue(description);
     setOpen(false);
 
@@ -81,6 +125,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       const geocoder = new google.maps.Geocoder();
       const result = await new Promise<google.maps.GeocoderResult>((resolve, reject) => {
         geocoder.geocode({ placeId }, (results, status) => {
+          console.log("Geocoder response status:", status);
           if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
             resolve(results[0]);
           } else {
@@ -89,6 +134,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         });
       });
 
+      console.log("Geocoder result:", result);
       const addressComponents = result.address_components;
       const addressData = {
         address: result.formatted_address || '',
@@ -108,9 +154,10 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         }
       }
 
+      console.log("Parsed address data:", addressData);
       onAddressSelect(addressData);
     } catch (error) {
-      console.error('Error getting address details:', error);
+      console.error("Error in handleAddressSelect:", error);
     } finally {
       setIsLoading(false);
     }
@@ -128,10 +175,14 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
             !value && "text-muted-foreground",
             className
           )}
-          disabled={isLoading}
+          disabled={isLoading || !isScriptLoaded}
         >
           {value || "Enter address..."}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          {isLoading ? (
+            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+          ) : (
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
@@ -146,10 +197,13 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
                 setValue(newValue);
                 handleSearch(newValue);
               }}
+              disabled={!isScriptLoaded}
               {...props}
             />
           </CommandGroup>
-          {suggestions.length === 0 ? (
+          {!isScriptLoaded ? (
+            <CommandEmpty>Loading address service...</CommandEmpty>
+          ) : suggestions.length === 0 ? (
             <CommandEmpty>No address found.</CommandEmpty>
           ) : (
             <CommandGroup>
@@ -178,7 +232,6 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
 AddressAutocomplete.displayName = "AddressAutocomplete";
 
-// TypeScript types for Google Maps
 declare global {
   interface Window {
     google: typeof google;
