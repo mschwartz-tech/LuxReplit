@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import { Request, Response, NextFunction } from "express";
-import { logError } from "../services/logger";
+import { logError } from "./services/logger";
 
 // Rate limiting middleware
 export const rateLimiter = rateLimit({
@@ -34,12 +34,6 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
     form-action 'self';
   `.replace(/\s+/g, ' ').trim());
 
-  // CORS headers - more permissive for development
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
   next();
 };
 
@@ -49,6 +43,11 @@ export const wafMiddleware = (req: Request, res: Response, next: NextFunction) =
   const userAgent = req.headers['user-agent']?.toLowerCase() || '';
   const requestBody = req.body;
   const requestMethod = req.method;
+
+  // Skip WAF checks for logout requests
+  if (requestUrl.includes('/api/auth/logout')) {
+    return next();
+  }
 
   // Block suspicious URL patterns
   const suspiciousPatterns = [
@@ -67,6 +66,7 @@ export const wafMiddleware = (req: Request, res: Response, next: NextFunction) =
   ];
 
   if (suspiciousPatterns.some(pattern => pattern.test(requestUrl))) {
+    logError('Suspicious request pattern detected', { url: requestUrl });
     return res.status(403).json({ error: 'Forbidden request pattern detected' });
   }
 
@@ -88,55 +88,35 @@ export const wafMiddleware = (req: Request, res: Response, next: NextFunction) =
   ];
 
   if (suspiciousAgents.some(agent => userAgent.includes(agent))) {
+    logError('Suspicious user agent detected', { userAgent });
     return res.status(403).json({ error: 'Forbidden user agent' });
   }
 
   // Request method validation
   const allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
   if (!allowedMethods.includes(requestMethod)) {
+    logError('Invalid request method', { method: requestMethod });
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Request body size validation for POST/PUT requests with content
-  if (['POST', 'PUT'].includes(requestMethod) && Object.keys(requestBody || {}).length > 0) {
-    const maxSize = 1024 * 1024; // 1MB
-    const contentLength = parseInt(req.headers['content-length'] || '0');
-    if (contentLength > maxSize) {
-      return res.status(413).json({ error: 'Request entity too large' });
-    }
-
-    // Content-Type validation only for requests with body
-    const contentType = req.headers['content-type'];
-    if (!contentType || !contentType.includes('application/json')) {
-      return res.status(415).json({ error: 'Unsupported Media Type' });
-    }
+  // Skip content validation for requests without body
+  if (!requestBody || Object.keys(requestBody).length === 0) {
+    return next();
   }
 
-  // Rate limiting by IP (additional to global rate limiting)
-  const clientIp = req.ip;
-  const requestKey = `${clientIp}:${requestMethod}:${requestUrl}`;
-  const maxRequestsPerMinute = 60;
-
-  // Simple in-memory request tracking (in production, use Redis)
-  if (global.requestCounts === undefined) {
-    global.requestCounts = new Map();
+  // Request body size validation
+  const maxSize = 1024 * 1024; // 1MB
+  const contentLength = parseInt(req.headers['content-length'] || '0');
+  if (contentLength > maxSize) {
+    logError('Request entity too large', { size: contentLength });
+    return res.status(413).json({ error: 'Request entity too large' });
   }
 
-  const now = Date.now();
-  const requestCount = global.requestCounts.get(requestKey) || { count: 0, timestamp: now };
-
-  if (now - requestCount.timestamp > 60000) {
-    // Reset if more than a minute has passed
-    requestCount.count = 1;
-    requestCount.timestamp = now;
-  } else {
-    requestCount.count++;
-  }
-
-  global.requestCounts.set(requestKey, requestCount);
-
-  if (requestCount.count > maxRequestsPerMinute) {
-    return res.status(429).json({ error: 'Too many requests' });
+  // Content-Type validation only for requests with body
+  const contentType = req.headers['content-type'];
+  if (!contentType || !contentType.includes('application/json')) {
+    logError('Invalid content type', { contentType });
+    return res.status(415).json({ error: 'Unsupported Media Type' });
   }
 
   next();
