@@ -16,9 +16,11 @@ import {
   UserPlus,
   CreditCard,
 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export function SidebarNav() {
   const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const { user, logoutMutation } = useAuth();
   const userRole = user?.role?.toLowerCase() || '';
 
@@ -85,12 +87,10 @@ export function SidebarNav() {
     },
   ];
 
-  // Filter items based on user role
-  const visibleItems = items.filter(item => 
+  const visibleItems = items.filter(item =>
     userRole && item.roles.includes(userRole)
   );
 
-  // If no items are visible for the user's role, return the default navigation
   if (!visibleItems.length) {
     return (
       <div className="border-r bg-sidebar h-screen w-64 flex flex-col">
@@ -104,6 +104,11 @@ export function SidebarNav() {
       </div>
     );
   }
+
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    setLocation('/auth');
+  };
 
   return (
     <div className="border-r bg-sidebar h-screen w-64 flex flex-col">
@@ -137,10 +142,15 @@ export function SidebarNav() {
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-          onClick={() => logoutMutation.mutate()}
+          onClick={handleLogout}
+          disabled={logoutMutation.isPending}
         >
-          <LogOut className="h-4 w-4" />
-          Logout
+          {logoutMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          {logoutMutation.isPending ? "Logging out..." : "Logout"}
         </Button>
       </div>
     </div>
