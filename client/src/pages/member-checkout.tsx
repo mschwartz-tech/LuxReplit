@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { PricingPlan, GymMembershipPricing } from "@shared/schema";
+import { PricingPlan, GymMembershipPricing, InsertPayment } from "@shared/schema";
 import {
   Card,
   CardContent,
@@ -63,6 +63,35 @@ export default function MemberCheckoutPage() {
     enabled: !!user,
   });
 
+  // Create payment mutation
+  const createPaymentMutation = useMutation({
+    mutationFn: async (paymentData: InsertPayment) => {
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentData),
+      });
+      if (!response.ok) throw new Error("Failed to process payment");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      toast({
+        title: "Success",
+        description: "Payment processed successfully",
+      });
+      // Redirect to member profile
+      setLocation(`/member-profile/${memberId}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to process payment",
+        variant: "destructive",
+      });
+    },
+  });
+
   const selectedPlan = pricingPlans?.find(
     plan => 
       plan.sessionsPerWeek === parseInt(sessionsPerWeek) && 
@@ -96,73 +125,17 @@ export default function MemberCheckoutPage() {
 
   const totalPrice = getGymMembershipPrice() + getTrainingPrice();
 
-  // Create gym location with default pricing mutation
-  const createGymLocationMutation = useMutation({
-    mutationFn: async (gymName: string) => {
-      const response = await fetch("/api/gym-membership-pricing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gymName,
-          luxeEssentialsPrice: "49.99",  // Default prices
-          luxeStrivePrice: "79.99",
-          luxeAllAccessPrice: "99.99"
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to create gym location");
-      const data = await response.json();
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/gym-membership-pricing"] });
-      toast({
-        title: "Success",
-        description: "New gym location created with default pricing",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to create gym location",
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleCheckout = async () => {
     try {
-      const response = await fetch(`/api/invoices`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          memberId: parseInt(memberId!),
-          amount: totalPrice.toString(),
-          status: "pending",
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-          description: `Gym membership (${membershipType}) and training package (${sessionsPerWeek}x${sessionDuration}min)`,
-        }),
+      await createPaymentMutation.mutateAsync({
+        memberId: parseInt(memberId!),
+        amount: totalPrice,
+        status: "pending",
+        paymentMethod: "credit_card",
+        description: `Gym membership (${membershipType}) and training package (${sessionsPerWeek}x${sessionDuration}min)`,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create invoice');
-      }
-
-      toast({
-        title: "Success",
-        description: "Invoice created successfully",
-      });
-
-      // Redirect to member profile
-      setLocation(`/member-profile/${memberId}`);
     } catch (error) {
       console.error('Checkout error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to process checkout",
-        variant: "destructive",
-      });
     }
   };
 
@@ -274,8 +247,11 @@ export default function MemberCheckoutPage() {
             <Button 
               className="w-full" 
               onClick={handleCheckout}
-              disabled={!selectedPlan || !selectedLocation}
+              disabled={!selectedPlan || !selectedLocation || createPaymentMutation.isPending}
             >
+              {createPaymentMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Complete Registration
             </Button>
           </CardContent>
