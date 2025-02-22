@@ -52,51 +52,72 @@ export const AddressAutocomplete = forwardRef<
   const [placesService, setPlacesService] = useState<any>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-    if (!apiKey) {
-      console.error("Google Places API key is missing");
-      setError("API configuration error - VITE_GOOGLE_PLACES_API_KEY not found");
-      return;
-    }
+    const loadGoogleMapsScript = () => {
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      if (!apiKey) {
+        console.error("Google Places API key is missing");
+        setError("API configuration error");
+        return;
+      }
 
-    // Check if script is already loaded
-    if (window.google?.maps?.places) {
-      console.log("Google Maps script already loaded");
-      initializeServices();
-      return;
-    }
+      // Check if script is already loaded
+      if (window.google?.maps?.places) {
+        console.log("Google Maps script already loaded");
+        initializeServices();
+        return;
+      }
 
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.defer = true;
+      try {
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+        script.async = true;
+        script.defer = true;
 
-    script.onload = () => {
-      console.log("Google Maps script loaded successfully");
-      setScriptLoaded(true);
-      initializeServices();
+        script.onload = () => {
+          console.log("Google Maps script loaded successfully");
+          setScriptLoaded(true);
+          setError(null);
+          initializeServices();
+        };
+
+        script.onerror = () => {
+          console.error("Failed to load Google Places script");
+          setError("Failed to load address service");
+
+          // Retry logic
+          if (retryCount < MAX_RETRIES) {
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+              document.body.removeChild(script);
+              loadGoogleMapsScript();
+            }, 2000 * Math.pow(2, retryCount)); // Exponential backoff
+          }
+        };
+
+        document.body.appendChild(script);
+      } catch (err) {
+        console.error("Error loading script:", err);
+        setError("Failed to initialize address service");
+      }
     };
 
-    script.onerror = (e) => {
-      console.error("Failed to load Google Places script:", e);
-      setError("Failed to load address service");
-    };
-
-    document.body.appendChild(script);
+    loadGoogleMapsScript();
 
     return () => {
-      if (document.body.contains(script)) {
+      const script = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (script && document.body.contains(script)) {
         document.body.removeChild(script);
       }
     };
-  }, []);
+  }, [retryCount]);
 
   const initializeServices = () => {
     try {
       if (window.google?.maps?.places) {
-        console.log("Initializing Google Places services");
         const autoService = new window.google.maps.places.AutocompleteService();
         const placeService = new window.google.maps.places.PlacesService(
           document.createElement("div")
@@ -104,20 +125,20 @@ export const AddressAutocomplete = forwardRef<
         setAutocompleteService(autoService);
         setPlacesService(placeService);
         setError(null);
+        setScriptLoaded(true);
       } else {
-        console.error("Google Maps places library not available");
-        setError("Address service not available");
+        throw new Error("Google Maps places library not available");
       }
     } catch (err) {
       console.error("Error initializing services:", err);
       setError("Failed to initialize address service");
+      setScriptLoaded(false);
     }
   };
 
   const getPlacePredictions = async (input: string) => {
     if (!input || !autocompleteService) return;
 
-    console.log("Fetching predictions for:", input);
     setIsLoading(true);
     setError(null);
 
@@ -129,7 +150,6 @@ export const AddressAutocomplete = forwardRef<
           types: ["address"],
         },
         (predictions: Array<{ description: string; place_id: string }> | null, status: string) => {
-          console.log("Predictions status:", status, "Count:", predictions?.length);
           if (status === "OK" && predictions) {
             setSuggestions(predictions);
           } else {
@@ -155,7 +175,6 @@ export const AddressAutocomplete = forwardRef<
       return;
     }
 
-    console.log("Getting details for place:", placeId);
     setValue(description);
     setOpen(false);
 
@@ -165,7 +184,6 @@ export const AddressAutocomplete = forwardRef<
         fields: ["address_components", "formatted_address"],
       },
       (place: PlaceResult | null, status: string) => {
-        console.log("Place details status:", status);
         if (status === "OK" && place?.address_components) {
           const addressData = {
             address: place.formatted_address || "",
@@ -175,17 +193,15 @@ export const AddressAutocomplete = forwardRef<
           };
 
           place.address_components.forEach((component: AddressComponent) => {
-            const types = component.types;
-            if (types.includes("locality")) {
+            if (component.types.includes("locality")) {
               addressData.city = component.long_name;
-            } else if (types.includes("administrative_area_level_1")) {
+            } else if (component.types.includes("administrative_area_level_1")) {
               addressData.state = component.short_name;
-            } else if (types.includes("postal_code")) {
+            } else if (component.types.includes("postal_code")) {
               addressData.zipCode = component.long_name;
             }
           });
 
-          console.log("Parsed address data:", addressData);
           onAddressSelect(addressData);
         } else {
           console.error("Error getting place details:", status);
@@ -193,6 +209,12 @@ export const AddressAutocomplete = forwardRef<
         }
       }
     );
+  };
+
+  const handleRetry = () => {
+    setRetryCount(0);
+    setError(null);
+    setScriptLoaded(false);
   };
 
   return (
@@ -208,11 +230,29 @@ export const AddressAutocomplete = forwardRef<
           )}
           disabled={!scriptLoaded || !!error}
         >
-          {value || (error ? error : "Enter address...")}
-          {isLoading ? (
-            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+          {error ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-destructive">{error}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRetry();
+                }}
+              >
+                Retry
+              </Button>
+            </div>
           ) : (
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <>
+              {value || "Enter address..."}
+              {isLoading ? (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              )}
+            </>
           )}
         </Button>
       </PopoverTrigger>
