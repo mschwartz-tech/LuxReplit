@@ -13,6 +13,9 @@ const config: Config.InitialOptions = {
     '^@shared/(.*)$': '<rootDir>/shared/$1'
   },
   setupFilesAfterEnv: ['<rootDir>/server/tests/setup.ts'],
+  verbose: true,
+  detectOpenHandles: true,
+  forceExit: true
 };
 
 export default config;

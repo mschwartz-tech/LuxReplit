@@ -88,19 +88,10 @@ export const members = pgTable("members", {
     memberTypeIdx: uniqueIndex("member_type_idx").on(table.membershipType),
     memberDateIdx: uniqueIndex("member_date_idx").on(table.startDate, table.endDate),
     trainerMemberIdx: uniqueIndex("trainer_member_idx").on(table.assignedTrainerId),
-    // Add explicit check constraint to prevent multiple active memberships
-    activeMembershipConstraint: sql`CONSTRAINT single_active_membership_check
-      CHECK (
-        CASE 
-          WHEN membership_status = 'active' THEN
-            (SELECT COUNT(*) 
-             FROM members m2 
-             WHERE m2.user_id = user_id 
-             AND m2.membership_status = 'active' 
-             AND m2.id < id) = 0
-          ELSE true
-        END
-      )`
+    // Partial unique index to prevent multiple active memberships per user
+    activeUserIdx: uniqueIndex("active_user_idx")
+      .on(table.userId)
+      .where(sql`membership_status = 'active'`)
   }
 });
 
@@ -221,7 +212,7 @@ export const workoutLogs = pgTable("workout_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Update the schedules table to include proper time constraints
+// Update schedules table definition
 export const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -230,17 +221,17 @@ export const schedules = pgTable("schedules", {
   status: text("status", { enum: ["scheduled", "completed", "cancelled"] }).notNull()
 }, (table) => {
   return {
-    // Use SQL constraint to prevent overlapping schedules
-    trainerScheduleConstraint: sql`CONSTRAINT trainer_schedule_check 
+    // Use GiST exclusion constraint for overlapping schedules
+    trainerScheduleConstraint: sql`CONSTRAINT trainer_schedule_overlap
       EXCLUDE USING gist (
         trainer_id WITH =,
-        tsrange("date", "date" + interval '1 hour') WITH &&
-      )`,
-    memberScheduleConstraint: sql`CONSTRAINT member_schedule_check 
+        tsrange(date, date + interval '1 hour') WITH &&
+      ) WHERE (status = 'scheduled')`,
+    memberScheduleConstraint: sql`CONSTRAINT member_schedule_overlap
       EXCLUDE USING gist (
         member_id WITH =,
-        tsrange("date", "date" + interval '1 hour') WITH &&
-      )`,
+        tsrange(date, date + interval '1 hour') WITH &&
+      ) WHERE (status = 'scheduled')`,
     scheduleStatusIdx: uniqueIndex("schedule_status_idx").on(table.status)
   }
 });
