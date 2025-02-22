@@ -106,8 +106,13 @@ export function SidebarNav() {
   }
 
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
-    setLocation('/auth');
+    try {
+      await logoutMutation.mutateAsync();
+      // Force a hard redirect to auth page after successful logout
+      window.location.href = '/auth';
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
