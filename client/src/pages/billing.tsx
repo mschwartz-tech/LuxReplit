@@ -52,21 +52,40 @@ export default function BillingPage() {
 
   const createPayment = useMutation({
     mutationFn: async (data: PaymentFormValues) => {
-      const response = await fetch("/api/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          status: "completed"  // Set default status
-        }),
-      });
+      try {
+        const response = await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...data,
+            status: "completed"  // Set default status
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || "Failed to create payment");
+        const contentType = response.headers.get("content-type");
+        if (!response.ok) {
+          // Try to get error message from response
+          let errorMessage = "Failed to create payment";
+          if (contentType?.includes("application/json")) {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } else {
+            const errorText = await response.text();
+            // If it's HTML, provide a generic error instead
+            errorMessage = errorText.includes("<!DOCTYPE") 
+              ? "Server error occurred. Please try again."
+              : errorText;
+          }
+          throw new Error(errorMessage);
+        }
+
+        const responseData = await response.json();
+        return responseData;
+      } catch (error) {
+        // Handle network errors or JSON parsing errors
+        const message = error instanceof Error ? error.message : "An unexpected error occurred";
+        throw new Error(message);
       }
-
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
@@ -140,9 +159,14 @@ export default function BillingPage() {
                         name="memberId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Member ID</FormLabel>
+                            <FormLabel>Member ID (Optional)</FormLabel>
                             <FormControl>
-                              <Input type="number" {...field} />
+                              <Input 
+                                type="number" 
+                                {...field} 
+                                value={field.value ?? ''} 
+                                placeholder="Leave empty for non-member payment"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -221,7 +245,7 @@ export default function BillingPage() {
                   >
                     <div>
                       <p className="font-medium">
-                        Member ID: {payment.memberId}
+                        {payment.memberId ? `Member ID: ${payment.memberId}` : 'Non-member payment'}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {payment.description}
