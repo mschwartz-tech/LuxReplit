@@ -73,10 +73,10 @@ export default function BillingPage() {
 
       const paymentData = {
         memberId: data.memberId,
-        amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount,
+        amount: data.amount,
         paymentMethod: data.paymentMethod,
         description: data.description,
-        status: "completed"
+        status: "pending"
       };
 
       console.log("Formatted payment data:", paymentData);
@@ -223,7 +223,10 @@ export default function BillingPage() {
                                 min="0.01"
                                 placeholder="0.00"
                                 {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  field.onChange(value === '' ? 0 : parseFloat(value));
+                                }}
                               />
                             </FormControl>
                             <FormMessage />
