@@ -50,7 +50,7 @@ export default function BillingPage() {
     defaultValues: {
       paymentMethod: "cash",
       description: "",
-      amount: 0,
+      amount: undefined, 
       memberId: "",
     },
   });
@@ -215,10 +215,15 @@ export default function BillingPage() {
                                 min="0.01"
                                 placeholder="0.00"
                                 {...field}
+                                value={field.value || ''} 
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   const numValue = parseFloat(value);
-                                  field.onChange(isNaN(numValue) ? 0 : numValue);
+                                  if (value === '') {
+                                    field.onChange(undefined);
+                                  } else if (!isNaN(numValue)) {
+                                    field.onChange(numValue);
+                                  }
                                 }}
                               />
                             </FormControl>
