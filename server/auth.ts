@@ -18,29 +18,21 @@ declare global {
 const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string) {
-  const salt = randomBytes(16);
-  const derivedKey = (await scryptAsync(password, salt, 32)) as Buffer;
-  return `${derivedKey.toString('hex')}.${salt.toString('hex')}`;
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
 }
 
 async function comparePasswords(supplied: string, stored: string) {
   try {
-    const [hashedPassword, saltHex] = stored.split('.');
-    if (!hashedPassword || !saltHex) {
+    const [hashed, salt] = stored.split(".");
+    if (!hashed || !salt) {
       logError('Invalid stored password format');
       return false;
     }
-
-    const salt = Buffer.from(saltHex, 'hex');
-    const hashedSupplied = (await scryptAsync(supplied, salt, 32)) as Buffer;
-    const hashedStored = Buffer.from(hashedPassword, 'hex');
-
-    if (hashedSupplied.length !== hashedStored.length) {
-      logError('Buffer length mismatch');
-      return false;
-    }
-
-    return timingSafeEqual(hashedSupplied, hashedStored);
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
   } catch (error) {
     logError('Error comparing passwords:', { error });
     return false;
