@@ -365,6 +365,12 @@ export const classes = pgTable("classes", {
   status: text("status", {
     enum: ["scheduled", "completed", "canceled"]
   }).notNull(),
+  templateId: integer("template_id").references(() => classTemplates.id),
+  currentCapacity: integer("current_capacity").notNull().default(0),
+  waitlistEnabled: boolean("waitlist_enabled").notNull().default(true),
+  waitlistCapacity: integer("waitlist_capacity").notNull().default(5),
+  cancelationDeadline: timestamp("cancelation_deadline"),
+  recurring: boolean("recurring").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
@@ -376,6 +382,35 @@ export const classRegistrations = pgTable("class_registrations", {
     enum: ["registered", "attended", "canceled"]
   }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const classTemplates = pgTable("class_templates", {
+  id: serial("id").primaryKey(),
+  trainerId: integer("trainer_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  duration: integer("duration").notNull(), // in minutes
+  capacity: integer("capacity").notNull(),
+  dayOfWeek: integer("day_of_week").notNull(), // 0-6 for Sunday-Saturday
+  startTime: text("start_time").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
+export const classWaitlist = pgTable("class_waitlist", {
+  id: serial("id").primaryKey(),
+  classId: integer("class_id").references(() => classes.id).notNull(),
+  memberId: integer("member_id").references(() => members.id).notNull(),
+  position: integer("position").notNull(),
+  status: text("status", {
+    enum: ["waiting", "notified", "expired"]
+  }).notNull().default("waiting"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    classWaitlistIdx: uniqueIndex("class_waitlist_idx").on(table.classId, table.memberId),
+    waitlistPositionIdx: uniqueIndex("waitlist_position_idx").on(table.classId, table.position)
+  }
 });
 
 // Add relations
@@ -395,7 +430,12 @@ export const classesRelations = relations(classes, ({ one, many }) => ({
     fields: [classes.trainerId],
     references: [users.id],
   }),
-  registrations: many(classRegistrations)
+  template: one(classTemplates, {
+    fields: [classes.templateId],
+    references: [classTemplates.id],
+  }),
+  registrations: many(classRegistrations),
+  waitlist: many(classWaitlist)
 }));
 
 export const classRegistrationsRelations = relations(classRegistrations, ({ one }) => ({
@@ -702,7 +742,7 @@ export const strengthMetrics = pgTable("strength_metrics", {
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 }, (table) => {
-  return {
+    return {
     progressExerciseIdx: uniqueIndex("progress_exercise_idx").on(table.progressId, table.exerciseId),
     strengthMetricsDateIdx: uniqueIndex("strength_metrics_date_idx").on(table.createdAt)
   }
@@ -757,3 +797,44 @@ export const insertStrengthMetricSchema = createInsertSchema(strengthMetrics)
 export type Progress = typeof progress.$inferSelect;
 export type InsertProgress = z.infer<typeof insertProgressSchema>;export type StrengthMetric = typeof strengthMetrics.$inferSelect;
 export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
+
+export const classTemplatesRelations = relations(classTemplates, ({ one, many }) => ({
+  trainer: one(users, {
+    fields: [classTemplates.trainerId],
+    references: [users.id],
+  }),
+  classes: many(classes)
+}));
+
+export const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
+  class: one(classes, {
+    fields: [classWaitlist.classId],
+    references: [classes.id],
+  }),
+  member: one(members, {
+    fields: [classWaitlist.memberId],
+    references: [members.id],
+  })
+}));
+
+// Add insert schemas
+export const insertClassTemplateSchema = createInsertSchema(classTemplates)
+  .extend({
+    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
+    duration: z.number().min(15, "Class must be at least 15 minutes").max(180, "Class cannot exceed 3 hours"),
+    capacity: z.number().min(1, "Class must have at least 1 spot"),
+    dayOfWeek: z.number().min(0, "Invalid day").max(6, "Invalid day")
+  })
+  .omit({ createdAt: true });
+
+export const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
+  .extend({
+    position: z.number().min(1, "Position must be positive")
+  })
+  .omit({ createdAt: true });
+
+// Add types
+export type ClassTemplate = typeof classTemplates.$inferSelect;
+export type InsertClassTemplate = z.infer<typeof insertClassTemplateSchema>;
+export type ClassWaitlist = typeof classWaitlist.$inferSelect;
+export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
