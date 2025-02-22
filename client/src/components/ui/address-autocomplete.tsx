@@ -12,8 +12,7 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
-import { Button } from "./button";
+import { Check, Loader2 } from "lucide-react";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -68,6 +67,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const handleSearch = async (input: string) => {
     if (!input) {
       console.log("No input provided for search");
+      setSuggestions([]);
       return;
     }
 
@@ -102,6 +102,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       });
 
       setSuggestions(results);
+      setOpen(true);
     } catch (error) {
       console.error("Error in handleSearch:", error);
       setSuggestions([]);
@@ -166,41 +167,26 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            "w-full justify-between h-9 font-normal",
-            !value && "text-muted-foreground",
-            className
+        <div className="relative w-full">
+          <Input
+            className={cn("pr-8", className)}
+            value={value}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setValue(newValue);
+              handleSearch(newValue);
+            }}
+            disabled={!isScriptLoaded}
+            placeholder="Enter address..."
+            {...props}
+          />
+          {isLoading && (
+            <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
           )}
-          disabled={isLoading || !isScriptLoaded}
-        >
-          {value || "Enter address..."}
-          {isLoading ? (
-            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-          ) : (
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          )}
-        </Button>
+        </div>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
-          <CommandGroup>
-            <Input
-              placeholder="Search address..."
-              className="h-9"
-              value={value}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                setValue(newValue);
-                handleSearch(newValue);
-              }}
-              disabled={!isScriptLoaded}
-              {...props}
-            />
-          </CommandGroup>
           {!isScriptLoaded ? (
             <CommandEmpty>Loading address service...</CommandEmpty>
           ) : suggestions.length === 0 ? (
