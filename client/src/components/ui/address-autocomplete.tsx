@@ -35,6 +35,7 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   const autocompleteService = useRef<any>(null);
   const placesService = useRef<any>(null);
@@ -44,16 +45,35 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
     try {
       setStatus('loading');
       setErrorMessage('');
+      setDebugInfo('Starting Places API initialization...');
 
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey) {
         throw new Error('Google Places API key is missing');
       }
+      setDebugInfo(prev => `${prev}\nAPI Key found`);
 
       // Clean up any existing scripts
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
         existingScript.remove();
+        setDebugInfo(prev => `${prev}\nRemoved existing Google Maps script`);
+      }
+
+      // Test API key before loading script
+      try {
+        const testResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=test&key=${apiKey}`
+        );
+        const testData = await testResponse.json();
+        setDebugInfo(prev => `${prev}\nAPI Key test response: ${testData.status}`);
+
+        if (testData.error_message) {
+          throw new Error(`API Key test failed: ${testData.error_message}`);
+        }
+      } catch (error) {
+        setDebugInfo(prev => `${prev}\nAPI Key test failed: ${error.message}`);
+        throw new Error(`API Key validation failed: ${error.message}`);
       }
 
       // Load the Places API script
@@ -62,26 +82,39 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
         script.async = true;
         script.defer = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load Google Places API'));
+        script.onload = () => {
+          setDebugInfo(prev => `${prev}\nGoogle Maps script loaded successfully`);
+          resolve();
+        };
+        script.onerror = (error) => {
+          setDebugInfo(prev => `${prev}\nFailed to load Google Maps script: ${error}`);
+          reject(new Error('Failed to load Google Places API'));
+        };
         document.head.appendChild(script);
       });
 
       // Initialize services
       if (!window.google?.maps?.places) {
-        throw new Error('Google Places API not available');
+        throw new Error('Google Places API not available after script load');
       }
 
-      autocompleteService.current = new window.google.maps.places.AutocompleteService();
-      placesService.current = new window.google.maps.places.PlacesService(
-        document.createElement('div')
-      );
+      try {
+        autocompleteService.current = new window.google.maps.places.AutocompleteService();
+        placesService.current = new window.google.maps.places.PlacesService(
+          document.createElement('div')
+        );
+        setDebugInfo(prev => `${prev}\nServices initialized successfully`);
+      } catch (error) {
+        setDebugInfo(prev => `${prev}\nFailed to initialize services: ${error.message}`);
+        throw new Error(`Failed to initialize Places services: ${error.message}`);
+      }
 
       setStatus('ready');
     } catch (error) {
       console.error('Places API initialization error:', error);
       setStatus('error');
       setErrorMessage(error.message || 'Failed to initialize address service');
+      setDebugInfo(prev => `${prev}\nFinal error: ${error.message}`);
 
       // Retry after 3 seconds
       retryTimeoutRef.current = setTimeout(() => {
@@ -112,6 +145,7 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
             types: ['address']
           },
           (results: any[] | null, status: string) => {
+            setDebugInfo(prev => `${prev}\nPredictions status: ${status}`);
             if (status === 'OK' && results) {
               resolve(results);
             } else if (status === 'ZERO_RESULTS') {
@@ -127,6 +161,7 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
     } catch (error) {
       console.error('Error getting predictions:', error);
       setErrorMessage('Failed to get address suggestions');
+      setDebugInfo(prev => `${prev}\nPrediction error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -177,6 +212,7 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
     } catch (error) {
       console.error('Error getting place details:', error);
       setErrorMessage('Failed to get address details');
+      setDebugInfo(prev => `${prev}\nAddress details error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -204,6 +240,9 @@ export const AddressAutocomplete = ({ onAddressSelect, className, ...props }: Ad
           <AlertTitle>Address Service Error</AlertTitle>
           <AlertDescription className="flex flex-col space-y-2">
             <span>{errorMessage}</span>
+            <div className="text-xs mt-2 p-2 bg-muted rounded">
+              <pre className="whitespace-pre-wrap">{debugInfo}</pre>
+            </div>
             <Button
               variant="outline"
               onClick={() => initializePlacesAPI()}
