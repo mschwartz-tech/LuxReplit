@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Payment } from "@shared/schema";
+import { Link } from "wouter";
 import {
   Card,
   CardContent,
@@ -9,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 
 export default function BillingPage() {
   const { user } = useAuth();
@@ -35,6 +36,11 @@ export default function BillingPage() {
   return (
     <div className="container max-w-4xl mx-auto p-8">
       <div className="mb-8">
+        <Link href="/dashboard">
+          <Button variant="ghost" size="icon" className="h-8 w-8 mb-4">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
         <h1 className="text-3xl font-bold tracking-tight">Billing Management</h1>
         <p className="text-muted-foreground">View and manage payments</p>
       </div>
