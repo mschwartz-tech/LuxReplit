@@ -36,7 +36,7 @@ export default function BillingPage() {
   return (
     <div className="container max-w-4xl mx-auto p-8">
       <div className="mb-8">
-        <Link href="/dashboard">
+        <Link href="/">
           <Button variant="ghost" size="icon" className="h-8 w-8 mb-4">
             <ArrowLeft className="h-4 w-4" />
           </Button>
