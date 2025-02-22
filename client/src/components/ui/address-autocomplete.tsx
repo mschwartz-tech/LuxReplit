@@ -128,6 +128,8 @@ export const AddressAutocomplete = forwardRef<
     // Cleanup
     return () => {
       removeExistingScript();
+      // @ts-ignore - Clean up the global callback
+      delete window.initGoogleMaps;
     };
   }, [retryCount]);
 
@@ -309,3 +311,10 @@ export const AddressAutocomplete = forwardRef<
 });
 
 AddressAutocomplete.displayName = "AddressAutocomplete";
+
+declare global {
+  interface Window {
+    google?: any;
+    initGoogleMaps?: () => void;
+  }
+}
