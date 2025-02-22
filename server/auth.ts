@@ -168,21 +168,20 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  // Simplified logout endpoint
+  app.post("/api/logout", (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(200).end();
+    }
+
     const userId = req.user?.id;
-    req.logout((err) => {
-      if (err) {
-        logError('Logout error:', { error: err });
-        return next(err);
-      }
-      req.session.destroy((err) => {
-        if (err) {
-          logError('Session destruction error:', { error: err });
-          return next(err);
-        }
+    logInfo('Logging out user:', { userId });
+
+    req.logout(() => {
+      req.session.destroy(() => {
         res.clearCookie('sid');
-        logInfo('User logged out successfully:', { userId });
-        res.sendStatus(200);
+        logInfo('User logged out and session destroyed:', { userId });
+        res.status(200).end();
       });
     });
   });

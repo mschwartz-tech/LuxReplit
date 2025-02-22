@@ -104,14 +104,9 @@ export function SidebarNav() {
     );
   }
 
-  const handleLogout = async () => {
-    try {
-      await logoutMutation.mutateAsync();
-      // Force a full page reload to ensure clean state
-      window.location.href = '/auth';
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+  // Simple logout handler
+  const handleLogout = () => {
+    logoutMutation.mutate();
   };
 
   return (
