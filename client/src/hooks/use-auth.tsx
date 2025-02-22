@@ -47,9 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     onSuccess: (user: SelectUser) => {
-      // First update the cache
       queryClient.setQueryData(["/api/user"], user);
-      // Then invalidate to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (error: Error) => {
