@@ -20,6 +20,7 @@ type AuthContextType = {
 type LoginData = Pick<InsertUser, "username" | "password">;
 
 export const AuthContext = createContext<AuthContextType | null>(null);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const {
@@ -90,24 +91,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       try {
+        // First, invalidate and remove all queries to prevent stale data
+        queryClient.removeQueries();
+
         const res = await apiRequest("POST", "/api/logout");
         if (!res.ok) {
           throw new Error("Logout failed. Please try again.");
         }
-        // Wait for the server response before proceeding
+
+        // Ensure we wait for the server response
         await res.text();
+
+        // Clear all queries and cache after successful logout
+        queryClient.clear();
+
+        // Reset the user query explicitly
+        queryClient.setQueryData(["/api/user"], null);
+
+        // Remove all query subscriptions
+        queryClient.resetQueries();
+
+        // Reset the entire query cache
+        await queryClient.invalidateQueries();
+
       } catch (error) {
         console.error("Logout error:", error);
         throw error;
       }
-    },
-    onSuccess: () => {
-      // Clear all query caches to prevent stale data
-      queryClient.clear();
-      // Explicitly set user data to null
-      queryClient.setQueryData(["/api/user"], null);
-      // Reset all queries to their initial state
-      queryClient.resetQueries();
     },
     onError: (error: Error) => {
       console.error("Logout mutation error:", error);
