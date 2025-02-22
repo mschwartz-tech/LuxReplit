@@ -26,15 +26,15 @@ export default function ClientsPage() {
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
 
   const { data: clients, isLoading } = useQuery<Member[]>({
-    queryKey: [isAdmin ? "/api/members" : `/api/members/trainer/${user?.id}`],
+    queryKey: ["/api/members"],
     enabled: !!user && (isAdmin || isTrainer),
   });
 
   const filteredClients = clients?.filter(client =>
-    (statusFilter === "all" || client.status === statusFilter) &&
+    (statusFilter === "all" || client.membershipStatus === statusFilter) &&
     (searchQuery === "" || `Client #${client.id}`.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -108,8 +108,8 @@ export default function ClientsPage() {
               <DropdownMenuItem onClick={() => setStatusFilter("active")}>
                 Active Clients
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatusFilter("inactive")}>
-                Inactive Clients
+              <DropdownMenuItem onClick={() => setStatusFilter("suspended")}>
+                Suspended Clients
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -127,8 +127,8 @@ export default function ClientsPage() {
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg">Client #{client.id}</CardTitle>
                   <CardDescription>
-                    Status: <span className={`font-medium ${client.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>
-                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                    Status: <span className={`font-medium ${client.membershipStatus === 'active' ? 'text-green-500' : 'text-red-500'}`}>
+                      {client.membershipStatus.charAt(0).toUpperCase() + client.membershipStatus.slice(1)}
                     </span>
                   </CardDescription>
                 </CardHeader>
@@ -137,7 +137,7 @@ export default function ClientsPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Member since:</span>
                       <span className="text-sm font-medium">
-                        {new Date(client.joinDate).toLocaleDateString()}
+                        {new Date(client.createdAt).toLocaleDateString()}
                       </span>
                     </div>
 
