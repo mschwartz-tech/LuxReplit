@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import {
+  insertUserSchema,
   insertMemberSchema,
   insertMemberProfileSchema,
   insertMemberAssessmentSchema,
@@ -10,19 +11,18 @@ import {
   insertMarketingCampaignSchema,
   insertPricingPlanSchema,
   insertGymMembershipPricingSchema,
-  insertPaymentSchema,
+  insertExerciseSchema,
+  insertMuscleGroupSchema,
   insertMealPlanSchema,
   insertMemberMealPlanSchema,
   insertProgressSchema,
   insertStrengthMetricSchema,
-  insertUserSchema,
   insertWorkoutPlanSchema,
   insertWorkoutLogSchema,
   insertScheduleSchema,
   insertInvoiceSchema,
-  exercisesSchema as insertExerciseSchema,
-  muscleGroupSchema as insertMuscleGroupSchema
-} from "@shared/schema";
+  insertPaymentSchema
+} from "../shared/schema";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
 import { errorHandler } from "./middleware/error";

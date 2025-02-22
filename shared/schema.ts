@@ -7,10 +7,8 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Import payments table and types only
-import { payments } from './payments';
-export type { Payment, InsertPayment } from './payments';
-export type { Subscription, InsertSubscription } from './subscriptions';
+// Import payments table and types
+import { payments, insertPaymentSchema } from './payments';
 
 // =====================
 // Table Definitions
@@ -803,7 +801,7 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
   });
 
 const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
-.extend({
+  .extend({
     memberId: z.string().transform(val=> parseInt(val)),
     trainerId: z.string().transform(val => parseInt(val)).optional(),
     assessmentDate: z.coerce.date(),
@@ -1130,7 +1128,8 @@ export {
   insertClassSchema,
   insertClassTemplateSchema,
   insertClassRegistrationSchema,
-  insertClassWaitlistSchema
+  insertClassWaitlistSchema,
+  insertPaymentSchema
 };
 
 // Types export
