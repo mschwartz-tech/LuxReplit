@@ -13,6 +13,7 @@ import {
 } from "./popover";
 import { cn } from "@/lib/utils";
 import { Check, Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -24,18 +25,32 @@ interface AddressAutocompleteProps
   }) => void;
 }
 
+interface GoogleWindow extends Window {
+  google: typeof google;
+}
+
+declare const window: GoogleWindow;
+
 export function AddressAutocomplete({ onAddressSelect, className, ...props }: AddressAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
 
   useEffect(() => {
     const loadGoogleMapsScript = () => {
-      console.log("Starting to load Google Maps script");
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-      console.log("API Key available:", !!apiKey);
+      if (!apiKey) {
+        console.error("Google Places API key is missing");
+        return;
+      }
+
+      if (window.google?.maps?.places) {
+        setIsScriptLoaded(true);
+        return;
+      }
 
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
@@ -43,45 +58,36 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       script.defer = true;
 
       script.onload = () => {
-        console.log("Google Maps script loaded successfully");
         setIsScriptLoaded(true);
+        // Initialize PlacesService with a dummy div
+        const dummyElement = document.createElement('div');
+        setPlacesService(new google.maps.places.PlacesService(dummyElement));
       };
 
       script.onerror = (error) => {
         console.error("Error loading Google Maps script:", error);
       };
 
-      // Remove any existing scripts
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existingScript) {
-        console.log("Removing existing Google Maps script");
-        existingScript.remove();
-      }
-
       document.head.appendChild(script);
+
+      return () => {
+        script.remove();
+      };
     };
 
     loadGoogleMapsScript();
   }, []);
 
   const handleSearch = async (input: string) => {
-    if (!input) {
-      console.log("No input provided for search");
+    if (!input || !window.google?.maps?.places) {
       setSuggestions([]);
       return;
     }
 
-    if (!window.google?.maps?.places) {
-      console.error("Google Places API not available");
-      return;
-    }
-
     try {
-      console.log("Starting address search for:", input);
       setIsLoading(true);
-
       const autocompleteService = new google.maps.places.AutocompleteService();
-      const results = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
+      const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
         autocompleteService.getPlacePredictions(
           {
             input,
@@ -89,19 +95,16 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
             types: ['address']
           },
           (predictions, status) => {
-            console.log("Autocomplete service response status:", status);
             if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              console.log("Received predictions:", predictions.length);
               resolve(predictions);
             } else {
-              console.log("No predictions found or error:", status);
               resolve([]);
             }
           }
         );
       });
 
-      setSuggestions(results);
+      setSuggestions(response);
       setOpen(true);
     } catch (error) {
       console.error("Error in handleSearch:", error);
@@ -112,31 +115,36 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   };
 
   const handleAddressSelect = async (placeId: string, description: string) => {
-    if (!window.google?.maps) {
-      console.error("Google Maps API not available for geocoding");
+    if (!window.google?.maps || !placesService) {
+      console.error("Google Maps API or Places service not available");
       return;
     }
 
-    console.log("Selected place ID:", placeId);
     setValue(description);
     setOpen(false);
 
     try {
       setIsLoading(true);
-      const geocoder = new google.maps.Geocoder();
-      const result = await new Promise<google.maps.GeocoderResult>((resolve, reject) => {
-        geocoder.geocode({ placeId }, (results, status) => {
-          console.log("Geocoder response status:", status);
-          if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
-            resolve(results[0]);
-          } else {
-            reject(new Error('Failed to get address details'));
+      const result = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
+        placesService.getDetails(
+          {
+            placeId: placeId,
+            fields: ['address_components', 'formatted_address']
+          },
+          (place, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+              resolve(place);
+            } else {
+              reject(new Error('Failed to get address details'));
+            }
           }
-        });
+        );
       });
 
-      console.log("Geocoder result:", result);
-      const addressComponents = result.address_components;
+      if (!result.address_components) {
+        throw new Error('No address components found');
+      }
+
       const addressData = {
         address: result.formatted_address || '',
         city: '',
@@ -144,7 +152,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         zipCode: ''
       };
 
-      for (const component of addressComponents) {
+      result.address_components.forEach(component => {
         const type = component.types[0];
         if (type === 'locality') {
           addressData.city = component.long_name;
@@ -153,12 +161,16 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         } else if (type === 'postal_code') {
           addressData.zipCode = component.long_name;
         }
-      }
+      });
 
-      console.log("Parsed address data:", addressData);
       onAddressSelect(addressData);
     } catch (error) {
       console.error("Error in handleAddressSelect:", error);
+      toast({
+        title: "Error",
+        description: "Failed to get address details. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -217,9 +229,3 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 }
 
 AddressAutocomplete.displayName = "AddressAutocomplete";
-
-declare global {
-  interface Window {
-    google: typeof google;
-  }
-}
