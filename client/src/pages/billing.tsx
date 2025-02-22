@@ -22,7 +22,11 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
 const paymentSchema = z.object({
-  memberId: z.string().transform(val => parseInt(val)).optional(),  // Make memberId optional
+  memberId: z.string().optional().transform(val => {
+    if (!val || val.trim() === '') return undefined;
+    const parsed = parseInt(val);
+    return isNaN(parsed) ? undefined : parsed;
+  }),
   amount: z.string().transform(val => parseFloat(val)),
   paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"]),
   description: z.string().min(1, "Description is required"),
@@ -42,6 +46,7 @@ export default function BillingPage() {
     defaultValues: {
       paymentMethod: "cash",
       description: "",
+      memberId: "",
     },
   });
 
@@ -162,7 +167,6 @@ export default function BillingPage() {
                             <FormLabel>Member ID (Optional)</FormLabel>
                             <FormControl>
                               <Input 
-                                type="number" 
                                 {...field} 
                                 value={field.value ?? ''} 
                                 placeholder="Leave empty for non-member payment"
