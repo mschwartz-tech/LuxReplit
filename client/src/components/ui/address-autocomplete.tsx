@@ -13,7 +13,7 @@ import {
 } from "./popover";
 import { cn } from "@/lib/utils";
 import { Check, Loader2 } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "./use-toast";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -32,6 +32,7 @@ interface GoogleWindow extends Window {
 declare const window: GoogleWindow;
 
 export function AddressAutocomplete({ onAddressSelect, className, ...props }: AddressAutocompleteProps) {
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
@@ -66,6 +67,11 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
       script.onerror = (error) => {
         console.error("Error loading Google Maps script:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load Google Maps. Please try again later.",
+          variant: "destructive"
+        });
       };
 
       document.head.appendChild(script);
@@ -76,7 +82,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
     };
 
     loadGoogleMapsScript();
-  }, []);
+  }, [toast]);
 
   const handleSearch = async (input: string) => {
     if (!input || !window.google?.maps?.places) {
