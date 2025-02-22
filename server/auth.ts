@@ -173,7 +173,10 @@ export function setupAuth(app: Express) {
     req.logout((err) => {
       if (err) return next(err);
       req.session.destroy((err) => {
-        if (err) return next(err);
+        if (err) {
+          logError('Session destruction error:', { error: err });
+          return next(err);
+        }
         res.clearCookie('sid');
         logInfo('User logged out successfully:', { userId });
         res.sendStatus(200);
