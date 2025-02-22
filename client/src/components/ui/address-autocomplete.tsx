@@ -13,8 +13,9 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "./button";
+import { Alert, AlertDescription } from "./alert";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -37,6 +38,13 @@ interface PlaceResult {
   formatted_address?: string;
 }
 
+interface ServiceStatus {
+  scriptLoaded: boolean;
+  servicesInitialized: boolean;
+  error: string | null;
+  apiKeyPresent: boolean;
+}
+
 export const AddressAutocomplete = forwardRef<
   HTMLInputElement,
   AddressAutocompleteProps
@@ -50,18 +58,31 @@ export const AddressAutocomplete = forwardRef<
   }>>([]);
   const [autocompleteService, setAutocompleteService] = useState<any>(null);
   const [placesService, setPlacesService] = useState<any>(null);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus>({
+    scriptLoaded: false,
+    servicesInitialized: false,
+    error: null,
+    apiKeyPresent: false
+  });
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
   const loadGoogleMapsScript = useCallback(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
-    console.log("Attempting to load Google Maps with key present:", !!apiKey);
+    console.log("AddressAutocomplete: Attempting to load Google Maps");
+
+    setServiceStatus(prev => ({
+      ...prev,
+      apiKeyPresent: !!apiKey
+    }));
 
     if (!apiKey) {
-      console.error("Google Places API key is missing");
-      setError("API configuration error");
+      const error = "Google Places API key is missing";
+      console.error(error);
+      setServiceStatus(prev => ({
+        ...prev,
+        error
+      }));
       return;
     }
 
@@ -73,7 +94,11 @@ export const AddressAutocomplete = forwardRef<
 
     // Define callback before creating script
     window.initGoogleMaps = () => {
-      console.log("Google Maps callback initiated");
+      console.log("AddressAutocomplete: Google Maps callback initiated");
+      setServiceStatus(prev => ({
+        ...prev,
+        scriptLoaded: true
+      }));
       initializeServices();
     };
 
@@ -82,9 +107,15 @@ export const AddressAutocomplete = forwardRef<
     script.async = true;
     script.defer = true;
 
-    script.onerror = () => {
-      console.error("Failed to load Google Places script");
-      setError("Failed to load address service");
+    script.onerror = (error) => {
+      console.error("AddressAutocomplete: Failed to load Google Places script", error);
+      const errorMessage = "Failed to load address service";
+      setServiceStatus(prev => ({
+        ...prev,
+        error: errorMessage,
+        scriptLoaded: false
+      }));
+
       if (retryCount < MAX_RETRIES) {
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
@@ -94,11 +125,13 @@ export const AddressAutocomplete = forwardRef<
     };
 
     document.body.appendChild(script);
-    console.log("Google Maps script appended to document");
+    console.log("AddressAutocomplete: Google Maps script appended to document");
   }, [retryCount]);
 
   const initializeServices = useCallback(() => {
     try {
+      console.log("AddressAutocomplete: Initializing services");
+
       if (!window.google?.maps?.places) {
         throw new Error("Google Maps places library not available");
       }
@@ -110,20 +143,33 @@ export const AddressAutocomplete = forwardRef<
 
       setAutocompleteService(autoService);
       setPlacesService(placeService);
-      setError(null);
-      setScriptLoaded(true);
-      console.log("Google Places services initialized successfully");
+      setServiceStatus(prev => ({
+        ...prev,
+        error: null,
+        servicesInitialized: true
+      }));
+
+      console.log("AddressAutocomplete: Services initialized successfully");
     } catch (err) {
-      console.error("Error initializing services:", err);
-      setError("Failed to initialize address service");
-      setScriptLoaded(false);
+      console.error("AddressAutocomplete: Error initializing services:", err);
+      setServiceStatus(prev => ({
+        ...prev,
+        error: "Failed to initialize address service",
+        servicesInitialized: false
+      }));
     }
   }, []);
 
   useEffect(() => {
+    console.log("AddressAutocomplete: Component mounted");
+
     // Check if script is already loaded
     if (window.google?.maps?.places) {
-      console.log("Google Maps already loaded, initializing services");
+      console.log("AddressAutocomplete: Google Maps already loaded");
+      setServiceStatus(prev => ({
+        ...prev,
+        scriptLoaded: true
+      }));
       initializeServices();
       return;
     }
@@ -131,7 +177,7 @@ export const AddressAutocomplete = forwardRef<
     loadGoogleMapsScript();
 
     return () => {
-      // Cleanup
+      console.log("AddressAutocomplete: Component cleanup");
       delete window.initGoogleMaps;
       const script = document.querySelector('script[src*="maps.googleapis.com"]');
       if (script && script.parentNode) {
@@ -144,7 +190,7 @@ export const AddressAutocomplete = forwardRef<
     if (!input || !autocompleteService) return;
 
     setIsLoading(true);
-    setError(null);
+    console.log("AddressAutocomplete: Fetching predictions for:", input);
 
     try {
       autocompleteService.getPlacePredictions(
@@ -155,30 +201,38 @@ export const AddressAutocomplete = forwardRef<
         },
         (predictions: Array<{ description: string; place_id: string }> | null, status: string) => {
           if (status === "OK" && predictions) {
+            console.log("AddressAutocomplete: Predictions received:", predictions.length);
             setSuggestions(predictions);
           } else {
-            console.error("Prediction error:", status);
+            console.error("AddressAutocomplete: Prediction error:", status);
             setSuggestions([]);
             if (status !== "ZERO_RESULTS") {
-              setError("Failed to get address suggestions");
+              setServiceStatus(prev => ({
+                ...prev,
+                error: "Failed to get address suggestions"
+              }));
             }
           }
           setIsLoading(false);
         }
       );
     } catch (error) {
-      console.error("Error fetching address suggestions:", error);
-      setError("Failed to get address suggestions");
+      console.error("AddressAutocomplete: Error fetching suggestions:", error);
+      setServiceStatus(prev => ({
+        ...prev,
+        error: "Failed to get address suggestions"
+      }));
       setIsLoading(false);
     }
   };
 
   const handleAddressSelect = (placeId: string, description: string) => {
     if (!placesService) {
-      console.error("Places service not initialized");
+      console.error("AddressAutocomplete: Places service not initialized");
       return;
     }
 
+    console.log("AddressAutocomplete: Fetching details for place:", placeId);
     setValue(description);
     setOpen(false);
 
@@ -189,6 +243,7 @@ export const AddressAutocomplete = forwardRef<
       },
       (place: PlaceResult | null, status: string) => {
         if (status === "OK" && place?.address_components) {
+          console.log("AddressAutocomplete: Place details received");
           const addressData = {
             address: place.formatted_address || "",
             city: "",
@@ -208,18 +263,49 @@ export const AddressAutocomplete = forwardRef<
 
           onAddressSelect(addressData);
         } else {
-          console.error("Error getting place details:", status);
-          setError("Failed to get address details");
+          console.error("AddressAutocomplete: Error getting place details:", status);
+          setServiceStatus(prev => ({
+            ...prev,
+            error: "Failed to get address details"
+          }));
         }
       }
     );
   };
 
   const handleRetry = () => {
+    console.log("AddressAutocomplete: Retrying service initialization");
     setRetryCount(0);
-    setError(null);
-    setScriptLoaded(false);
+    setServiceStatus({
+      scriptLoaded: false,
+      servicesInitialized: false,
+      error: null,
+      apiKeyPresent: false
+    });
+    loadGoogleMapsScript();
   };
+
+  // Display service status for debugging
+  if (serviceStatus.error) {
+    return (
+      <div className="space-y-2">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {serviceStatus.error}
+            {serviceStatus.apiKeyPresent ? "" : " (API Key missing)"}
+          </AlertDescription>
+        </Alert>
+        <Button
+          variant="outline"
+          onClick={handleRetry}
+          className="w-full"
+        >
+          Retry Loading Address Service
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -232,31 +318,13 @@ export const AddressAutocomplete = forwardRef<
             "w-full justify-between h-9 font-normal",
             !value && "text-muted-foreground"
           )}
-          disabled={!scriptLoaded || !!error}
+          disabled={!serviceStatus.servicesInitialized}
         >
-          {error ? (
-            <div className="flex items-center justify-between w-full">
-              <span className="text-destructive">{error}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRetry();
-                }}
-              >
-                Retry
-              </Button>
-            </div>
+          {value || "Enter address..."}
+          {isLoading ? (
+            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
           ) : (
-            <>
-              {value || "Enter address..."}
-              {isLoading ? (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              )}
-            </>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           )}
         </Button>
       </PopoverTrigger>
@@ -271,7 +339,7 @@ export const AddressAutocomplete = forwardRef<
             }}
           />
           <CommandEmpty>
-            {error ? error : "No address found."}
+            {serviceStatus.error ? serviceStatus.error : "No address found."}
           </CommandEmpty>
           <CommandGroup>
             {suggestions.map((suggestion) => (
