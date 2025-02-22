@@ -21,11 +21,24 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
+// Enhanced payment schema with better validation
 const paymentSchema = z.object({
-  memberId: z.string().optional().nullable(), // Allow null for better handling of undefined
-  amount: z.string().transform(val => parseFloat(val)),
-  paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"]),
-  description: z.string().min(1, "Description is required"),
+  memberId: z.string().optional()
+    .transform(val => val === '' ? undefined : val)
+    .refine(val => !val || /^\d+$/.test(val), {
+      message: "Member ID must be a valid number",
+    })
+    .transform(val => val ? parseInt(val) : undefined),
+  amount: z.string()
+    .min(1, "Amount is required")
+    .refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+      message: "Amount must be a positive number",
+    })
+    .transform(val => parseFloat(val)),
+  paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"], {
+    required_error: "Payment method is required",
+  }),
+  description: z.string().min(1, "Description is required").max(255, "Description is too long"),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
@@ -42,7 +55,8 @@ export default function BillingPage() {
     defaultValues: {
       paymentMethod: "cash",
       description: "",
-      memberId: null, // Default to null instead of undefined
+      amount: "",
+      memberId: undefined,
     },
   });
 
@@ -53,20 +67,20 @@ export default function BillingPage() {
 
   const createPayment = useMutation({
     mutationFn: async (data: PaymentFormValues) => {
-      try {
-        const response = await fetch("/api/payments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...data,
-            memberId: data.memberId === null ? undefined : parseInt(data.memberId), //Explicitly handle null
-            status: "completed"
-          }),
-        });
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          status: "completed"
+        }),
+      });
 
-        const contentType = response.headers.get("content-type"); // Moved here for consistency
-        if (!response.ok) {
-          let errorMessage = "Failed to create payment";
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type");
+        let errorMessage = "Failed to create payment";
+
+        try {
           if (contentType?.includes("application/json")) {
             const errorData = await response.json();
             errorMessage = errorData.message || errorMessage;
@@ -76,14 +90,15 @@ export default function BillingPage() {
               ? "Server error occurred. Please try again."
               : errorText;
           }
-          throw new Error(errorMessage);
+        } catch (parseError) {
+          console.error("Error parsing response:", parseError);
+          errorMessage = "An unexpected error occurred while processing the response";
         }
 
-        return await response.json();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "An unexpected error occurred";
-        throw new Error(message);
+        throw new Error(errorMessage);
       }
+
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
@@ -91,20 +106,24 @@ export default function BillingPage() {
       form.reset();
       toast({
         title: "Success",
-        description: "The payment has been successfully recorded.",
+        description: "Payment has been successfully recorded.",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create payment. Please try again.",
+        description: error.message || "Failed to create payment. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: PaymentFormValues) => {
-    createPayment.mutate(data);
+  const onSubmit = async (data: PaymentFormValues) => {
+    try {
+      await createPayment.mutateAsync(data);
+    } catch (error) {
+      console.error("Payment submission error:", error);
+    }
   };
 
   if (!isAdmin) {
@@ -161,8 +180,8 @@ export default function BillingPage() {
                             <FormControl>
                               <Input
                                 {...field}
-                                value={field.value === undefined ? '' : field.value} //Handle undefined values in input
-                                onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)} //Handle empty string as null
+                                value={field.value ?? ''}
+                                onChange={(e) => field.onChange(e.target.value)}
                                 placeholder="Leave empty for non-member payment"
                               />
                             </FormControl>
@@ -177,7 +196,13 @@ export default function BillingPage() {
                           <FormItem>
                             <FormLabel>Amount</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} />
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="0.00"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -189,7 +214,7 @@ export default function BillingPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Payment Method</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select payment method" />
@@ -213,13 +238,20 @@ export default function BillingPage() {
                           <FormItem>
                             <FormLabel>Description</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <Input
+                                {...field}
+                                placeholder="Payment description"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full" disabled={createPayment.isPending}>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={createPayment.isPending}
+                      >
                         {createPayment.isPending && (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
