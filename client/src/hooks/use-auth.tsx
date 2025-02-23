@@ -44,12 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      // After successful login, redirect based on user role
-      if (user.role.toLowerCase() === 'admin') {
-        window.location.href = '/dashboard';
-      } else {
-        window.location.href = '/';
-      }
+      // After successful login, redirect to home page for all users
+      window.location.href = '/';
     },
     onError: (error: Error) => {
       toast({
