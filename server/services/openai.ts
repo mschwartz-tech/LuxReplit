@@ -18,6 +18,8 @@ export interface ExerciseAIResponse {
 
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
+    console.log('Generating exercise details for:', exerciseName);
+
     const response = await openai.chat.completions.create({
       model: "gpt-4-0125-preview",
       messages: [
@@ -45,6 +47,7 @@ Available muscle groups:
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
+    console.log('OpenAI response:', result);
 
     // Validate response format
     if (
@@ -58,11 +61,13 @@ Available muscle groups:
       result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 15) ||
       !["beginner", "intermediate", "advanced"].includes(result.difficulty)
     ) {
+      console.error('Invalid AI response format:', result);
       throw new Error("Invalid AI response format");
     }
 
     return result;
   } catch (error) {
+    console.error('Error in generateExerciseDetails:', error);
     logError("Error generating exercise details:", error);
     throw new Error("Failed to generate exercise details");
   }

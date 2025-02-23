@@ -178,18 +178,51 @@ export default function ExerciseLibrary() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Update form with AI predictions
-      form.setValue("description", data.description);
-      form.setValue("difficulty", data.difficulty);
-      form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId);
-      form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds);
+      // Log the received data for debugging
+      console.log('Received AI predictions:', data);
 
-      toast({
-        title: "Success",
-        description: "Exercise details predicted successfully",
-      });
+      try {
+        // Update form with AI predictions with type checks
+        if (typeof data.description === 'string') {
+          form.setValue("description", data.description, { shouldValidate: true });
+        }
+
+        if (typeof data.difficulty === 'string' && 
+            ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
+          form.setValue("difficulty", data.difficulty, { shouldValidate: true });
+        }
+
+        if (typeof data.primaryMuscleGroupId === 'number' && 
+            data.primaryMuscleGroupId >= 1 && 
+            data.primaryMuscleGroupId <= 15) {
+          form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
+        }
+
+        if (Array.isArray(data.secondaryMuscleGroupIds)) {
+          const validSecondaryIds = data.secondaryMuscleGroupIds.filter(
+            id => typeof id === 'number' && id >= 1 && id <= 15
+          );
+          form.setValue("secondaryMuscleGroupIds", validSecondaryIds, { shouldValidate: true });
+        }
+
+        // Force form to update
+        form.trigger();
+
+        toast({
+          title: "Success",
+          description: "Exercise details predicted successfully",
+        });
+      } catch (error) {
+        console.error('Error updating form with AI predictions:', error);
+        toast({
+          title: "Warning",
+          description: "Received predictions but couldn't update all form fields",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
+      console.error('AI prediction error:', error);
       toast({
         title: "Error",
         description: error.message,
