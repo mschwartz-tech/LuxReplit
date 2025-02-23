@@ -1,5 +1,5 @@
 /// <reference types="@types/google.maps" />
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "./input";
 import {
   Command,
@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddressAutocompleteProps
@@ -29,6 +29,7 @@ interface AddressAutocompleteProps
 declare global {
   interface Window {
     google: typeof google;
+    initGoogleMaps?: () => void;
   }
 }
 
@@ -40,59 +41,61 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [isLoading, setIsLoading] = useState(false);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+  const [fallbackMode, setFallbackMode] = useState(false);
 
+  // Initialize Google Maps
   useEffect(() => {
-    const loadGoogleMapsScript = () => {
-      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
-      if (!apiKey) {
-        console.error("Google Places API key is missing");
-        toast({
-          title: "Configuration Error",
-          description: "Google Places API key is not configured. Please contact support.",
-          variant: "destructive"
-        });
-        return;
-      }
+    const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
 
+    if (!apiKey) {
+      console.warn("Google Places API key is missing, falling back to manual input");
+      setFallbackMode(true);
+      return;
+    }
+
+    // Prevent multiple script loads
+    if (document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')) {
       if (window.google?.maps?.places) {
         setIsScriptLoaded(true);
         const dummyElement = document.createElement('div');
         setPlacesService(new window.google.maps.places.PlacesService(dummyElement));
-        return;
       }
+      return;
+    }
 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-
-      script.onload = () => {
-        setIsScriptLoaded(true);
-        const dummyElement = document.createElement('div');
-        setPlacesService(new window.google.maps.places.PlacesService(dummyElement));
-      };
-
-      script.onerror = () => {
-        console.error("Failed to load Google Maps script");
-        toast({
-          title: "Error",
-          description: "Failed to load Google Maps. Please try again later.",
-          variant: "destructive"
-        });
-      };
-
-      document.head.appendChild(script);
-
-      return () => {
-        document.head.removeChild(script);
-      };
+    // Create initialization callback
+    window.initGoogleMaps = () => {
+      setIsScriptLoaded(true);
+      const dummyElement = document.createElement('div');
+      setPlacesService(new window.google.maps.places.PlacesService(dummyElement));
     };
 
-    loadGoogleMapsScript();
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
+    script.async = true;
+    script.defer = true;
+
+    script.onerror = () => {
+      console.warn("Failed to load Google Maps script, falling back to manual input");
+      setFallbackMode(true);
+      toast({
+        title: "Address Lookup Limited",
+        description: "Using manual address input mode. You can still enter your address manually.",
+        variant: "default"
+      });
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      if (window.initGoogleMaps) {
+        delete window.initGoogleMaps;
+      }
+    };
   }, [toast]);
 
-  const handleSearch = async (input: string) => {
-    if (!input || !window.google?.maps?.places) {
+  const handleSearch = useCallback(async (input: string) => {
+    if (!input || !window.google?.maps?.places || fallbackMode) {
       setSuggestions([]);
       return;
     }
@@ -120,21 +123,32 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       setSuggestions(response);
       setOpen(true);
     } catch (error) {
-      console.error("Error in handleSearch:", error);
-      setSuggestions([]);
+      console.warn("Address lookup failed:", error);
+      setFallbackMode(true);
       toast({
-        title: "Error",
-        description: "Failed to search for addresses. Please try again.",
-        variant: "destructive"
+        title: "Address Lookup Failed",
+        description: "Please enter your address manually.",
+        variant: "default"
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fallbackMode, toast]);
 
-  const handleAddressSelect = async (placeId: string, description: string) => {
-    if (!window.google?.maps || !placesService) {
-      console.error("Google Maps API or Places service not available");
+  const handleAddressSelect = useCallback(async (placeId: string, description: string) => {
+    if (fallbackMode || !window.google?.maps || !placesService) {
+      // Handle manual input
+      const [street, city, stateZip] = description.split(',').map(s => s.trim());
+      const [state, zipCode] = stateZip ? stateZip.split(' ').filter(Boolean) : ['', ''];
+
+      onAddressSelect({
+        address: street || description,
+        city: city || '',
+        state: state || '',
+        zipCode: zipCode || ''
+      });
+
+      setOpen(false);
       return;
     }
 
@@ -183,41 +197,44 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
       onAddressSelect(addressData);
     } catch (error) {
-      console.error("Error in handleAddressSelect:", error);
-      toast({
-        title: "Error",
-        description: "Failed to get address details. Please try again.",
-        variant: "destructive"
-      });
+      console.warn("Error getting address details:", error);
+      // Fallback to basic parsing
+      handleAddressSelect(placeId, description);
     } finally {
       setIsLoading(false);
+    }
+  }, [fallbackMode, onAddressSelect, placesService]);
+
+  const handleManualInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    if (!fallbackMode) {
+      handleSearch(newValue);
     }
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open && !fallbackMode} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <div className="relative w-full">
           <Input
             className={cn("pr-8", className)}
             value={value}
-            onChange={(e) => {
-              const newValue = e.target.value;
-              setValue(newValue);
-              handleSearch(newValue);
-            }}
-            disabled={!isScriptLoaded}
-            placeholder="Enter address..."
+            onChange={handleManualInput}
+            disabled={!isScriptLoaded && !fallbackMode}
+            placeholder={fallbackMode ? "Enter full address..." : "Search address..."}
             {...props}
           />
-          {isLoading && (
+          {isLoading ? (
             <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            <MapPin className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
           )}
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0">
         <Command>
-          {!isScriptLoaded ? (
+          {!isScriptLoaded && !fallbackMode ? (
             <CommandEmpty>Loading address service...</CommandEmpty>
           ) : suggestions.length === 0 ? (
             <CommandEmpty>No address found.</CommandEmpty>
