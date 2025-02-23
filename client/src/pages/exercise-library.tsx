@@ -31,16 +31,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Exercise, MuscleGroup, insertExerciseSchema } from "@shared/schema";
-import React from "react";
+import { useState, useEffect, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
 // Debounce utility
 function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = React.useState<T>(value);
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
@@ -59,12 +59,12 @@ export default function ExerciseLibrary() {
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const canEdit = isAdmin || isTrainer;
-  const [isAddExerciseOpen, setIsAddExerciseOpen] = React.useState(false);
+  const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
 
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedDifficulty, setSelectedDifficulty] = React.useState<string | null>(null);
-  const [selectedMuscleGroup, setSelectedMuscleGroup] = React.useState<number | null>(null);
-  const [selectedExercises, setSelectedExercises] = React.useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
+  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
 
   const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
@@ -78,12 +78,30 @@ export default function ExerciseLibrary() {
 
   const createExerciseMutation = useMutation({
     mutationFn: async (data: typeof insertExerciseSchema._type) => {
-      const res = await apiRequest("POST", "/api/exercises", data);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create exercise");
+      try {
+        const formattedData = {
+          ...data,
+          primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
+          secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(Number),
+          instructions: data.instructions || [],
+          tips: data.tips || [],
+          equipment: data.equipment || [],
+        };
+
+        const res = await apiRequest("POST", "/api/exercises", formattedData);
+        const responseData = await res.json();
+
+        if (!res.ok) {
+          throw new Error(responseData.message || "Failed to create exercise");
+        }
+
+        return responseData;
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new Error(error.message);
+        }
+        throw new Error("An unexpected error occurred");
       }
-      return res.json();
     },
     onSuccess: () => {
       toast({
@@ -178,14 +196,14 @@ export default function ExerciseLibrary() {
   const exerciseName = form.watch("name");
   const debouncedExerciseName = useDebounce(exerciseName, 1000); // 1 second delay
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
       generatePatternMutation.mutate(debouncedExerciseName);
       predictMuscleGroupsMutation.mutate(debouncedExerciseName);
     }
   }, [debouncedExerciseName]);
 
-  const filteredExercises = React.useMemo(() => {
+  const filteredExercises = useMemo(() => {
     if (!exercises) return [];
 
     return exercises.filter((exercise: Exercise) => {
