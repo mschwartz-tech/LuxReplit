@@ -7,7 +7,7 @@ import { asyncHandler } from "./middleware/async";
 import { errorHandler } from "./middleware/error";
 import { memberRoutes } from "./routes/member.routes";
 import { workoutRoutes } from "./routes/workout.routes";
-import { mealPlanRoutes } from "./routes/mealPlan.routes";
+import { mealPlanRoutes } from "./routes/mealplan.routes";
 import { strengthMetricRoutes } from "./routes/strengthMetric.routes";
 import { invoiceRoutes } from "./routes/invoice.routes";
 import { paymentRoutes } from "./routes/payment.routes";
