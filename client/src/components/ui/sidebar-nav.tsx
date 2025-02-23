@@ -15,6 +15,7 @@ import {
   Dumbbell,
   UserPlus,
   CreditCard,
+  Utensils, // Added for meal plans icon
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -53,6 +54,12 @@ export function SidebarNav() {
       icon: Dumbbell,
       href: "/exercise-library",
       roles: ["admin", "trainer", "member"],
+    },
+    {
+      title: "Meal Plans",
+      icon: Utensils,
+      href: "/meal-plans",
+      roles: ["admin", "trainer"],
     },
     {
       title: "Schedule",
