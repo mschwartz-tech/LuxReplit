@@ -2,11 +2,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
+import { DashboardLayout } from "@/components/layout";
 
 export function ProtectedRoute({
   component: Component,
+  excludeLayout = false,
 }: {
   component: () => React.JSX.Element;
+  excludeLayout?: boolean;
 }) {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -33,5 +36,8 @@ export function ProtectedRoute({
   }
 
   // Render the protected component
-  return <Component />;
+  const content = <Component />;
+
+  // Wrap with layout unless explicitly excluded
+  return excludeLayout ? content : <DashboardLayout>{content}</DashboardLayout>;
 }
