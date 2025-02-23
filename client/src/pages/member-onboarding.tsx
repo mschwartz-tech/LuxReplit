@@ -938,10 +938,11 @@ export default function MemberOnboardingPage() {
           toast({
             title: "Signature Required",
             description: "Please sign the photo release waiver before proceeding.",
-            variant: "destructive});
+            variant: "destructive"
+          });
           return;
         }
-      } else if (currentStep === 4) {
+      } else if (`currentStep === 4) {
         const finalData = form.getValues();
         await onSubmit(finalData);
         return;
@@ -962,7 +963,7 @@ export default function MemberOnboardingPage() {
         toast({
           title: "Error",
           description: error instanceof Error ? error.message : "An unexpected error occurred",
-          variant: "destructive",
+          variant: "destructive"
         });
       }
     }
