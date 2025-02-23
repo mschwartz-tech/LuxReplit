@@ -37,7 +37,7 @@ export function SidebarNav() {
     {
       title: "Member Management",
       icon: Users,
-      href: "/members", 
+      href: "/gym-members",
       roles: ["admin"],
     },
     {
@@ -75,12 +75,6 @@ export function SidebarNav() {
       icon: Dumbbell,
       href: "/workout-plans",
       roles: ["admin", "trainer", "member"],
-    },
-    {
-      title: "Members",
-      icon: UserPlus,
-      href: "/members",
-      roles: ["admin"],
     },
     {
       title: "Billing",

@@ -11,35 +11,53 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
 }
 
-// Configure pool with proper settings for Neon
+// Configure pool with proper settings for Neon serverless
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  maxUses: 7500,
+  max: 10, // Reduced from 20 to prevent connection exhaustion
+  idleTimeoutMillis: 0, // Disable idle timeout for serverless
+  connectionTimeoutMillis: 5000, // Reduced timeout for faster failures
+  maxUses: 5000, // Reduced from 7500 to prevent connection issues
+  keepAlive: true, // Enable keepalive
+  ssl: {
+    rejectUnauthorized: true, // Ensure SSL verification
+  }
 });
 
 // Add error handling for the pool
 pool.on('error', (err, client) => {
   logError('Unexpected error on idle client', { error: err });
-  process.exit(1); // Exit on critical database errors
+  // Don't exit process, attempt to recover
+  if (client) {
+    client.release(true); // Release with error
+  }
 });
 
-// Initialize database connection
-export async function initializeDatabase() {
-  try {
-    const client = await pool.connect();
+// Initialize database connection with retry mechanism
+export async function initializeDatabase(retries = 5) {
+  for (let i = 0; i < retries; i++) {
     try {
-      logInfo('Testing database connection...');
-      await client.query('SELECT NOW()');
-      logInfo('Database connection successful');
-    } finally {
-      client.release();
+      const client = await pool.connect();
+      try {
+        logInfo('Testing database connection...');
+        await client.query('SELECT NOW()');
+        logInfo('Database connection successful');
+        return;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logError('Database connection attempt failed', { 
+        error, 
+        attempt: i + 1, 
+        remainingAttempts: retries - i - 1 
+      });
+      if (i === retries - 1) {
+        throw error;
+      }
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 10000)));
     }
-  } catch (error) {
-    logError('Failed to initialize database', { error });
-    throw error;
   }
 }
 
