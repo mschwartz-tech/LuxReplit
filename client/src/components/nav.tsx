@@ -45,31 +45,32 @@ export function Navigation() {
             Workout Plans
           </Link>
 
-          {/* Show these links only for trainers and admins */}
-          {user?.role !== 'member' && (
-            <>
-              <Link
-                to="/members"
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                  path === "/members" && "bg-muted text-primary"
-                )}
-              >
-                <Users className="h-4 w-4" />
-                Members
-              </Link>
+          {/* Show members link only for admin users */}
+          {user?.role === 'admin' && (
+            <Link
+              to="/members"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                path === "/members" && "bg-muted text-primary"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              Members
+            </Link>
+          )}
 
-              <Link
-                to="/schedule"
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                  path === "/schedule" && "bg-muted text-primary"
-                )}
-              >
-                <Calendar className="h-4 w-4" />
-                Schedule
-              </Link>
-            </>
+          {/* Show schedule for both admins and trainers */}
+          {(user?.role === 'admin' || user?.role === 'trainer') && (
+            <Link
+              to="/schedule"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                path === "/schedule" && "bg-muted text-primary"
+              )}
+            >
+              <Calendar className="h-4 w-4" />
+              Schedule
+            </Link>
           )}
 
           <Link
