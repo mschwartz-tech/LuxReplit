@@ -64,14 +64,14 @@ export default function ExerciseLibrary() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedDifficulty, setSelectedDifficulty] = React.useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = React.useState<number | null>(null);
+  const [selectedExercises, setSelectedExercises] = React.useState<string[]>([]);
 
-
-  const { data: exercises, isLoading: isLoadingExercises } = useQuery<Exercise[]>({
+  const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
     enabled: !!user,
   });
 
-  const { data: muscleGroups, isLoading: isLoadingMuscleGroups } = useQuery<MuscleGroup[]>({
+  const { data: muscleGroups = [], isLoading: isLoadingMuscleGroups } = useQuery<MuscleGroup[]>({
     queryKey: ["/api/muscle-groups"],
     enabled: !!user,
   });
@@ -110,7 +110,7 @@ export default function ExerciseLibrary() {
         const error = await res.json();
         throw new Error(error.message || "Failed to generate pattern description");
       }
-      return res.json();
+      return res.json() as Promise<{ description: string }>;
     },
     onSuccess: (data) => {
       form.setValue("description", data.description);
@@ -135,11 +135,15 @@ export default function ExerciseLibrary() {
         const error = await res.json();
         throw new Error(error.message || "Failed to predict muscle groups");
       }
-      return res.json();
+      return res.json() as Promise<{
+        primaryMuscleGroupId: string;
+        secondaryMuscleGroupIds: string[];
+        difficulty: "beginner" | "intermediate" | "advanced";
+      }>;
     },
     onSuccess: (data) => {
-      form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId);
-      form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds);
+      form.setValue("primaryMuscleGroupId", parseInt(data.primaryMuscleGroupId));
+      form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds.map(id => parseInt(id)));
       form.setValue("difficulty", data.difficulty);
       toast({
         title: "Success",
@@ -163,9 +167,9 @@ export default function ExerciseLibrary() {
       difficulty: "beginner" as const,
       primaryMuscleGroupId: 0,
       secondaryMuscleGroupIds: [] as number[],
-      instructions: [""],
-      tips: [],
-      equipment: [],
+      instructions: [""] as string[],
+      tips: [] as string[],
+      equipment: [] as string[],
       videoUrl: "",
     },
   });
@@ -184,13 +188,13 @@ export default function ExerciseLibrary() {
   const filteredExercises = React.useMemo(() => {
     if (!exercises) return [];
 
-    return exercises.filter(exercise => {
+    return exercises.filter((exercise: Exercise) => {
       const matchesSearch = exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDifficulty = !selectedDifficulty || exercise.difficulty === selectedDifficulty;
       const matchesMuscleGroup = !selectedMuscleGroup ||
         exercise.primaryMuscleGroupId === selectedMuscleGroup ||
-        exercise.secondaryMuscleGroupIds.includes(selectedMuscleGroup);
+        (exercise.secondaryMuscleGroupIds && exercise.secondaryMuscleGroupIds.includes(selectedMuscleGroup));
 
       return matchesSearch && matchesDifficulty && matchesMuscleGroup;
     });
@@ -310,7 +314,7 @@ export default function ExerciseLibrary() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {muscleGroups?.map((group) => (
+                                {muscleGroups?.map((group: MuscleGroup) => (
                                   <SelectItem key={group.id} value={group.id.toString()}>
                                     {group.name}
                                   </SelectItem>
@@ -328,7 +332,7 @@ export default function ExerciseLibrary() {
                           <FormItem>
                             <FormLabel>Secondary Muscle Groups</FormLabel>
                             <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
-                              {muscleGroups?.map((group) => (
+                              {muscleGroups?.map((group: MuscleGroup) => (
                                 <div key={group.id} className="flex items-center space-x-2">
                                   <input
                                     type="checkbox"
@@ -438,7 +442,7 @@ export default function ExerciseLibrary() {
                   <SelectValue placeholder="Muscle Group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {muscleGroups?.map((group) => (
+                  {muscleGroups?.map((group: MuscleGroup) => (
                     <SelectItem key={group.id} value={group.id.toString()}>
                       {group.name}
                     </SelectItem>
@@ -459,7 +463,7 @@ export default function ExerciseLibrary() {
           <CardContent>
             <ScrollArea className="h-[600px]">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredExercises.map((exercise) => {
+                {filteredExercises.map((exercise: Exercise) => {
                   const muscleGroup = muscleGroups?.find(g => g.id === exercise.primaryMuscleGroupId);
 
                   return (
