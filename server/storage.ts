@@ -986,11 +986,18 @@ export class DatabaseStorage implements IStorage {
 
   async getMealPlan(id: number): Promise<MealPlan | null> {
     try {
-      const results = await db
+      const [result] = await db
         .select()
         .from(mealPlans)
-        .where(eq(mealPlans.id, id));
-      return results[0] || null;
+        .where(eq(mealPlans.id, id))
+        .leftJoin(users, eq(mealPlans.trainerId, users.id));
+
+      if (!result) return null;
+
+      return {
+        ...result.meal_plans,
+        trainerId: result.meal_plans.trainerId,
+      };
     } catch (error) {
       console.error("Error getting meal plan:", error);
       return null;
@@ -999,11 +1006,37 @@ export class DatabaseStorage implements IStorage {
 
   async createMealPlan(data: InsertMealPlan): Promise<MealPlan> {
     try {
-      const results = await db
+      // Ensure macroDistribution is properly formatted
+      const macroDistribution = typeof data.macroDistribution === 'string'
+        ? JSON.parse(data.macroDistribution)
+        : data.macroDistribution || { protein: 30, carbs: 40, fats: 30 };
+
+      // Format meals as JSON if needed
+      const meals = typeof data.meals === 'string' 
+        ? JSON.parse(data.meals) 
+        : data.meals;
+
+      // Convert numeric fields to strings for database
+      const [newPlan] = await db
         .insert(mealPlans)
-        .values(data)
+        .values({
+          ...data,
+          macroDistribution,
+          meals,
+          dietaryPreferences: Array.isArray(data.dietaryPreferences) 
+            ? data.dietaryPreferences 
+            : data.dietaryPreferences 
+              ? [data.dietaryPreferences] 
+              : [],
+          dietaryRestrictions: Array.isArray(data.dietaryRestrictions)
+            ? data.dietaryRestrictions
+            : data.dietaryRestrictions
+              ? [data.dietaryRestrictions]
+              : [],
+        })
         .returning();
-      return results[0];
+
+      return newPlan;
     } catch (error) {
       console.error("Error creating meal plan:", error);
       throw error;
@@ -1015,12 +1048,39 @@ export class DatabaseStorage implements IStorage {
     data: Partial<InsertMealPlan>
   ): Promise<MealPlan> {
     try {
-      const results = await db
+      const updateData: any = { ...data };
+
+      if (data.macroDistribution) {
+        updateData.macroDistribution = typeof data.macroDistribution === 'string'
+          ? JSON.parse(data.macroDistribution)
+          : data.macroDistribution;
+      }
+
+      if (data.meals) {
+        updateData.meals = typeof data.meals === 'string'
+          ? JSON.parse(data.meals)
+          : data.meals;
+      }
+
+      if (data.dietaryPreferences) {
+        updateData.dietaryPreferences = Array.isArray(data.dietaryPreferences)
+          ? data.dietaryPreferences
+          : [data.dietaryPreferences];
+      }
+
+      if (data.dietaryRestrictions) {
+        updateData.dietaryRestrictions = Array.isArray(data.dietaryRestrictions)
+          ? data.dietaryRestrictions
+          : [data.dietaryRestrictions];
+      }
+
+      const [updatedPlan] = await db
         .update(mealPlans)
-        .set(data)
+        .set(updateData)
         .where(eq(mealPlans.id, id))
         .returning();
-      return results[0];
+
+      return updatedPlan;
     } catch (error) {
       console.error("Error updating meal plan:", error);
       throw error;
@@ -1098,7 +1158,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteMemberMealPlan(id: number): Promise<void> {
+async deleteMemberMealPlan(id: number): Promise<void> {
     try {
       await db.delete(memberMealPlans).where(eq(memberMealPlans.id, id));
     } catch (error) {
@@ -1566,6 +1626,8 @@ CREATE TABLE IF NOT EXISTS meal_plans (
   name VARCHAR(255) NOT NULL,
   description TEXT,
   meals JSONB,
+  trainerId INTEGER REFERENCES users(id),
+  macroDistribution JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

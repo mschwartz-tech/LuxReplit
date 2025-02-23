@@ -294,6 +294,16 @@ const mealPlans = pgTable("meal_plans", {
   name: text("name").notNull(),
   description: text("description"),
   meals: jsonb("meals").notNull(),
+  macroDistribution: jsonb("macro_distribution").notNull().default(sql`'{"protein": 30, "carbs": 40, "fats": 30}'::jsonb`),
+  dietaryPreferences: text("dietary_preferences").array(),
+  dietaryRestrictions: text("dietary_restrictions").array(),
+  calorieTarget: integer("calorie_target"),
+  mealsPerDay: integer("meals_per_day"),
+  cookingSkillLevel: text("cooking_skill_level", {
+    enum: ["beginner", "intermediate", "advanced"]
+  }),
+  maxPrepTime: text("max_prep_time"),
+  excludedIngredients: text("excluded_ingredients").array(),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
@@ -795,6 +805,21 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
     meals: z.record(z.unknown()).or(z.string()).transform(val =>
       typeof val === 'string' ? JSON.parse(val) : val
     ),
+    macroDistribution: z.object({
+      protein: z.number().min(0).max(100),
+      carbs: z.number().min(0).max(100),
+      fats: z.number().min(0).max(100),
+    }).refine(data => {
+      const total = data.protein + data.carbs + data.fats;
+      return total === 100;
+    }, "Macro distribution must total 100%"),
+    dietaryPreferences: z.array(z.string()).optional(),
+    dietaryRestrictions: z.array(z.string()).optional(),
+    calorieTarget: z.number().min(500).max(10000).optional(),
+    mealsPerDay: z.number().min(1).max(6).optional(),
+    cookingSkillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+    maxPrepTime: z.string().optional(),
+    excludedIngredients: z.array(z.string()).optional(),
   })
   .omit({
     createdAt: true,
