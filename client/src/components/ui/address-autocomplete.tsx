@@ -49,14 +49,18 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
     try {
       setIsLoading(true);
       setError(null);
+      console.log("Searching for address:", input);
 
       const response = await fetch(`/api/places/search?q=${encodeURIComponent(input)}`);
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
+        console.error("Search failed:", data);
+        throw new Error(data.error || `Search failed: ${response.statusText}`);
       }
 
-      const results = await response.json();
-      setSuggestions(results);
+      console.log("Search results:", data);
+      setSuggestions(data);
       setOpen(true);
     } catch (error) {
       console.error("Address search failed:", error);
@@ -76,14 +80,18 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
     try {
       setIsLoading(true);
       setError(null);
+      console.log("Getting details for place:", placeId);
 
       const response = await fetch(`/api/places/${placeId}/details`);
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(`Failed to get details: ${response.statusText}`);
+        console.error("Details fetch failed:", data);
+        throw new Error(data.error || `Failed to get details: ${response.statusText}`);
       }
 
-      const address = await response.json();
-      onAddressSelect(address);
+      console.log("Place details:", data);
+      onAddressSelect(data);
       setValue(description);
       setOpen(false);
     } catch (error) {
