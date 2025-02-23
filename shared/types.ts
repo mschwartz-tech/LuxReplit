@@ -6,8 +6,8 @@ import {
   strengthMetrics, movementPatterns, trainingPackages,
   trainingClients, memberProfiles, memberAssessments,
   memberProgressPhotos, marketingCampaigns, invoices,
-  scheduledBlocks, classRegistrations, classTemplates,
-  classWaitlist, classes
+  classes, classRegistrations, classTemplates, classWaitlist,
+  subscriptions
 } from './schema';
 
 // Table Types
@@ -33,8 +33,8 @@ export type MemberAssessment = typeof memberAssessments.$inferSelect;
 export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
 export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
-export type ScheduledBlock = typeof scheduledBlocks.$inferSelect;
 export type Class = typeof classes.$inferSelect;
 export type ClassRegistration = typeof classRegistrations.$inferSelect;
 export type ClassTemplate = typeof classTemplates.$inferSelect;
 export type ClassWaitlist = typeof classWaitlist.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;

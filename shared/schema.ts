@@ -1164,7 +1164,12 @@ export {
   insertClassSchema,
   insertClassTemplateSchema,
   insertClassRegistrationSchema,
-  insertClassWaitlistSchema
+  insertClassWaitlistSchema,
+  subscriptions,
+  subscriptionsRelations,
+  type Subscription,
+  type InsertSubscription,
+  insertSubscriptionSchema
 };
 
 // Export tables
