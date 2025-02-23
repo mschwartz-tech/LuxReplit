@@ -133,10 +133,10 @@ export default function ClientProfilePage() {
         <Button
           variant="ghost"
           className="w-fit"
-          onClick={() => setLocation("/clients")}
+          onClick={() => setLocation("/training-clients")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Clients
+          Back to Training Clients
         </Button>
 
         <div className="flex justify-between items-start">
