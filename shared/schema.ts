@@ -7,24 +7,9 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Import from payments and subscriptions modules
-import { 
-  payments, 
-  paymentsRelations,
-  type PaymentMethod,
-  type PaymentStatus,
-  type Payment,
-  type InsertPayment,
-  insertPaymentSchema
-} from './payments';
-
-import { 
-  subscriptions,
-  subscriptionsRelations,
-  type Subscription,
-  type InsertSubscription,
-  insertSubscriptionSchema
-} from './subscriptions';
+// Re-export the payment and subscription types from their respective modules
+export * from './payments';
+export * from './subscriptions';
 
 // Define top-level schemas
 const mealItemSchema = z.object({
@@ -487,7 +472,7 @@ const progress = pgTable("progress", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }).notNull(),
   progressDate: timestamp("progress_date").notNull().defaultNow(),
-  weight:numeric("weight"),
+  weight: numeric("weight"),
   bodyFatPercentage: numeric("body_fat_percentage"),
   measurements: jsonb("measurements").notNull().default(sql`'{}'::jsonb`),
   notes: text("notes"),
@@ -574,69 +559,69 @@ const trainingClientsRelations = relations(trainingClients, ({ one }) => ({
 }));
 
 const memberProfilesRelations = relations(memberProfiles, ({ one }) => ({
-    user: one(users, {
-        fields: [memberProfiles.userId],
-        references: [users.id]
-    })
+  user: one(users, {
+    fields: [memberProfiles.userId],
+    references: [users.id]
+  })
 }));
 
 const memberAssessmentsRelations = relations(memberAssessments, ({ one }) => ({
-    member: one(members, {
-        fields: [memberAssessments.memberId],
-        references: [members.id]
-    }),
-    trainer: one(users, {
-        fields: [memberAssessments.trainerId],
-        references: [users.id]
-    })
+  member: one(members, {
+    fields: [memberAssessments.memberId],
+    references: [members.id]
+  }),
+  trainer: one(users, {
+    fields: [memberAssessments.trainerId],
+    references: [users.id]
+  })
 }));
 
 const memberProgressPhotosRelations = relations(memberProgressPhotos, ({ one }) => ({
-    member: one(members, {
-        fields: [memberProgressPhotos.memberId],
-        references: [members.id]
-    })
+  member: one(members, {
+    fields: [memberProgressPhotos.memberId],
+    references: [members.id]
+  })
 }));
 
 const workoutPlansRelations = relations(workoutPlans, ({ one, many }) => ({
-    trainer: one(users, {
-        fields: [workoutPlans.trainerId],
-        references: [users.id]
-    }),
-    member: one(members, {
-        fields: [workoutPlans.memberId],
-        references: [members.id]
-    }),
-    workoutLogs: many(workoutLogs)
+  trainer: one(users, {
+    fields: [workoutPlans.trainerId],
+    references: [users.id]
+  }),
+  member: one(members, {
+    fields: [workoutPlans.memberId],
+    references: [members.id]
+  }),
+  workoutLogs: many(workoutLogs)
 }));
 
 const workoutLogsRelations = relations(workoutLogs, ({ one }) => ({
-    member: one(members, {
-        fields: [workoutLogs.memberId],
-        references: [members.id]
-    }),
-    workoutPlan: one(workoutPlans, {
-        fields: [workoutLogs.workoutPlanId],
-        references: [workoutPlans.id]
-    })
+  member: one(members, {
+    fields: [workoutLogs.memberId],
+    references: [members.id]
+  }),
+  workoutPlan: one(workoutPlans, {
+    fields: [workoutLogs.workoutPlanId],
+    references: [workoutPlans.id]
+  })
 }));
 
 const schedulesRelations = relations(schedules, ({ one }) => ({
-    trainer: one(users, {
-        fields: [schedules.trainerId],
-        references: [users.id]
-    }),
-    member: one(members, {
-        fields: [schedules.memberId],
-        references: [members.id]
-    })
+  trainer: one(users, {
+    fields: [schedules.trainerId],
+    references: [users.id]
+  }),
+  member: one(members, {
+    fields: [schedules.memberId],
+    references: [members.id]
+  })
 }));
 
 const invoicesRelations = relations(invoices, ({ one }) => ({
-    member: one(members, {
-        fields: [invoices.memberId],
-        references: [members.id]
-    })
+  member: one(members, {
+    fields: [invoices.memberId],
+    references: [members.id]
+  })
 }));
 
 const exercisesRelations = relations(exercises, ({ one, many }) => ({
@@ -650,30 +635,30 @@ const exercisesRelations = relations(exercises, ({ one, many }) => ({
 const pricingPlansRelations = relations(pricingPlans, ({ many }) => ({}));
 
 const gymMembershipPricingRelations = relations(gymMembershipPricing, ({ many }) => ({
-    members: many(members)
+  members: many(members)
 }));
 
 const membershipPricingRelations = relations(membershipPricing, ({ many }) => ({
-    members: many(members)
+  members: many(members)
 }));
 
 const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
-    trainer: one(users, {
-        fields: [mealPlans.trainerId],
-        references: [users.id]
-    }),
-    memberMealPlans: many(memberMealPlans)
+  trainer: one(users, {
+    fields: [mealPlans.trainerId],
+    references: [users.id]
+  }),
+  memberMealPlans: many(memberMealPlans)
 }));
 
 const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => ({
-    member: one(members, {
-        fields: [memberMealPlans.memberId],
-        references: [members.id]
-    }),
-    mealPlan: one(mealPlans, {
-        fields: [memberMealPlans.mealPlanId],
-        references: [mealPlans.id]
-    })
+  member: one(members, {
+    fields: [memberMealPlans.memberId],
+    references: [members.id]
+  }),
+  mealPlan: one(mealPlans, {
+    fields: [memberMealPlans.mealPlanId],
+    references: [mealPlans.id]
+  })
 }));
 
 const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -712,18 +697,18 @@ const classRegistrationsRelations = relations(classRegistrations, ({ one }) => (
 }));
 
 const classTemplatesRelations = relations(classTemplates, ({ many }) => ({
-    classes: many(classes)
+  classes: many(classes)
 }));
 
 const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
-    class: one(classes, {
-        fields: [classWaitlist.classId],
-        references: [classes.id]
-    }),
-    member: one(members, {
-        fields: [classWaitlist.memberId],
-        references: [members.id]
-    })
+  class: one(classes, {
+    fields: [classWaitlist.classId],
+    references: [classes.id]
+  }),
+  member: one(members, {
+    fields: [classWaitlist.memberId],
+    references: [members.id]
+  })
 }));
 
 const progressRelations = relations(progress, ({ one, many }) => ({
@@ -779,7 +764,7 @@ const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing
   });
 
 const insertExerciseSchema = createInsertSchema(exercises)
-    .extend({
+  .extend({
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
     primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
     secondaryMuscleGroupIds: z.array(z.string()).transform(val => val.map(id => parseInt(id))),
@@ -792,9 +777,9 @@ const insertExerciseSchema = createInsertSchema(exercises)
 
 const insertInvoiceSchema = createInsertSchema(invoices)
   .extend({
-    amount: z.number().or(z.string()).transform(val =>      
-      typeof val === 'string'? parseFloat(val) : val
-    ),    
+    amount: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
     memberId: z.string().transform(val => parseInt(val)).optional(),
     status: z.enum(["pending", "paid", "cancelled"]).default("pending"),
     dueDate: z.coerce.date(),
@@ -809,10 +794,11 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
     createdBy: z.string().transform(val => parseInt(val)).optional(),
-    status: z.enum(["draft","active","completed"]).default("draft"),
-    targetAudience:z.enum(["all", "active","inactive"]).default("all"),  })
+    status: z.enum(["draft", "active", "completed"]).default("draft"),
+    targetAudience: z.enum(["all", "active","inactive"]).default("all")
+  })
   .omit({
-    id: true,
+    id: true
   });
 
 const insertMealPlanSchema = createInsertSchema(mealPlans)
@@ -1140,12 +1126,6 @@ export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
 
 // Export types
 export type {
-  PaymentMethod,
-  PaymentStatus,
-  Payment,
-  InsertPayment,
-  Subscription,
-  InsertSubscription,
   MealItem,
   // Base types
   User,
@@ -1174,6 +1154,12 @@ export type {
   ClassRegistration,
   ClassTemplate,
   ClassWaitlist,
+  PaymentMethod,
+  PaymentStatus,
+  Payment,
+  InsertPayment,
+  Subscription,
+  InsertSubscription,
   // Insert types
   InsertUser,
   InsertGymMembershipPricing,
