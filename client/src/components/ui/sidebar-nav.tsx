@@ -7,15 +7,11 @@ import { Logo } from "@/components/ui/logo";
 import {
   Users,
   Calendar,
-  DollarSign,
   BarChart,
   Settings,
   LogOut,
-  FileText,
   Dumbbell,
-  UserPlus,
-  CreditCard,
-  Utensils, // Added for meal plans icon
+  Utensils,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -32,58 +28,28 @@ export function SidebarNav() {
       roles: ["admin", "trainer", "member"],
     },
     {
-      title: "Gym Members",
-      icon: Users,
-      href: "/gym-members",
-      roles: ["admin"],
-    },
-    {
-      title: "Training Clients",
-      icon: UserPlus,
-      href: "/training-clients",
-      roles: ["admin", "trainer"],
-    },
-    {
-      title: "Training Management",
-      icon: Dumbbell,
-      href: "/training-management",
-      roles: ["admin", "trainer"],
-    },
-    {
-      title: "Exercise Library",
-      icon: Dumbbell,
-      href: "/exercise-library",
-      roles: ["admin", "trainer", "member"],
-    },
-    {
       title: "Meal Plans",
       icon: Utensils,
       href: "/meal-plans",
-      roles: ["admin", "trainer"],
+      roles: ["admin", "trainer", "member"],
+    },
+    {
+      title: "Workout Plans",
+      icon: Dumbbell,
+      href: "/workout-plans",
+      roles: ["admin", "trainer", "member"],
+    },
+    {
+      title: "Members",
+      icon: Users,
+      href: "/members",
+      roles: ["admin"],
     },
     {
       title: "Schedule",
       icon: Calendar,
       href: "/schedule",
       roles: ["admin", "trainer", "member"],
-    },
-    {
-      title: "Invoices",
-      icon: FileText,
-      href: "/invoices",
-      roles: ["admin"],
-    },
-    {
-      title: "Pricing",
-      icon: CreditCard,
-      href: "/pricing",
-      roles: ["admin"],
-    },
-    {
-      title: "Billing",
-      icon: DollarSign,
-      href: "/billing",
-      roles: ["admin"],
     },
     {
       title: "Settings",
@@ -111,15 +77,12 @@ export function SidebarNav() {
     );
   }
 
-  // Enhanced logout handler with proper error handling
   const handleLogout = async () => {
     try {
       await logoutMutation.mutateAsync();
-      // Redirect to login page after successful logout
       setLocation('/login');
     } catch (error) {
       console.error('Logout failed:', error);
-      // Error will be handled by the mutation's onError callback in useAuth
     }
   };
 
