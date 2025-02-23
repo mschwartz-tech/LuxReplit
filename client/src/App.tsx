@@ -21,6 +21,7 @@ const PricingPage = lazy(() => import("@/pages/pricing"));
 const MemberProfilePage = lazy(() => import("@/pages/member-profile"));
 const MemberOnboardingPage = lazy(() => import("@/pages/member-onboarding"));
 const BillingPage = lazy(() => import("@/pages/billing"));
+const MealPlansPage = lazy(() => import("@/pages/meal-plans")); // Added MealPlansPage import
 
 function LoadingSpinner() {
   return (
@@ -77,6 +78,9 @@ function Router() {
         </Route>
         <Route path="/billing">
           <ProtectedRoute component={BillingPage} />
+        </Route>
+        <Route path="/meal-plans">
+          <ProtectedRoute component={MealPlansPage} />
         </Route>
         <Route>
           <NotFound />
