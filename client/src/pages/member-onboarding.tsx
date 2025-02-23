@@ -92,7 +92,7 @@ const step1Schema = z.object({
   phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
   address: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
+  state: z.string().min(2, "State is required"),
   zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
   emergencyContactName: z.string().min(1, "Emergency contact name is required"),
   emergencyContactPhone: z.string().min(10, "Emergency contact phone must be at least 10 digits"),
@@ -135,7 +135,6 @@ const onboardingSchema = z.object({
 
 type OnboardingForm = z.infer<typeof onboardingSchema>;
 
-// Component Types
 interface StepProps {
   form: any;
   liabilitySignaturePad?: React.RefObject<SignaturePad>;
@@ -143,7 +142,6 @@ interface StepProps {
   gymLocations?: any[];
 }
 
-// Step Components
 const PersonalInformationStep = ({ form }: StepProps) => (
   <div className="space-y-3">
     <div className="grid grid-cols-6 gap-2">
@@ -188,27 +186,71 @@ const PersonalInformationStep = ({ form }: StepProps) => (
       />
     </div>
 
-    <FormField
-      control={form.control}
-      name="address"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>Address</FormLabel>
-          <FormControl>
-            <AddressAutocomplete
-              {...field}
-              onAddressSelect={(data) => {
-                form.setValue('address', data.address);
-                form.setValue('city', data.city);
-                form.setValue('state', data.state);
-                form.setValue('zipCode', data.zipCode);
-              }}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
+    <div className="space-y-4">
+      <FormField
+        control={form.control}
+        name="address"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Address</FormLabel>
+            <FormControl>
+              <AddressAutocomplete
+                {...field}
+                onAddressSelect={(data) => {
+                  form.setValue('address', data.address, { shouldValidate: true });
+                  form.setValue('city', data.city, { shouldValidate: true });
+                  form.setValue('state', data.state, { shouldValidate: true });
+                  form.setValue('zipCode', data.zipCode, { shouldValidate: true });
+                }}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <div className="grid grid-cols-3 gap-4">
+        <FormField
+          control={form.control}
+          name="city"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>City</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="state"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>State</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="zipCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>ZIP Code</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+    </div>
 
     <div>
       <FormLabel className="text-sm font-medium block mb-1.5">Date of Birth</FormLabel>
@@ -781,7 +823,6 @@ const PackageSelectionStep = ({ form, gymLocations }: StepProps) => (
   </div>
 );
 
-// Validation middleware
 const validateFormData = (data: OnboardingForm) => {
   const errors: Partial<Record<keyof OnboardingForm, string>> = {};
 
@@ -897,8 +938,7 @@ export default function MemberOnboardingPage() {
           toast({
             title: "Signature Required",
             description: "Please sign the photo release waiver before proceeding.",
-            variant: "destructive",
-          });
+            variant: "destructive});
           return;
         }
       } else if (currentStep === 4) {
