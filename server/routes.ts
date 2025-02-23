@@ -7,14 +7,12 @@ import { asyncHandler } from "./middleware/async";
 import { errorHandler } from "./middleware/error";
 import { memberRoutes } from "./routes/member.routes";
 import { workoutRoutes } from "./routes/workout.routes";
-import { mealPlanRoutes } from "./routes/mealplan.routes";
-import { strengthMetricRoutes } from "./routes/strengthMetric.routes";
+import mealPlanRoutes from "./routes/meal-plans";
 import { invoiceRoutes } from "./routes/invoice.routes";
 import { paymentRoutes } from "./routes/payment.routes";
 import { marketingCampaignRoutes } from "./routes/marketingCampaign.routes";
 import { scheduleRoutes } from "./routes/schedule.routes";
 import { placeRoutes } from "./routes/place.routes";
-
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -22,7 +20,7 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const requireRole = (roles: string[]) => (req: Request, res: Response, next: NextFunction) => {
-  if (!req.isAuthenticated() || !roles.includes((req.user as any).role)) {
+  if (!req.isAuthenticated() || !roles.includes((req.user as any)?.role)) {
     logError("Unauthorized access attempt", {
       userId: (req.user as any)?.id,
       role: (req.user as any)?.role,
@@ -65,6 +63,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/progress/:progressId/strength-metrics", requireAuth, strengthMetricRoutes.getProgressMetrics);
 
 
+  // Meal plan routes
+  app.use("/api/meal-plans", requireAuth, mealPlanRoutes);
+
   // Workout routes
   app.get("/api/workout-plans", requireAuth, workoutRoutes.getPlans);
   app.post("/api/workout-plans", requireRole(["admin", "trainer"]), workoutRoutes.createPlan);
@@ -74,13 +75,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/workout-logs/member/:memberId", requireAuth, workoutRoutes.getLogsByMember);
   app.post("/api/workout-logs", requireAuth, workoutRoutes.createLog);
 
-
-  //Meal plan routes
-  app.get("/api/meal-plans", requireAuth, mealPlanRoutes.getAll);
-  app.get("/api/meal-plans/:id", requireAuth, mealPlanRoutes.getOne);
-  app.post("/api/meal-plans", requireRole(["admin", "trainer"]), mealPlanRoutes.create);
-  app.patch("/api/meal-plans/:id", requireRole(["admin", "trainer"]), mealPlanRoutes.update);
-  app.delete("/api/meal-plans/:id", requireRole(["admin", "trainer"]), mealPlanRoutes.delete);
 
   //Invoices Routes
   app.get("/api/invoices", requireRole(["admin"]), invoiceRoutes.getAll);
@@ -92,18 +86,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/payments", requireRole(["admin"]), paymentRoutes.create);
   app.get("/api/payments", requireRole(["admin"]), paymentRoutes.getAll);
 
+
   //Marketing Campaign Routes
   app.get("/api/marketing-campaigns", requireRole(["admin"]), marketingCampaignRoutes.getAll);
   app.get("/api/marketing-campaigns/:id", requireRole(["admin"]), marketingCampaignRoutes.getOne);
   app.post("/api/marketing-campaigns", requireRole(["admin"]), marketingCampaignRoutes.create);
 
+
   //Schedule Management Routes
   app.get("/api/schedules", requireAuth, scheduleRoutes.getAll);
   app.post("/api/schedules", requireAuth, scheduleRoutes.create);
 
+
   //Place Search Routes
   app.get("/api/places/search", requireAuth, placeRoutes.search);
   app.get("/api/places/:placeId/details", requireAuth, placeRoutes.getDetails);
+
 
   // Authentication Routes
   app.post("/api/logout", (req, res, next) => {

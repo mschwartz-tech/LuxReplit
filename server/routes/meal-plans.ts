@@ -37,11 +37,12 @@ router.post('/generate', async (req, res) => {
       return res.status(400).json({ errors: validation.error.errors });
     }
 
+    const userRole = (req.user as any)?.role;
     // Only allow admins and trainers to generate meal plans
-    if (!['admin', 'trainer'].includes(req.user?.role)) {
+    if (!userRole || !['admin', 'trainer'].includes(userRole)) {
       logMealPlanInfo('Unauthorized meal plan generation attempt', { 
-        userId: req.user?.id,
-        role: req.user?.role 
+        userId: (req.user as any)?.id,
+        role: userRole 
       });
       return res.status(403).json({ error: 'Unauthorized' });
     }
@@ -67,7 +68,7 @@ router.post('/', async (req, res) => {
   try {
     const validation = insertMealPlanSchema.safeParse({
       ...req.body,
-      trainerId: req.user?.id
+      trainerId: (req.user as any)?.id
     });
 
     if (!validation.success) {

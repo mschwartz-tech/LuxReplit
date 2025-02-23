@@ -5,12 +5,12 @@ import { asyncHandler } from "../middleware/async";
 
 export const paymentRoutes = {
   getAll: asyncHandler(async (req: Request, res: Response) => {
-    const payments = await storage.getPayments();
+    const payments = await storage.getMemberPayments();
     res.json(payments);
   }),
 
   create: asyncHandler(async (req: Request, res: Response) => {
-    const payment = await storage.createPayment(req.body);
+    const payment = await storage.createMemberPayment(req.body);
     logInfo("Payment processed", { paymentId: payment.id });
     res.status(201).json(payment);
   })

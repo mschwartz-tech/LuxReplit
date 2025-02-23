@@ -5,7 +5,7 @@ import { asyncHandler } from "../middleware/async";
 
 export const strengthMetricRoutes = {
   getMetrics: asyncHandler(async (req: Request, res: Response) => {
-    const metrics = await storage.getStrengthMetrics(parseInt(req.params.id));
+    const metrics = await storage.getMemberStrengthMetrics(parseInt(req.params.id));
     res.json(metrics);
   }),
 
@@ -19,7 +19,7 @@ export const strengthMetricRoutes = {
   }),
 
   getProgressMetrics: asyncHandler(async (req: Request, res: Response) => {
-    const metrics = await storage.getStrengthMetricsByProgress(parseInt(req.params.progressId));
+    const metrics = await storage.getMemberStrengthMetricsByProgress(parseInt(req.params.progressId));
     res.json(metrics);
   })
 };

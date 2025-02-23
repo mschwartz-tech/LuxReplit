@@ -1,28 +1,37 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Switch, Route } from "wouter";
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, ComponentType } from 'react';
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 import { Loader2 } from "lucide-react";
 
+// Define prop types for components that need them
+interface ClientProfileProps {
+  params: { id: string };
+}
+
+interface MemberProfileProps {
+  params: { id: string };
+}
+
 // Lazy load components
 const NotFound = lazy(() => import("@/pages/not-found"));
-const AuthPage = lazy(() => import("@/pages/auth-page"));
-const Dashboard = lazy(() => import("@/pages/dashboard"));
-const InvoicesPage = lazy(() => import("@/pages/invoices"));
-const GymMembersPage = lazy(() => import("@/pages/gym-members"));
-const TrainingClientsPage = lazy(() => import("@/pages/training-clients"));
-const ClientProfilePage = lazy(() => import("@/pages/client-profile"));
-const TrainingManagementPage = lazy(() => import("@/pages/training-management"));
-const ExerciseLibrary = lazy(() => import("@/pages/exercise-library"));
-const PricingPage = lazy(() => import("@/pages/pricing"));
-const MemberProfilePage = lazy(() => import("@/pages/member-profile"));
-const MemberOnboardingPage = lazy(() => import("@/pages/member-onboarding"));
-const BillingPage = lazy(() => import("@/pages/billing"));
-const MealPlansPage = lazy(() => import("@/pages/meal-plans"));
-const SchedulePage = lazy(() => import("@/pages/schedule")); // Add schedule page import
+const AuthPage = lazy(() => import("@/pages/auth-page")) as ComponentType;
+const Dashboard = lazy(() => import("@/pages/dashboard")) as ComponentType;
+const InvoicesPage = lazy(() => import("@/pages/invoices")) as ComponentType;
+const GymMembersPage = lazy(() => import("@/pages/gym-members")) as ComponentType;
+const TrainingClientsPage = lazy(() => import("@/pages/training-clients")) as ComponentType;
+const ClientProfilePage = lazy(() => import("@/pages/client-profile")) as ComponentType<ClientProfileProps>;
+const TrainingManagementPage = lazy(() => import("@/pages/training-management")) as ComponentType;
+const ExerciseLibrary = lazy(() => import("@/pages/exercise-library")) as ComponentType;
+const PricingPage = lazy(() => import("@/pages/pricing")) as ComponentType;
+const MemberProfilePage = lazy(() => import("@/pages/member-profile")) as ComponentType<MemberProfileProps>;
+const MemberOnboardingPage = lazy(() => import("@/pages/member-onboarding")) as ComponentType;
+const BillingPage = lazy(() => import("@/pages/billing")) as ComponentType;
+const MealPlansPage = lazy(() => import("@/pages/meal-plans")) as ComponentType;
+const SchedulePage = lazy(() => import("@/pages/schedule")) as ComponentType;
 
 function LoadingSpinner() {
   return (
@@ -54,14 +63,14 @@ function Router() {
         <Route path="/client/:id">
           {(params) => (
             <ProtectedRoute 
-              component={() => <ClientProfilePage params={params} />} 
+              component={() => <ClientProfilePage params={params} />}
             />
           )}
         </Route>
         <Route path="/member/:id/profile">
           {(params) => (
             <ProtectedRoute 
-              component={() => <MemberProfilePage params={params} />} 
+              component={() => <MemberProfilePage params={params} />}
             />
           )}
         </Route>
