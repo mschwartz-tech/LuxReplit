@@ -10,6 +10,10 @@ import {
   subscriptions
 } from './schema';
 
+// Re-export payment and subscription types
+export * from './payments';
+export * from './subscriptions';
+
 // Table Types
 export type User = typeof users.$inferSelect;
 export type Member = typeof members.$inferSelect;
