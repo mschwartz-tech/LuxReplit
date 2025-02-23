@@ -68,12 +68,19 @@ if (process.env.NODE_ENV !== "production") {
   }));
 }
 
+// Define metadata interface
+interface LogMetadata {
+  feature?: string;
+  category?: string;
+  [key: string]: any; // Allow any additional properties
+}
+
 // Feature tracking log functions
 export const logFeatureProgress = (
   category: string,
   feature: string,
   status: '🟢' | '🟡' | '🔴' | '✓' | '⬜',
-  details?: object
+  details?: LogMetadata
 ) => {
   const meta = {
     category,
@@ -86,7 +93,7 @@ export const logFeatureProgress = (
 };
 
 // Enhanced error logging with feature impact tracking
-export const logError = (message: string, meta?: object & { feature?: string, category?: string }) => {
+export const logError = (message: string, meta?: LogMetadata) => {
   const errorMeta = {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
@@ -100,15 +107,15 @@ export const logError = (message: string, meta?: object & { feature?: string, ca
   }
 };
 
-export const logInfo = (message: string, meta: object = {}) => {
+export const logInfo = (message: string, meta: LogMetadata = {}) => {
   logger.info(message, meta);
 };
 
-export const logWarning = (message: string, meta: object = {}) => {
+export const logWarning = (message: string, meta: LogMetadata = {}) => {
   logger.warn(message, meta);
 };
 
-export const logDebug = (message: string, meta: object = {}) => {
+export const logDebug = (message: string, meta: LogMetadata = {}) => {
   logger.debug(message, meta);
 };
 

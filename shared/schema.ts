@@ -12,7 +12,7 @@ export * from './payments';
 export * from './subscriptions';
 
 // Define top-level schemas
-const mealItemSchema = z.object({
+export const mealItemSchema = z.object({
   meal: z.string(),
   food: z.string(),
   calories: z.number().optional(),
@@ -802,7 +802,7 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
   });
 
 const insertMealPlanSchema = createInsertSchema(mealPlans)
-  .extend({
+.extend({
     trainerId: z.string().transform(val => parseInt(val)).optional(),
     meals: z.array(mealItemSchema),
     macroDistribution: z.object({

@@ -1,4 +1,3 @@
-
 import rateLimit from 'express-rate-limit';
 import { Request, Response, NextFunction } from "express";
 import { logError } from "./services/logger";
@@ -80,19 +79,19 @@ export const wafMiddleware = (req: Request, res: Response, next: NextFunction) =
 
   // URL pattern check
   if (wafConfig.suspiciousPatterns.some(pattern => pattern.test(requestUrl))) {
-    logError('Suspicious request pattern detected', { url: requestUrl });
+    logError('Suspicious request pattern detected', { feature: 'WAF', category: 'security', requestUrl });
     return res.status(403).json({ error: 'Forbidden request pattern detected' });
   }
 
   // User agent check
   if (wafConfig.suspiciousAgents.some(agent => userAgent.includes(agent))) {
-    logError('Suspicious user agent detected', { userAgent });
+    logError('Suspicious user agent detected', { feature: 'WAF', category: 'security', agent: userAgent });
     return res.status(403).json({ error: 'Forbidden user agent' });
   }
 
   // Method validation
   if (!wafConfig.allowedMethods.includes(requestMethod)) {
-    logError('Invalid request method', { method: requestMethod });
+    logError('Invalid request method', { feature: 'WAF', category: 'security', requestMethod });
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -100,13 +99,13 @@ export const wafMiddleware = (req: Request, res: Response, next: NextFunction) =
   if (requestBody && Object.keys(requestBody).length > 0) {
     const contentLength = parseInt(req.headers['content-length'] || '0');
     if (contentLength > wafConfig.maxRequestSize) {
-      logError('Request entity too large', { size: contentLength });
+      logError('Request entity too large', { feature: 'WAF', category: 'security', contentLength });
       return res.status(413).json({ error: 'Request entity too large' });
     }
 
     const contentType = req.headers['content-type'];
     if (!contentType?.includes('application/json')) {
-      logError('Invalid content type', { contentType });
+      logError('Invalid content type', { feature: 'WAF', category: 'security', type: contentType });
       return res.status(415).json({ error: 'Unsupported Media Type' });
     }
   }

@@ -70,10 +70,8 @@ import { eq, sql, desc, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 import { logFeatureProgress } from './services/logger';
-//This import was missing in the original code and is needed for the edited code to work.  It's inferred from the edited code's usage.
 import { logError } from './services/logger';
 
-//Added error handling
 const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
@@ -251,6 +249,8 @@ export interface IStorage {
     id: number,
     sessionsRemaining: number
   ): Promise<TrainingClient>;
+    searchPlaces(query: string): Promise<any[]>;
+    getPlaceDetails(placeId: string): Promise<any | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -478,7 +478,11 @@ export class DatabaseStorage implements IStorage {
     try {
       const [newAssessment] = await db
         .insert(memberAssessments)
-        .values(assessment)
+        .values([{
+          ...assessment,
+          weight: assessment.weight?.toString(),
+          bodyFatPercentage: assessment.bodyFatPercentage?.toString(),
+        }])
         .returning();
       logFeatureProgress(
         'memberManagement',
@@ -592,7 +596,10 @@ export class DatabaseStorage implements IStorage {
     try {
       const [newPlan] = await db
         .insert(workoutPlans)
-        .values(plan)
+        .values([{
+          ...plan,
+          completionRate: '0'
+        }])
         .returning();
 
       logFeatureProgress(
@@ -752,7 +759,10 @@ export class DatabaseStorage implements IStorage {
     try {
       const [newInvoice] = await db
         .insert(invoices)
-        .values(invoice)
+        .values([{
+          ...invoice,
+          amount: invoice.amount.toString()
+        }])
         .returning();
       logFeatureProgress(
         'billing',
@@ -1466,20 +1476,17 @@ export class DatabaseStorage implements IStorage {
     try {
       const [newMetric] = await db
         .insert(strengthMetrics)
-        .values(metric)
+        .values([{
+          ...metric,
+          weightAmount: metric.weightAmount?.toString()
+        }])
         .returning();
-      logFeatureProgress(
-        'strengthTraining',
-        'crudOperations',
-        '✓',
-        { operation: 'create', entityType: 'strengthMetric' }
-      );
       return newMetric;
     } catch (error) {
-      logError('Error creating strength metric:', { 
+      logError('Error creating strength metric:', {
         error,
-        category: 'strengthTraining',
-        feature: 'crudOperations'
+        category: 'progressTracking',
+        feature: 'strengthMetrics'
       });
       throw error;
     }
@@ -1702,6 +1709,36 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+  async searchPlaces(query: string): Promise<any[]> {
+    try {
+      // This would typically integrate with Google Places API
+      // For now, return empty array as placeholder
+      return [];
+    } catch (error) {
+      logError('Error searching places:', {
+        error,
+        category: 'places',
+        feature: 'search'
+      });
+      return [];
+    }
+  }
+
+  async getPlaceDetails(placeId: string): Promise<any | null> {
+    try {
+      // This would typically integrate with Google Places API
+      // For now, return null as placeholder
+      return null;
+    } catch (error) {
+      logError('Error getting place details:', {
+        error,
+        category: 'places',
+        feature: 'details'
+      });
+      return null;
+    }
+  }
+
 }
 
 export const storage = new DatabaseStorage();
@@ -1738,6 +1775,7 @@ CREATE TABLE IF NOT EXISTS workout_plans (
   name VARCHAR(255),
   description TEXT,
   frequency_per_week INTEGER,
+  completionRate VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1746,8 +1784,8 @@ CREATE TABLE IF NOT EXISTS member_assessments (
   member_id INTEGER REFERENCES members(id),
   trainer_id INTEGER REFERENCES users(id),
   assessment_date TIMESTAMP WITH TIME ZONE,
-  weight DECIMAL,
-  body_fat_percentage DECIMAL,
+  weight VARCHAR(255),
+  bodyFatPercentage VARCHAR(255),
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1779,7 +1817,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   id SERIAL PRIMARY KEY,
   member_id INTEGER REFERENCES members(id),
   invoice_date TIMESTAMP WITH TIME ZONE,
-  amount DECIMAL,
+  amount VARCHAR(255),
   status VARCHAR(50),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1849,10 +1887,10 @@ CREATE TABLE IF NOT EXISTS membership_pricing (
   gymLocation VARCHAR(255) NOT NULL,
   planName VARCHAR(255) NOT NULL,
   price DECIMAL(10,2) NOT NULL,
-  membershipTier1 DECIMAL(10,2),
-  membershipTier2 DECIMAL(10,2),
-  membershipTier3 DECIMAL(10,2),
-  membershipTier4 DECIMAL(10,2),
+  membershipTier1 VARCHAR(255),
+  membershipTier2 VARCHAR(255),
+  membershipTier3 VARCHAR(255),
+  membershipTier4 VARCHAR(255),
   isActive BOOLEAN DEFAULT TRUE,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -1891,7 +1929,7 @@ CREATE TABLE IF NOT EXISTS strengthMetrics (
   id SERIAL PRIMARY KEY,
   progressId INTEGER REFERENCES progress(id),
   exerciseId INTEGER REFERENCES exercises(id),
-  weight DECIMAL,
+  weightAmount VARCHAR(255),
   reps INTEGER,
   sets INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

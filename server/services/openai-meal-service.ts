@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface MealPlanGenerationRequest {
@@ -64,6 +63,10 @@ Provide the response in JSON format with the following structure:
       ],
       response_format: { type: "json_object" }
     });
+
+    if (!response.choices[0].message.content) {
+      throw new Error("No content in OpenAI response");
+    }
 
     const result = JSON.parse(response.choices[0].message.content);
     return result.meals as MealDetails[];
