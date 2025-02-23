@@ -12,6 +12,9 @@ import {
   LogOut,
   Dumbbell,
   Utensils,
+  UserPlus,
+  ClipboardList,
+  UserCog,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -28,6 +31,24 @@ export function SidebarNav() {
       roles: ["admin", "trainer", "member"],
     },
     {
+      title: "Member Management",
+      icon: Users,
+      href: "/member-management",
+      roles: ["admin"],
+    },
+    {
+      title: "Trainer Management",
+      icon: UserCog,
+      href: "/trainer-management",
+      roles: ["admin"],
+    },
+    {
+      title: "Training Management",
+      icon: ClipboardList,
+      href: "/training-management",
+      roles: ["admin", "trainer"],
+    },
+    {
       title: "Meal Plans",
       icon: Utensils,
       href: "/meal-plans",
@@ -41,7 +62,7 @@ export function SidebarNav() {
     },
     {
       title: "Members",
-      icon: Users,
+      icon: UserPlus,
       href: "/members",
       roles: ["admin"],
     },
