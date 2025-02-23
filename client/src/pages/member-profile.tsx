@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { format } from "date-fns";
 
 import {
   Card,
@@ -38,17 +39,40 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Validation schema for editable fields
+// Updated validation schema to include all member fields
 const editProfileSchema = z.object({
+  // Basic Information
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  middleInitial: z.string().max(1, "Middle initial should be a single character").optional(),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  birthMonth: z.number().min(1).max(12),
+  birthDay: z.number().min(1).max(31),
+  birthYear: z.number().min(1900).max(new Date().getFullYear()),
+  gender: z.string(),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+
+  // Emergency Contact
+  emergencyContactName: z.string(),
+  emergencyContactPhone: z.string().min(10, "Emergency contact phone must be at least 10 digits"),
+  emergencyContactRelation: z.string(),
+
+  // Membership Details
   membershipType: z.enum(['luxe_essentials', 'luxe_strive', 'luxe_all_access']),
   membershipStatus: z.enum(['active', 'suspended', 'cancelled']),
+
+  // Physical Information
   heightFeet: z.number().min(1, "Feet must be at least 1").max(9, "Feet cannot exceed 9"),
   heightInches: z.number().min(0, "Inches must be at least 0").max(11, "Inches cannot exceed 11"),
   weight: z.string(),
+
+  // Health Information
   fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
   healthConditions: z.array(z.string()).optional(),
   medications: z.array(z.string()).optional(),
   injuries: z.array(z.string()).optional(),
+
+  // Contact Information
   phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
   address: z.string(),
   city: z.string(),
@@ -119,15 +143,38 @@ export default function MemberProfilePage() {
   const form = useForm<EditProfileForm>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
+      // Basic Information
+      firstName: member?.firstName,
+      middleInitial: member?.middleInitial,
+      lastName: member?.lastName,
+      email: member?.email,
+      birthMonth: profile?.birthMonth,
+      birthDay: profile?.birthDay,
+      birthYear: profile?.birthYear,
+      gender: profile?.gender,
+      username: member?.username,
+
+      // Emergency Contact
+      emergencyContactName: profile?.emergencyContactName,
+      emergencyContactPhone: profile?.emergencyContactPhone,
+      emergencyContactRelation: profile?.emergencyContactRelation,
+
+      // Membership Details
       membershipType: member?.membershipType,
       membershipStatus: member?.membershipStatus,
+
+      // Physical Information
       heightFeet: profile?.heightFeet || undefined,
       heightInches: profile?.heightInches || undefined,
       weight: profile?.weight || undefined,
+
+      // Health Information
       fitnessGoals: profile?.fitnessGoals || [],
       healthConditions: profile?.healthConditions || [],
       medications: profile?.medications || [],
       injuries: profile?.injuries || [],
+
+      // Contact Information
       phoneNumber: profile?.phoneNumber || undefined,
       address: profile?.address || undefined,
       city: profile?.city || undefined,
@@ -183,6 +230,228 @@ export default function MemberProfilePage() {
             {isEditing ? (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  {/* Basic Information Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Basic Information</h3>
+                    <div className="grid grid-cols-6 gap-2">
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="middleInitial"
+                        render={({ field }) => (
+                          <FormItem className="col-span-1">
+                            <FormLabel>M.I.</FormLabel>
+                            <FormControl>
+                              <Input maxLength={1} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem className="col-span-3">
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="username"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <FormLabel className="text-sm font-medium block mb-1.5">Date of Birth</FormLabel>
+                      <div className="grid grid-cols-3 gap-2">
+                        <FormField
+                          control={form.control}
+                          name="birthMonth"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Month" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                                    <SelectItem key={month} value={month.toString()}>
+                                      {format(new Date(2024, month - 1, 1), 'MMMM')}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="birthDay"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Day" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <SelectItem key={day} value={day.toString()}>
+                                      {day}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="birthYear"
+                          render={({ field }) => (
+                            <FormItem>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Year" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {Array.from(
+                                    { length: new Date().getFullYear() - 1900 + 1 },
+                                    (_, i) => new Date().getFullYear() - i
+                                  ).map((year) => (
+                                    <SelectItem key={year} value={year.toString()}>
+                                      {year}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select gender" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Emergency Contact Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Emergency Contact</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="emergencyContactName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="emergencyContactRelation"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Relationship</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="emergencyContactPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Phone</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -499,6 +768,68 @@ export default function MemberProfilePage() {
               </Form>
             ) : (
               <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Basic Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-sm text-muted-foreground">Name:</span>
+                      <p className="font-medium">
+                        {member.firstName}
+                        {member.middleInitial && ` ${member.middleInitial}.`}
+                        {` ${member.lastName}`}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Username:</span>
+                      <p className="font-medium">{member.username}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Email:</span>
+                      <p className="font-medium">{member.email}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-muted-foreground">Gender:</span>
+                      <p className="font-medium capitalize">{profile?.gender}</p>
+                    </div>
+                    {profile?.birthMonth && profile?.birthDay && profile?.birthYear && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Date of Birth:</span>
+                        <p className="font-medium">
+                          {format(
+                            new Date(profile.birthYear, profile.birthMonth - 1, profile.birthDay),
+                            'MMMM d, yyyy'
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Emergency Contact Information */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Emergency Contact</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {profile?.emergencyContactName && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Contact Name:</span>
+                        <p className="font-medium">{profile.emergencyContactName}</p>
+                      </div>
+                    )}
+                    {profile?.emergencyContactRelation && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Relationship:</span>
+                        <p className="font-medium">{profile.emergencyContactRelation}</p>
+                      </div>
+                    )}
+                    {profile?.emergencyContactPhone && (
+                      <div>
+                        <span className="text-sm text-muted-foreground">Contact Phone:</span>
+                        <p className="font-medium">{profile.emergencyContactPhone}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Membership Details</h3>
                   <div className="grid grid-cols-2 gap-4">
