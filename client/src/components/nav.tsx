@@ -41,10 +41,10 @@ export function Navigation() {
           {isAdmin && (
             <>
               <Link
-                to="/member-management"
+                to="/gym-members"
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                  path === "/member-management" && "bg-muted text-primary"
+                  path === "/gym-members" && "bg-muted text-primary"
                 )}
               >
                 <Users className="h-4 w-4" />
