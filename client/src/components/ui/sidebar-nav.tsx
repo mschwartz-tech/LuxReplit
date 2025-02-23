@@ -19,7 +19,7 @@ import {
 import { Loader2 } from "lucide-react";
 
 export function SidebarNav() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, logoutMutation } = useAuth();
   const userRole = user?.role?.toLowerCase() || '';
 
@@ -104,9 +104,16 @@ export function SidebarNav() {
     );
   }
 
-  // Simple logout handler
-  const handleLogout = () => {
-    logoutMutation.mutate();
+  // Enhanced logout handler with proper error handling
+  const handleLogout = async () => {
+    try {
+      await logoutMutation.mutateAsync();
+      // Redirect to login page after successful logout
+      setLocation('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Error will be handled by the mutation's onError callback in useAuth
+    }
   };
 
   return (
@@ -140,7 +147,12 @@ export function SidebarNav() {
       <div className="p-3 border-t">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          className={cn(
+            "w-full justify-start gap-2",
+            "text-muted-foreground hover:text-foreground",
+            "transition-colors duration-200",
+            logoutMutation.isPending && "opacity-70 cursor-not-allowed"
+          )}
           onClick={handleLogout}
           disabled={logoutMutation.isPending}
         >
