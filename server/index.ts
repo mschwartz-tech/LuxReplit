@@ -8,6 +8,7 @@ import { setupVite } from "./vite";
 import { rateLimiter, securityHeaders, wafMiddleware } from "./middleware";
 import { apiLimiter, authenticatedLimiter, getRouteLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
+import { errorHandler } from "./middleware/error";
 import cors from "cors";
 
 const app = express();
@@ -17,20 +18,31 @@ const pgSession = connectPgSimple(session);
 app.set('trust proxy', 1);
 
 // Basic middleware setup
-app.use(express.json());
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf.toString());
+    } catch (e) {
+      throw new Error('Invalid JSON');
+    }
+  }
+}));
 
 // CORS configuration
 app.use(cors({
   origin: true, // Allow all origins in development
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Security middleware but with relaxed settings for development
+// Security middleware
 app.use(rateLimiter);  // Global rate limiting
 app.use(securityHeaders);  // Security headers (CSP, CORS, etc.)
 app.use(wafMiddleware);  // Web Application Firewall
 
-// Apply route-specific rate limiting
+// Route-specific rate limiting
 app.use('/api', (req, res, next) => {
   const routeLimiter = getRouteLimiter(req.path);
   routeLimiter(req, res, next);
@@ -39,7 +51,8 @@ app.use('/api', (req, res, next) => {
 // Apply authenticated rate limiting to protected routes
 app.use('/api/protected', authenticatedLimiter);
 
-app.use(cacheMiddleware);  // Caching
+// Caching middleware
+app.use(cacheMiddleware);
 
 // Session middleware setup
 app.use(
@@ -61,6 +74,9 @@ app.use(
     },
   })
 );
+
+// Global error handler
+app.use(errorHandler);
 
 async function startServer() {
   try {
@@ -118,6 +134,15 @@ async function startServer() {
         stack: error instanceof Error ? error.stack : undefined 
       });
       process.exit(1);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      logInfo("Received SIGTERM signal, initiating graceful shutdown");
+      server.close(() => {
+        logInfo("Server closed successfully");
+        process.exit(0);
+      });
     });
 
   } catch (error) {
