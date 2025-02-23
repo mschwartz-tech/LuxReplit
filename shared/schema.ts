@@ -1,5 +1,5 @@
 // =====================
-// Type Imports
+// Type Imports & Definitions
 // =====================
 import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -27,11 +27,11 @@ import {
 } from './subscriptions';
 
 // =====================
-// Shared Types & Schemas
+// Schema Definitions
 // =====================
 
-// Meal Plan Types
-export const mealItemSchema = z.object({
+// Define schemas at the top level
+const mealItemSchema = z.object({
   meal: z.string(),
   food: z.string(),
   calories: z.number().optional(),
@@ -40,9 +40,19 @@ export const mealItemSchema = z.object({
   fats: z.number().optional(),
 });
 
+// Export types
 export type MealItem = z.infer<typeof mealItemSchema>;
 
-// Define all tables first
+// Export all shared types
+export type {
+  PaymentMethod,
+  PaymentStatus,
+  Payment,
+  InsertPayment,
+  Subscription,
+  InsertSubscription,
+};
+
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -756,7 +766,7 @@ const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
 }));
 
 // =====================
-// Schema Definitions
+// Insert Schema Definitions
 // =====================
 
 const insertUserSchema = createInsertSchema(users)
@@ -797,16 +807,13 @@ const insertExerciseSchema = createInsertSchema(exercises)
     tips: z.array(z.string()).optional(),
     equipment: z.array(z.string()).optional(),
     videoUrl: z.string().url("Invalid URL").optional(),
-
   })
   .omit({ id: true, createdAt: true });
 
 const insertInvoiceSchema = createInsertSchema(invoices)
   .extend({
-    amount: z.number().or(z.string()).transform(val =>
-      typeof val === 'string' ? parseFloat(val) : val
-    ),
-    memberId: z.string().transform(val => parseInt(val)).optional(),
+    amount: z.number().or(z.string()).transform(val =>      typeof val === 'string' ? parseFloat(val) : val
+        ),    memberId: z.string().transform(val => parseInt(val)).optional(),
     status: z.enum(["pending", "paid", "cancelled"]).default("pending"),
     dueDate: z.coerce.date(),
     description: z.string().min(1, "Description is required"),
@@ -850,9 +857,10 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
     createdAt: true,
   });
 
+// Member Assessment Schema
 const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
   .extend({
-    memberId: z.string().transform(val=> parseInt(val)),
+    memberId: z.string().transform(val => parseInt(val)),
     trainerId: z.string().transform(val => parseInt(val)).optional(),
     assessmentDate: z.coerce.date(),
     weight: z.number().or(z.string()).transform(val =>
@@ -869,57 +877,32 @@ const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
     createdAt: true,
   });
 
-const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
-  .extend({
-    memberId: z.string().transform(val => parseInt(val)),
-    mealPlanId: z.string().transform(val => parseInt(val)),
-    startDate: z.coerce.date(),    endDate: z.coerce.date().optional(),
-    customMeals: z.record(z.unknown()).optional(),
-    status: z.enum(["pending", "active", "completed"]).default("pending"),
-  })
-  .omit({
-    assignedAt: true
-  });
-
-const insertMemberProfileSchema = createInsertSchema(memberProfiles)
-    .extend({
-        userId: z.string().transform(val => parseInt(val)),
-        birthDate: z.coerce.date().optional(),
-        fitnessGoals: z.array(z.string()).optional(),
-        healthConditions: z.array(z.string()).optional(),
-        medications: z.array(z.string()).optional(),
-        injuries: z.array(z.string()).optional(),
-        preferredContactMethod: z.enum(['email', 'phone', 'text']).optional(),
-        marketingOptIn: z.boolean().optional(),
-        hadPhysicalLastYear: z.boolean().optional(),
-        physicianClearance: z.boolean().optional(),
-
-    })
-    .omit({ createdAt: true, updatedAt: true });
-
+// Member Progress Photo Schema
 const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos)
   .extend({
-    memberId:z.string().transform(val => parseInt(val)),
+    memberId: z.string().transform(val => parseInt(val)),
+    photoUrl: z.string().url("Invalid photo URL"),
     photoDate: z.coerce.date(),
     category: z.enum(["front", "back", "side"]),
+    notes: z.string().optional(),
   })
   .omit({
     createdAt: true,
   });
 
+// Member Schema
 const insertMemberSchema = createInsertSchema(members)
   .extend({
+    userId: z.string().transform(val => parseInt(val)),
+    assignedTrainerId: z.string().transform(val => parseInt(val)).optional(),
     membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
     membershipStatus: z.enum(["active", "inactive", "suspended"]),
     gymLocationId: z.string().transform(val => parseInt(val)),
-    userId: z.string().transform(val => parseInt(val)),
-    assignedTrainerId: z.string().transform(val => parseInt(val)).optional(),
     startDate: z.coerce.date(),
-    endDate: z.coerce.date().optional()
+    endDate: z.coerce.date().optional(),
   })
   .omit({
-    id: true,
-    createdAt: true
+    createdAt: true,
   });
 
 const insertMuscleGroupSchema = createInsertSchema(muscleGroups)
@@ -1095,26 +1078,7 @@ const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
 // Exports
 // =====================
 
-export type {
-  MealItem,
-  PaymentMethod,
-  PaymentStatus,
-  Payment,
-  InsertPayment,
-  Subscription,
-  InsertSubscription
-};
-
 export {
-  // Types
-  MealItem,
-  PaymentMethod,
-  PaymentStatus,
-  Payment,
-  InsertPayment,
-  Subscription,
-  InsertSubscription,
-
   // Tables
   users,
   members,
@@ -1138,11 +1102,13 @@ export {
   memberMealPlans,
   sessions,
   classes,
-  classRegistrations,
   classTemplates,
+  classRegistrations,
   classWaitlist,
   progress,
   strengthMetrics,
+  payments,
+  subscriptions,
 
   // Relations
   usersRelations,
@@ -1170,32 +1136,37 @@ export {
   classWaitlistRelations,
   progressRelations,
   strengthMetricsRelations,
+  paymentsRelations,
+  subscriptionsRelations,
 
-  // Schemas
-  mealItemSchema,
-  insertMealPlanSchema,
+  // Insert Schemas
   insertUserSchema,
   insertMemberSchema,
-  insertWorkoutPlanSchema,
-  insertWorkoutLogSchema,
-  insertScheduleSchema,
-  insertExerciseSchema,
-  insertMuscleGroupSchema,
-  insertPricingPlanSchema,
+  insertMemberAssessmentSchema,
+  insertMemberProgressPhotoSchema,
+  insertMealPlanSchema,
   insertGymMembershipPricingSchema,
-  insertMemberMealPlanSchema,
-  insertProgressSchema,
-  insertStrengthMetricSchema,
   insertMarketingCampaignSchema,
   insertInvoiceSchema,
+  insertMemberMealPlanSchema,
+  insertPaymentSchema,
+  insertSubscriptionSchema,
+  insertExerciseSchema,
+  insertMuscleGroupSchema,
+  insertMovementPatternSchema,
+  insertPricingPlanSchema,
+  insertProgressSchema,
+  insertScheduleSchema,
+  insertStrengthMetricSchema,
+  insertTrainingClientSchema,
+  insertTrainingPackageSchema,
+  insertWorkoutLogSchema,
+  insertWorkoutPlanSchema,
   insertClassSchema,
   insertClassTemplateSchema,
   insertClassRegistrationSchema,
   insertClassWaitlistSchema,
-  payments,
-  paymentsRelations,
-  subscriptions,
-  subscriptionsRelations,
-  insertPaymentSchema,
-  insertSubscriptionSchema,
+
+  // Other Schemas
+  mealItemSchema,
 };

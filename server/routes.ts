@@ -5,9 +5,7 @@ import { storage } from "./storage";
 import {
   insertUserSchema,
   insertMemberSchema,
-  insertMemberProfileSchema,
   insertMemberAssessmentSchema,
-  insertMemberProgressPhotoSchema,
   insertMarketingCampaignSchema,
   insertPricingPlanSchema,
   insertGymMembershipPricingSchema,
@@ -639,7 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const metrics = await storage.getProgressStrengthMetrics(parseInt(req.params.progressId));
     logInfo("Progress strength metrics retrieved", { progressId: req.params.progressId, count: metrics.length });
     res.json(metrics);
-  }));
+}));
 
   app.post("/api/logout", (req, res, next) => {
     if (req.session) {

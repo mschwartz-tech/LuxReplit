@@ -3,7 +3,7 @@ import { storage } from '../storage';
 import { generateMealPlan } from '../services/openai-meal-service';
 import { insertMealPlanSchema, mealItemSchema } from '../../shared/schema';
 import { z } from 'zod';
-import { logger } from '../logger';
+import { logMealPlanError, logMealPlanInfo, logMealPlanValidation } from '../services/meal-plan-logger';
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
     const plans = await storage.getMealPlans();
     res.json(plans);
   } catch (error) {
-    logger.error('Error fetching meal plans:', { error });
+    logMealPlanError('Error fetching meal plans', error);
     res.status(500).json({ error: 'Failed to fetch meal plans' });
   }
 });
@@ -33,15 +33,13 @@ router.post('/generate', async (req, res) => {
   try {
     const validation = generateMealPlanSchema.safeParse(req.body);
     if (!validation.success) {
-      logger.warn('Invalid meal plan generation request:', { 
-        errors: validation.error.errors 
-      });
+      logMealPlanValidation(0, validation.error.errors);
       return res.status(400).json({ errors: validation.error.errors });
     }
 
     // Only allow admins and trainers to generate meal plans
     if (!['admin', 'trainer'].includes(req.user?.role)) {
-      logger.warn('Unauthorized meal plan generation attempt:', { 
+      logMealPlanInfo('Unauthorized meal plan generation attempt', { 
         userId: req.user?.id,
         role: req.user?.role 
       });
@@ -53,15 +51,13 @@ router.post('/generate', async (req, res) => {
     // Validate generated meals
     const mealsValidation = z.array(mealItemSchema).safeParse(meals);
     if (!mealsValidation.success) {
-      logger.error('Invalid meal plan generated:', { 
-        errors: mealsValidation.error.errors 
-      });
+      logMealPlanError('Invalid meal plan generated', mealsValidation.error);
       return res.status(500).json({ error: 'Generated meal plan is invalid' });
     }
 
     res.json({ meals: mealsValidation.data });
   } catch (error) {
-    logger.error('Error generating meal plan:', { error });
+    logMealPlanError('Error generating meal plan', error);
     res.status(500).json({ error: 'Failed to generate meal plan' });
   }
 });
@@ -75,16 +71,14 @@ router.post('/', async (req, res) => {
     });
 
     if (!validation.success) {
-      logger.warn('Invalid meal plan creation request:', { 
-        errors: validation.error.errors 
-      });
+      logMealPlanValidation(0, validation.error.errors);
       return res.status(400).json({ errors: validation.error.errors });
     }
 
     const newPlan = await storage.createMealPlan(validation.data);
     res.json(newPlan);
   } catch (error) {
-    logger.error('Error creating meal plan:', { error });
+    logMealPlanError('Error creating meal plan', error);
     res.status(500).json({ error: 'Failed to create meal plan' });
   }
 });
