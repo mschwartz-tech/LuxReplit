@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -40,18 +42,34 @@ import {
 const editProfileSchema = z.object({
   membershipType: z.enum(['luxe_essentials', 'luxe_strive', 'luxe_all_access']),
   membershipStatus: z.enum(['active', 'suspended', 'cancelled']),
-  height: z.string().optional(),
-  weight: z.string().optional(),
-  fitnessGoals: z.array(z.string()).optional(),
+  heightFeet: z.number().min(1, "Feet must be at least 1").max(9, "Feet cannot exceed 9"),
+  heightInches: z.number().min(0, "Inches must be at least 0").max(11, "Inches cannot exceed 11"),
+  weight: z.string(),
+  fitnessGoals: z.array(z.string()).min(1, "At least one goal is required"),
   healthConditions: z.array(z.string()).optional(),
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits").optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().min(5, "Zip code must be at least 5 digits").optional(),
+  medications: z.array(z.string()).optional(),
+  injuries: z.array(z.string()).optional(),
+  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+  address: z.string(),
+  city: z.string(),
+  state: z.string(),
+  zipCode: z.string().min(5, "Zip code must be at least 5 digits"),
 });
 
 type EditProfileForm = z.infer<typeof editProfileSchema>;
+
+const FITNESS_GOALS = [
+  { id: "weight_loss", label: "Weight Loss" },
+  { id: "muscle_gain", label: "Muscle Gain" },
+  { id: "strength_training", label: "Strength Training" },
+  { id: "cardiovascular_fitness", label: "Cardiovascular Fitness" },
+  { id: "flexibility_mobility", label: "Flexibility & Mobility" },
+  { id: "endurance", label: "Endurance Building" },
+  { id: "body_toning", label: "Body Toning" },
+  { id: "athletic_performance", label: "Athletic Performance" },
+  { id: "general_fitness", label: "General Fitness" },
+  { id: "stress_reduction", label: "Stress Reduction" },
+];
 
 export default function MemberProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -103,15 +121,18 @@ export default function MemberProfilePage() {
     defaultValues: {
       membershipType: member?.membershipType,
       membershipStatus: member?.membershipStatus,
-      height: profile?.height,
-      weight: profile?.weight,
-      fitnessGoals: profile?.fitnessGoals,
-      healthConditions: profile?.healthConditions,
-      phoneNumber: profile?.phoneNumber,
-      address: profile?.address,
-      city: profile?.city,
-      state: profile?.state,
-      zipCode: profile?.zipCode,
+      heightFeet: profile?.heightFeet || undefined,
+      heightInches: profile?.heightInches || undefined,
+      weight: profile?.weight || undefined,
+      fitnessGoals: profile?.fitnessGoals || [],
+      healthConditions: profile?.healthConditions || [],
+      medications: profile?.medications || [],
+      injuries: profile?.injuries || [],
+      phoneNumber: profile?.phoneNumber || undefined,
+      address: profile?.address || undefined,
+      city: profile?.city || undefined,
+      state: profile?.state || undefined,
+      zipCode: profile?.zipCode || undefined,
     },
   });
 
@@ -171,7 +192,7 @@ export default function MemberProfilePage() {
                           <FormLabel>Membership Type</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -196,7 +217,7 @@ export default function MemberProfilePage() {
                           <FormLabel>Membership Status</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -209,6 +230,176 @@ export default function MemberProfilePage() {
                               <SelectItem value="cancelled">Cancelled</SelectItem>
                             </SelectContent>
                           </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="heightFeet"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Height (ft)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={9}
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="heightInches"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Height (in)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={11}
+                              {...field}
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="weight"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Weight (lbs)</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="fitnessGoals"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fitness Goals</FormLabel>
+                        <FormDescription>Select your primary fitness objectives</FormDescription>
+                        <div className="grid md:grid-cols-2 gap-2 mt-2">
+                          {FITNESS_GOALS.map((goal) => (
+                            <FormField
+                              key={goal.id}
+                              control={form.control}
+                              name="fitnessGoals"
+                              render={({ field }) => (
+                                <FormItem
+                                  key={goal.id}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(goal.id)}
+                                      onCheckedChange={(checked) => {
+                                        const updatedGoals = checked
+                                          ? [...(field.value || []), goal.id]
+                                          : (field.value || []).filter((value: string) => value !== goal.id);
+                                        field.onChange(updatedGoals);
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="font-normal">
+                                    {goal.label}
+                                  </FormLabel>
+                                </FormItem>
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="healthConditions"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Health Conditions</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter health conditions (one per line)"
+                              value={Array.isArray(field.value) ? field.value.join('\n') : ''}
+                              onChange={(e) => {
+                                const conditions = e.target.value
+                                  .split('\n')
+                                  .map(condition => condition.trim())
+                                  .filter(Boolean);
+                                field.onChange(conditions);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="medications"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Medications</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter medications (one per line)"
+                              value={Array.isArray(field.value) ? field.value.join('\n') : ''}
+                              onChange={(e) => {
+                                const medications = e.target.value
+                                  .split('\n')
+                                  .map(medication => medication.trim())
+                                  .filter(Boolean);
+                                field.onChange(medications);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="injuries"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Injuries</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter injuries (one per line)"
+                              value={Array.isArray(field.value) ? field.value.join('\n') : ''}
+                              onChange={(e) => {
+                                const injuries = e.target.value
+                                  .split('\n')
+                                  .map(injury => injury.trim())
+                                  .filter(Boolean);
+                                field.onChange(injuries);
+                              }}
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -339,22 +530,28 @@ export default function MemberProfilePage() {
                 {profile && (
                   <>
                     <div>
-                      <h3 className="text-lg font-semibold mb-2">Personal Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        {profile.birthDate && (
+                      <h3 className="text-lg font-semibold mb-2">Physical Information</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        {(profile.heightFeet || profile.heightInches) && (
                           <div>
-                            <span className="text-sm text-muted-foreground">Birth Date:</span>
+                            <span className="text-sm text-muted-foreground">Height:</span>
                             <p className="font-medium">
-                              {new Date(profile.birthDate).toLocaleDateString()}
+                              {profile.heightFeet}'{profile.heightInches}"
                             </p>
                           </div>
                         )}
-                        {profile.gender && (
+                        {profile.weight && (
                           <div>
-                            <span className="text-sm text-muted-foreground">Gender:</span>
-                            <p className="font-medium capitalize">{profile.gender}</p>
+                            <span className="text-sm text-muted-foreground">Weight:</span>
+                            <p className="font-medium">{profile.weight} lbs</p>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Contact Information</h3>
+                      <div className="grid grid-cols-2 gap-4">
                         {profile.phoneNumber && (
                           <div>
                             <span className="text-sm text-muted-foreground">Phone:</span>
@@ -376,32 +573,23 @@ export default function MemberProfilePage() {
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-semibold mb-2">Health Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        {profile.height && (
-                          <div>
-                            <span className="text-sm text-muted-foreground">Height:</span>
-                            <p className="font-medium">{profile.height}</p>
-                          </div>
-                        )}
-                        {profile.weight && (
-                          <div>
-                            <span className="text-sm text-muted-foreground">Weight:</span>
-                            <p className="font-medium">{profile.weight}</p>
-                          </div>
-                        )}
+                      <h3 className="text-lg font-semibold mb-2">Fitness Profile</h3>
+                      <div className="space-y-4">
                         {profile.fitnessGoals && profile.fitnessGoals.length > 0 && (
-                          <div className="col-span-2">
+                          <div>
                             <span className="text-sm text-muted-foreground">Fitness Goals:</span>
-                            <ul className="list-disc list-inside mt-1">
-                              {profile.fitnessGoals.map((goal, index) => (
-                                <li key={index} className="font-medium">{goal}</li>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              {profile.fitnessGoals.map((goalId) => (
+                                <p key={goalId} className="font-medium">
+                                  {FITNESS_GOALS.find(g => g.id === goalId)?.label || goalId}
+                                </p>
                               ))}
-                            </ul>
+                            </div>
                           </div>
                         )}
+
                         {profile.healthConditions && profile.healthConditions.length > 0 && (
-                          <div className="col-span-2">
+                          <div>
                             <span className="text-sm text-muted-foreground">Health Conditions:</span>
                             <ul className="list-disc list-inside mt-1">
                               {profile.healthConditions.map((condition, index) => (
@@ -410,28 +598,26 @@ export default function MemberProfilePage() {
                             </ul>
                           </div>
                         )}
-                      </div>
-                    </div>
 
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Emergency Contact</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        {profile.emergencyContactName && (
+                        {profile.medications && profile.medications.length > 0 && (
                           <div>
-                            <span className="text-sm text-muted-foreground">Name:</span>
-                            <p className="font-medium">{profile.emergencyContactName}</p>
+                            <span className="text-sm text-muted-foreground">Medications:</span>
+                            <ul className="list-disc list-inside mt-1">
+                              {profile.medications.map((medication, index) => (
+                                <li key={index} className="font-medium">{medication}</li>
+                              ))}
+                            </ul>
                           </div>
                         )}
-                        {profile.emergencyContactPhone && (
+
+                        {profile.injuries && profile.injuries.length > 0 && (
                           <div>
-                            <span className="text-sm text-muted-foreground">Phone:</span>
-                            <p className="font-medium">{profile.emergencyContactPhone}</p>
-                          </div>
-                        )}
-                        {profile.emergencyContactRelation && (
-                          <div>
-                            <span className="text-sm text-muted-foreground">Relation:</span>
-                            <p className="font-medium">{profile.emergencyContactRelation}</p>
+                            <span className="text-sm text-muted-foreground">Injuries:</span>
+                            <ul className="list-disc list-inside mt-1">
+                              {profile.injuries.map((injury, index) => (
+                                <li key={index} className="font-medium">{injury}</li>
+                              ))}
+                            </ul>
                           </div>
                         )}
                       </div>
