@@ -28,7 +28,23 @@ interface AddressAutocompleteProps
 
 declare global {
   interface Window {
-    google: typeof google;
+    google: {
+      maps: {
+        places: {
+          AutocompleteService: new () => google.maps.places.AutocompleteService;
+          PlacesService: new (attrContainer: Element | null) => google.maps.places.PlacesService;
+          AutocompletePrediction: google.maps.places.AutocompletePrediction;
+          PlaceResult: google.maps.places.PlaceResult;
+          PlacesServiceStatus: {
+            OK: string;
+            ZERO_RESULTS: string;
+            OVER_QUERY_LIMIT: string;
+            REQUEST_DENIED: string;
+            INVALID_REQUEST: string;
+          };
+        };
+      };
+    };
     initGooglePlaces?: () => void;
   }
 }
@@ -43,13 +59,15 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
   const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null);
   const [fallbackMode, setFallbackMode] = useState(false);
+  const initRetryCount = React.useRef(0);
+  const maxRetries = 3;
 
-  // Initialize Google Maps Places API
+  // Initialize Google Maps Places API with retry mechanism
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
 
     if (!apiKey) {
-      console.warn("Google Places API key is missing");
+      console.error("Google Places API key is missing");
       setFallbackMode(true);
       return;
     }
@@ -61,8 +79,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       return;
     }
 
-    // Initialize services
-    function initializePlacesServices() {
+    async function initializePlacesServices() {
       try {
         if (!window.google?.maps?.places) {
           throw new Error("Places API not loaded");
@@ -76,18 +93,33 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         setAutocompleteService(autocompleteServiceInstance);
         setIsScriptLoaded(true);
         setFallbackMode(false);
+
+        // Clear the retry count on successful initialization
+        initRetryCount.current = 0;
       } catch (error) {
         console.error("Failed to initialize Places services:", error);
-        setFallbackMode(true);
+
+        // Implement retry logic
+        if (initRetryCount.current < maxRetries) {
+          initRetryCount.current += 1;
+          setTimeout(initializePlacesServices, 1000 * initRetryCount.current);
+        } else {
+          setFallbackMode(true);
+          toast({
+            title: "Address Service Error",
+            description: "Could not initialize address service. Using manual input mode.",
+            variant: "destructive"
+          });
+        }
       }
     }
 
-    try {
-      // Define the callback before creating the script
-      window.initGooglePlaces = () => {
-        initializePlacesServices();
-      };
+    // Define the callback before creating the script
+    window.initGooglePlaces = () => {
+      initializePlacesServices();
+    };
 
+    try {
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`;
       script.async = true;
@@ -95,7 +127,19 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
       script.onerror = () => {
         console.error("Failed to load Google Maps script");
-        setFallbackMode(true);
+        if (initRetryCount.current < maxRetries) {
+          initRetryCount.current += 1;
+          setTimeout(() => {
+            document.head.appendChild(script);
+          }, 1000 * initRetryCount.current);
+        } else {
+          setFallbackMode(true);
+          toast({
+            title: "Address Service Error",
+            description: "Failed to load address service. Using manual input mode.",
+            variant: "destructive"
+          });
+        }
       };
 
       document.head.appendChild(script);
@@ -112,24 +156,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       console.error("Error setting up Places API:", error);
       setFallbackMode(true);
     }
-  }, []);
-
-  useEffect(() => {
-    // Show appropriate toast message when mode changes
-    if (fallbackMode) {
-      toast({
-        title: "Address Lookup Mode",
-        description: "Using manual address input. You can type the full address.",
-        variant: "default"
-      });
-    } else if (isScriptLoaded && placesService && autocompleteService) {
-      toast({
-        title: "Address Lookup Ready",
-        description: "You can now search and autocomplete addresses",
-        variant: "default"
-      });
-    }
-  }, [fallbackMode, isScriptLoaded, placesService, autocompleteService, toast]);
+  }, [toast]);
 
   const handleSearch = useCallback(async (input: string) => {
     if (!input || !autocompleteService || fallbackMode) {
@@ -209,7 +236,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         zipCode: ''
       };
 
-      place.address_components.forEach(component => {
+      place.address_components.forEach((component) => {
         const type = component.types[0];
         switch (type) {
           case 'locality':
@@ -229,12 +256,15 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       setOpen(false);
     } catch (error) {
       console.error("Error getting address details:", error);
-      // Fallback to basic parsing
-      handleAddressSelect(placeId, description);
+      toast({
+        title: "Address Lookup Error",
+        description: "Failed to get address details. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [fallbackMode, onAddressSelect, placesService]);
+  }, [fallbackMode, onAddressSelect, placesService, toast]);
 
   const handleManualInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
