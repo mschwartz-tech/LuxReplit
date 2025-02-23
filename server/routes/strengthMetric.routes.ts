@@ -1,3 +1,4 @@
+
 import { Request, Response } from "express";
 import { storage } from "../storage";
 import { logError, logInfo } from "../services/logger";
@@ -19,7 +20,7 @@ export const strengthMetricRoutes = {
   }),
 
   getProgressMetrics: asyncHandler(async (req: Request, res: Response) => {
-    const metrics = await storage.getMemberStrengthMetricsByProgress(parseInt(req.params.progressId));
+    const metrics = await storage.getProgressStrengthMetrics(parseInt(req.params.progressId));
     res.json(metrics);
   })
 };
