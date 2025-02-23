@@ -29,7 +29,7 @@ interface AddressAutocompleteProps
 declare global {
   interface Window {
     google: typeof google;
-    initGoogleMaps?: () => void;
+    initGooglePlaces?: () => void;
   }
 }
 
@@ -41,69 +41,101 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [isLoading, setIsLoading] = useState(false);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+  const [autocompleteService, setAutocompleteService] = useState<google.maps.places.AutocompleteService | null>(null);
   const [fallbackMode, setFallbackMode] = useState(false);
 
-  // Initialize Google Maps
+  // Initialize Google Maps Places API
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
 
     if (!apiKey) {
-      console.warn("Google Places API key is missing, falling back to manual input");
+      console.warn("Google Places API key is missing");
+      toast({
+        title: "Limited Functionality",
+        description: "Address autocomplete is not available. Please enter addresses manually.",
+        variant: "default"
+      });
       setFallbackMode(true);
       return;
     }
 
-    // Prevent multiple script loads
-    if (document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')) {
-      if (window.google?.maps?.places) {
-        setIsScriptLoaded(true);
-        const dummyElement = document.createElement('div');
-        setPlacesService(new window.google.maps.places.PlacesService(dummyElement));
-      }
+    // Skip if already loaded
+    if (window.google?.maps?.places) {
+      setIsScriptLoaded(true);
+      initializePlacesServices();
       return;
     }
 
-    // Create initialization callback
-    window.initGoogleMaps = () => {
-      setIsScriptLoaded(true);
-      const dummyElement = document.createElement('div');
-      setPlacesService(new window.google.maps.places.PlacesService(dummyElement));
-    };
+    // Initialize services
+    function initializePlacesServices() {
+      try {
+        const dummyElement = document.createElement('div');
+        const placesServiceInstance = new window.google.maps.places.PlacesService(dummyElement);
+        const autocompleteServiceInstance = new window.google.maps.places.AutocompleteService();
 
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`;
-    script.async = true;
-    script.defer = true;
+        setPlacesService(placesServiceInstance);
+        setAutocompleteService(autocompleteServiceInstance);
+        setIsScriptLoaded(true);
+        setFallbackMode(false);
 
-    script.onerror = () => {
-      console.warn("Failed to load Google Maps script, falling back to manual input");
+        toast({
+          title: "Address Lookup Ready",
+          description: "You can now search and autocomplete addresses",
+          variant: "default"
+        });
+      } catch (error) {
+        console.error("Failed to initialize Places services:", error);
+        handlePlacesError();
+      }
+    }
+
+    // Handle API loading errors
+    function handlePlacesError() {
       setFallbackMode(true);
       toast({
         title: "Address Lookup Limited",
-        description: "Using manual address input mode. You can still enter your address manually.",
+        description: "Using manual address input mode. You can still enter addresses manually.",
         variant: "default"
       });
-    };
+    }
 
-    document.head.appendChild(script);
+    // Load the Places API script
+    try {
+      window.initGooglePlaces = () => {
+        initializePlacesServices();
+      };
 
-    return () => {
-      if (window.initGoogleMaps) {
-        delete window.initGoogleMaps;
-      }
-    };
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = handlePlacesError;
+
+      document.head.appendChild(script);
+
+      return () => {
+        // Cleanup
+        if (window.initGooglePlaces) {
+          delete window.initGooglePlaces;
+        }
+        document.head.removeChild(script);
+      };
+    } catch (error) {
+      console.error("Error loading Places API:", error);
+      handlePlacesError();
+    }
   }, [toast]);
 
+  // Handle address search
   const handleSearch = useCallback(async (input: string) => {
-    if (!input || !window.google?.maps?.places || fallbackMode) {
+    if (!input || !autocompleteService || fallbackMode) {
       setSuggestions([]);
       return;
     }
 
     try {
       setIsLoading(true);
-      const autocompleteService = new window.google.maps.places.AutocompleteService();
-      const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve) => {
+      const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
         autocompleteService.getPlacePredictions(
           {
             input,
@@ -114,7 +146,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
             if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
               resolve(predictions);
             } else {
-              resolve([]);
+              reject(new Error(`Places API Error: ${status}`));
             }
           }
         );
@@ -123,58 +155,61 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       setSuggestions(response);
       setOpen(true);
     } catch (error) {
-      console.warn("Address lookup failed:", error);
-      setFallbackMode(true);
-      toast({
-        title: "Address Lookup Failed",
-        description: "Please enter your address manually.",
-        variant: "default"
-      });
+      console.error("Address lookup failed:", error);
+      if (!fallbackMode) {
+        setFallbackMode(true);
+        toast({
+          title: "Switching to Manual Input",
+          description: "Address lookup is temporarily unavailable. Please enter the address manually.",
+          variant: "default"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [fallbackMode, toast]);
+  }, [autocompleteService, fallbackMode, toast]);
 
+  // Handle address selection
   const handleAddressSelect = useCallback(async (placeId: string, description: string) => {
-    if (fallbackMode || !window.google?.maps || !placesService) {
-      // Handle manual input
-      const [street, city, stateZip] = description.split(',').map(s => s.trim());
-      const [state, zipCode] = stateZip ? stateZip.split(' ').filter(Boolean) : ['', ''];
+    if (fallbackMode || !placesService) {
+      // Parse address manually
+      const parts = description.split(',').map(part => part.trim());
+      const address = parts[0] || '';
+      const city = parts[1] || '';
+      const stateZip = parts[2] ? parts[2].split(' ').filter(Boolean) : [];
 
       onAddressSelect({
-        address: street || description,
-        city: city || '',
-        state: state || '',
-        zipCode: zipCode || ''
+        address,
+        city,
+        state: stateZip[0] || '',
+        zipCode: stateZip[1] || ''
       });
 
       setOpen(false);
+      setValue(description);
       return;
     }
-
-    setValue(description);
-    setOpen(false);
 
     try {
       setIsLoading(true);
       const result = await new Promise<google.maps.places.PlaceResult>((resolve, reject) => {
         placesService.getDetails(
           {
-            placeId: placeId,
+            placeId,
             fields: ['address_components', 'formatted_address']
           },
           (place, status) => {
             if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
               resolve(place);
             } else {
-              reject(new Error('Failed to get address details'));
+              reject(new Error(`Failed to get address details: ${status}`));
             }
           }
         );
       });
 
       if (!result.address_components) {
-        throw new Error('No address components found');
+        throw new Error('Invalid address components received');
       }
 
       const addressData = {
@@ -184,20 +219,27 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         zipCode: ''
       };
 
+      // Parse address components
       result.address_components.forEach((component) => {
         const type = component.types[0];
-        if (type === 'locality') {
-          addressData.city = component.long_name;
-        } else if (type === 'administrative_area_level_1') {
-          addressData.state = component.short_name;
-        } else if (type === 'postal_code') {
-          addressData.zipCode = component.long_name;
+        switch (type) {
+          case 'locality':
+            addressData.city = component.long_name;
+            break;
+          case 'administrative_area_level_1':
+            addressData.state = component.short_name;
+            break;
+          case 'postal_code':
+            addressData.zipCode = component.long_name;
+            break;
         }
       });
 
       onAddressSelect(addressData);
+      setValue(result.formatted_address || description);
+      setOpen(false);
     } catch (error) {
-      console.warn("Error getting address details:", error);
+      console.error("Error getting address details:", error);
       // Fallback to basic parsing
       handleAddressSelect(placeId, description);
     } finally {
@@ -220,9 +262,15 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
           <Input
             className={cn("pr-8", className)}
             value={value}
-            onChange={handleManualInput}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setValue(newValue);
+              if (!fallbackMode) {
+                handleSearch(newValue);
+              }
+            }}
             disabled={!isScriptLoaded && !fallbackMode}
-            placeholder={fallbackMode ? "Enter full address..." : "Search address..."}
+            placeholder={fallbackMode ? "Enter full address..." : "Search for an address..."}
             {...props}
           />
           {isLoading ? (
@@ -232,12 +280,12 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-full p-0" align="start">
         <Command>
           {!isScriptLoaded && !fallbackMode ? (
             <CommandEmpty>Loading address service...</CommandEmpty>
           ) : suggestions.length === 0 ? (
-            <CommandEmpty>No address found.</CommandEmpty>
+            <CommandEmpty>No addresses found</CommandEmpty>
           ) : (
             <CommandGroup>
               {suggestions.map((suggestion) => (
