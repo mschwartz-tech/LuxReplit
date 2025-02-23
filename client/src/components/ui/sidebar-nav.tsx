@@ -17,6 +17,8 @@ import {
   UserCog,
   BookOpen,
   GraduationCap,
+  CreditCard,
+  Tags
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -78,6 +80,18 @@ export function SidebarNav() {
       title: "Members",
       icon: UserPlus,
       href: "/members",
+      roles: ["admin"],
+    },
+    {
+      title: "Billing",
+      icon: CreditCard,
+      href: "/billing",
+      roles: ["admin"],
+    },
+    {
+      title: "Pricing",
+      icon: Tags,
+      href: "/pricing",
       roles: ["admin"],
     },
     {

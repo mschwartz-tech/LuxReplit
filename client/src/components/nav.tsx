@@ -10,7 +10,9 @@ import {
   UserCog,
   BookOpen,
   GraduationCap,
-  ClipboardList
+  ClipboardList,
+  CreditCard,
+  Tags
 } from "lucide-react";
 import { LogoutButton } from "./logout-button";
 import { useAuth } from "@/hooks/use-auth";
@@ -58,6 +60,28 @@ export function Navigation() {
               >
                 <UserCog className="h-4 w-4" />
                 Trainer Management
+              </Link>
+
+              <Link
+                to="/billing"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/billing" && "bg-muted text-primary"
+                )}
+              >
+                <CreditCard className="h-4 w-4" />
+                Billing
+              </Link>
+
+              <Link
+                to="/pricing"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/pricing" && "bg-muted text-primary"
+                )}
+              >
+                <Tags className="h-4 w-4" />
+                Pricing
               </Link>
             </>
           )}
@@ -121,7 +145,6 @@ export function Navigation() {
             Workout Plans
           </Link>
 
-          {/* Show schedule for both admins and trainers */}
           {(isAdmin || isTrainer) && (
             <Link
               to="/schedule"
