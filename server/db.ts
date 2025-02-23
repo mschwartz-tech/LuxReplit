@@ -26,7 +26,11 @@ export const pool = new Pool({
 
 // Add error handling for the pool
 pool.on('error', (err) => {
-  logError('Unexpected error on idle client', { error: err });
+  logError('Unexpected error on idle client', { 
+    details: err.toString(),
+    category: 'database',
+    feature: 'connection'
+  });
   // Don't attempt to release the client here as it may already be released
 });
 
@@ -45,9 +49,11 @@ export async function initializeDatabase(retries = 5) {
       }
     } catch (error) {
       logError('Database connection attempt failed', { 
-        error, 
+        details: error instanceof Error ? error.toString() : 'Unknown error',
         attempt: i + 1, 
-        remainingAttempts: retries - i - 1 
+        remainingAttempts: retries - i - 1,
+        category: 'database',
+        feature: 'connection'
       });
       if (i === retries - 1) {
         throw error;
@@ -71,6 +77,10 @@ process.on('SIGTERM', async () => {
   try {
     await pool.end();
   } catch (err) {
-    logError('Error during pool cleanup', { error: err });
+    logError('Error during pool cleanup', { 
+      details: err instanceof Error ? err.toString() : 'Unknown error',
+      category: 'database',
+      feature: 'cleanup'
+    });
   }
 });

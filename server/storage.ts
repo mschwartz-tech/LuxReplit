@@ -69,6 +69,9 @@ import {
 import { eq, sql, desc, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
+import { logFeatureProgress } from './services/logger';
+//This import was missing in the original code and is needed for the edited code to work.  It's inferred from the edited code's usage.
+import { logError } from './services/logger';
 
 //Added error handling
 const PostgresSessionStore = connectPg(session);
@@ -291,10 +294,20 @@ export class DatabaseStorage implements IStorage {
         .insert(users)
         .values(user)
         .returning();
+      logFeatureProgress(
+        'userManagement',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'user' }
+      );
       return newUser;
     } catch (error) {
-      console.error("Error creating user:", error);
-      throw error; // Re-throw for handling at a higher level
+      logError('Error creating user:', { 
+        error,
+        category: 'userManagement',
+        feature: 'crudOperations'
+      });
+      throw error;
     }
   }
 
@@ -338,9 +351,22 @@ export class DatabaseStorage implements IStorage {
         .insert(members)
         .values(member)
         .returning();
+
+      // Update status tracker for successful member creation
+      logFeatureProgress(
+        'memberManagement',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'member' }
+      );
+
       return newMember;
     } catch (error) {
-      console.error("Error creating member:", error);
+      logError('Error creating member:', { 
+        error,
+        category: 'memberManagement',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -373,9 +399,19 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .returning();
+        logFeatureProgress(
+          'memberManagement',
+          'crudOperations',
+          '✓',
+          { operation: 'create', entityType: 'memberProfile' }
+        );
       return newProfile;
     } catch (error) {
-      console.error("Error creating member profile:", error);
+      logError('Error creating member profile:', { 
+        error,
+        category: 'memberManagement',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -444,9 +480,19 @@ export class DatabaseStorage implements IStorage {
         .insert(memberAssessments)
         .values(assessment)
         .returning();
+      logFeatureProgress(
+        'memberManagement',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'memberAssessment' }
+      );
       return newAssessment;
     } catch (error) {
-      console.error("Error creating member assessment:", error);
+      logError('Error creating member assessment:', { 
+        error,
+        category: 'memberManagement',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -489,9 +535,19 @@ export class DatabaseStorage implements IStorage {
         .insert(memberProgressPhotos)
         .values(photo)
         .returning();
+      logFeatureProgress(
+        'memberManagement',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'memberProgressPhoto' }
+      );
       return newPhoto;
     } catch (error) {
-      console.error("Error creating member progress photo:", error);
+      logError('Error creating member progress photo:', { 
+        error,
+        category: 'memberManagement',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -538,9 +594,21 @@ export class DatabaseStorage implements IStorage {
         .insert(workoutPlans)
         .values(plan)
         .returning();
+
+      logFeatureProgress(
+        'aiIntegration',
+        'workoutPlans',
+        '🟡',
+        { operation: 'create', entityType: 'workoutPlan' }
+      );
+
       return newPlan;
     } catch (error) {
-      console.error("Error creating workout plan:", error);
+      logError('Error creating workout plan:', {
+        error,
+        category: 'aiIntegration',
+        feature: 'workoutPlans'
+      });
       throw error;
     }
   }
@@ -596,9 +664,19 @@ export class DatabaseStorage implements IStorage {
         .insert(workoutLogs)
         .values(log)
         .returning();
+      logFeatureProgress(
+        'workoutTracking',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'workoutLog' }
+      );
       return newLog;
     } catch (error) {
-      console.error("Error creating workout log:", error);
+      logError('Error creating workout log:', { 
+        error,
+        category: 'workoutTracking',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -631,9 +709,19 @@ export class DatabaseStorage implements IStorage {
         .insert(schedules)
         .values(schedule)
         .returning();
+      logFeatureProgress(
+        'scheduling',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'schedule' }
+      );
       return newSchedule;
     } catch (error) {
-      console.error("Error creating schedule:", error);
+      logError('Error creating schedule:', { 
+        error,
+        category: 'scheduling',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -666,9 +754,19 @@ export class DatabaseStorage implements IStorage {
         .insert(invoices)
         .values(invoice)
         .returning();
+      logFeatureProgress(
+        'billing',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'invoice' }
+      );
       return newInvoice;
     } catch (error) {
-      console.error("Error creating invoice:", error);
+      logError('Error creating invoice:', { 
+        error,
+        category: 'billing',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -705,9 +803,19 @@ export class DatabaseStorage implements IStorage {
         .insert(marketingCampaigns)
         .values(campaign)
         .returning();
+      logFeatureProgress(
+        'marketing',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'marketingCampaign' }
+      );
       return newCampaign;
     } catch (error) {
-      console.error("Error creating marketing campaign:", error);
+      logError('Error creating marketing campaign:', { 
+        error,
+        category: 'marketing',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -744,9 +852,19 @@ export class DatabaseStorage implements IStorage {
         .insert(muscleGroups)
         .values(group)
         .returning();
+      logFeatureProgress(
+        'exerciseLibrary',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'muscleGroup' }
+      );
       return newGroup;
     } catch (error) {
-      console.error("Error creating muscle group:", error);
+      logError('Error creating muscle group:', { 
+        error,
+        category: 'exerciseLibrary',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -795,9 +913,19 @@ export class DatabaseStorage implements IStorage {
         .insert(exercises)
         .values(exercise)
         .returning();
+      logFeatureProgress(
+        'exerciseLibrary',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'exercise' }
+      );
       return newExercise;
     } catch (error) {
-      console.error("Error creating exercise:", error);
+      logError('Error creating exercise:', { 
+        error,
+        category: 'exerciseLibrary',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -840,9 +968,19 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .returning();
+      logFeatureProgress(
+        'pricing',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'pricingPlan' }
+      );
       return newPlan;
     } catch (error) {
-      console.error("Error creating pricing plan:", error);
+      logError('Error creating pricing plan:', { 
+        error,
+        category: 'pricing',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -911,9 +1049,19 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .returning();
+      logFeatureProgress(
+        'pricing',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'membershipPricing' }
+      );
       return newPricing;
     } catch (error) {
-      console.error("Error creating membership pricing:", error);
+      logError('Error creating membership pricing:', { 
+        error,
+        category: 'pricing',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -1048,6 +1196,12 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
+      logFeatureProgress(
+        'mealPlanning',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'mealPlan' }
+      );
       logMealPlanInfo('Successfully created new meal plan', { planId: newPlan.id });
       return newPlan;
     } catch (error) {
@@ -1157,9 +1311,19 @@ export class DatabaseStorage implements IStorage {
         .insert(memberMealPlans)
         .values(data)
         .returning();
+      logFeatureProgress(
+        'mealPlanning',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'memberMealPlan' }
+      );
       return results[0];
     } catch (error) {
-      console.error("Error creating member meal plan:", error);
+      logError('Error creating member meal plan:', { 
+        error,
+        category: 'mealPlanning',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -1227,9 +1391,19 @@ export class DatabaseStorage implements IStorage {
           progressDate: new Date(),
         })
         .returning();
+      logFeatureProgress(
+        'progressTracking',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'progress' }
+      );
       return newProgress;
     } catch (error) {
-      console.error("Error creating progress:", error);
+      logError('Error creating progress:', { 
+        error,
+        category: 'progressTracking',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -1294,9 +1468,19 @@ export class DatabaseStorage implements IStorage {
         .insert(strengthMetrics)
         .values(metric)
         .returning();
+      logFeatureProgress(
+        'strengthTraining',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'strengthMetric' }
+      );
       return newMetric;
     } catch (error) {
-      console.error("Error creating strength metric:", error);
+      logError('Error creating strength metric:', { 
+        error,
+        category: 'strengthTraining',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -1334,9 +1518,19 @@ export class DatabaseStorage implements IStorage {
         .insert(movementPatterns)
         .values(pattern)
         .returning();
+      logFeatureProgress(
+        'movementPatterns',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'movementPattern' }
+      );
       return newPattern;
     } catch (error) {
-      console.error("Error creating movement pattern:", error);
+      logError('Error creating movement pattern:', { 
+        error,
+        category: 'movementPatterns',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -1377,9 +1571,19 @@ export class DatabaseStorage implements IStorage {
         .insert(trainingPackages)
         .values(pkg)
         .returning();
+      logFeatureProgress(
+        'trainingPackages',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'trainingPackage' }
+      );
       return newPkg;
     } catch (error) {
-      console.error("Error creating training package:", error);
+      logError('Error creating training package:', { 
+        error,
+        category: 'trainingPackages',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
@@ -1448,9 +1652,19 @@ export class DatabaseStorage implements IStorage {
         .insert(trainingClients)
         .values(client)
         .returning();
+      logFeatureProgress(
+        'trainingClientManagement',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'trainingClient' }
+      );
       return newClient;
     } catch (error) {
-      console.error("Error creating training client:", error);
+      logError('Error creating training client:', { 
+        error,
+        category: 'trainingClientManagement',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }

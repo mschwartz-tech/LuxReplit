@@ -1,6 +1,7 @@
 import { createLogger, format, transports } from "winston";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { statusTracker } from "./statusTracker";
 
 // Ensure logs directory exists
 const logsDir = join(process.cwd(), "logs");
@@ -46,7 +47,6 @@ const logger = createLogger({
   level: process.env.NODE_ENV === "production" ? "info" : "debug",
   format: fileFormat,
   transports: [
-    // Write all logs to separate files
     new transports.File({ 
       filename: join(logsDir, "error.log"), 
       level: "error",
@@ -68,14 +68,36 @@ if (process.env.NODE_ENV !== "production") {
   }));
 }
 
-// Utility functions for different log levels
-export const logError = (message: string, meta?: object) => {
+// Feature tracking log functions
+export const logFeatureProgress = (
+  category: string,
+  feature: string,
+  status: '🟢' | '🟡' | '🔴' | '✓' | '⬜',
+  details?: object
+) => {
+  const meta = {
+    category,
+    feature,
+    status,
+    ...details
+  };
+  logger.info(`Feature progress update: ${category}.${feature}`, meta);
+  statusTracker.updateFeatureStatus(category as any, feature, status);
+};
+
+// Enhanced error logging with feature impact tracking
+export const logError = (message: string, meta?: object & { feature?: string, category?: string }) => {
   const errorMeta = {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     ...meta
   };
   logger.error(message, errorMeta);
+
+  // Update feature status if error affects a specific feature
+  if (meta?.feature && meta?.category) {
+    statusTracker.updateFeatureStatus(meta.category as any, meta.feature, '🔴');
+  }
 };
 
 export const logInfo = (message: string, meta: object = {}) => {
