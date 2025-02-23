@@ -3,12 +3,13 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { logError, logInfo } from "./services/logger";
 import { registerRoutes } from "./routes";
-import { ensureDatabaseInitialized } from "./db";
+import { ensureDatabaseInitialized, pool } from "./db";
 import { setupVite } from "./vite";
 import { rateLimiter, securityHeaders, wafMiddleware } from "./middleware";
 import { apiLimiter, authenticatedLimiter, getRouteLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
 import { errorHandler } from "./middleware/error";
+import { startupManager } from "./services/startup-manager";
 import cors from "cors";
 
 const app = express();
@@ -31,16 +32,16 @@ app.use(express.json({
 
 // CORS configuration
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Security middleware
-app.use(rateLimiter);  // Global rate limiting
-app.use(securityHeaders);  // Security headers (CSP, CORS, etc.)
-app.use(wafMiddleware);  // Web Application Firewall
+app.use(rateLimiter);
+app.use(securityHeaders);
+app.use(wafMiddleware);
 
 // Route-specific rate limiting
 app.use('/api', (req, res, next) => {
@@ -48,10 +49,7 @@ app.use('/api', (req, res, next) => {
   routeLimiter(req, res, next);
 });
 
-// Apply authenticated rate limiting to protected routes
 app.use('/api/protected', authenticatedLimiter);
-
-// Caching middleware
 app.use(cacheMiddleware);
 
 // Session middleware setup
@@ -70,7 +68,7 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
@@ -79,59 +77,47 @@ app.use(
 app.use(errorHandler);
 
 async function startServer() {
+  let server;
+
   try {
-    // Initialize database
-    logInfo("Initializing database connection...");
-    await ensureDatabaseInitialized();
-    logInfo("Database connection established successfully");
+    // Initialize database with retry mechanism
+    await startupManager.initPhase('database', async () => {
+      await ensureDatabaseInitialized();
+    });
 
-    // Register routes and get HTTP server
-    logInfo("Registering routes...");
-    let server;
-    try {
+    // Register cleanup for database
+    startupManager.registerCleanup('database', async () => {
+      await pool.end();
+    });
+
+    // Register routes with retry mechanism
+    await startupManager.initPhase('routes', async () => {
       server = await registerRoutes(app);
-      logInfo("Routes registered successfully");
-    } catch (routeError) {
-      logError("Failed to register routes", { 
-        error: routeError,
-        stack: routeError instanceof Error ? routeError.stack : undefined,
-        message: routeError instanceof Error ? routeError.message : String(routeError)
+    });
+
+    // Setup Vite in development (non-critical)
+    if (process.env.NODE_ENV !== "production" && process.env.DISABLE_VITE !== 'true') {
+      await startupManager.initPhase('vite', async () => {
+        await setupVite(app, server!);
       });
-      throw routeError;
     }
 
-    // Setup Vite in development
-    if (process.env.NODE_ENV !== "production") {
-      logInfo("Setting up Vite development server...");
-      try {
-        await setupVite(app, server);
-        logInfo("Vite development server setup complete");
-      } catch (viteError) {
-        logError("Failed to setup Vite", { 
-          error: viteError,
-          stack: viteError instanceof Error ? viteError.stack : undefined 
-        });
-        throw viteError;
-      }
-    }
-
-    // Start the server
+    // Start listening only after critical phases are complete
     const port = Number(process.env.PORT) || 5000;
-    server.listen(port, '0.0.0.0', () => {
+    server!.listen(port, '0.0.0.0', () => {
       logInfo(`Server listening on port ${port}`, {
         port,
         env: process.env.NODE_ENV || 'development',
-        time: new Date().toISOString(),
-        address: '0.0.0.0'
+        startupPhases: startupManager.getStartupSummary()
       });
-      console.log(`Server is running at http://0.0.0.0:${port}`);
     });
 
     // Handle server errors
-    server.on("error", (error) => {
+    server!.on("error", (error) => {
       logError("Server error occurred", { 
-        error,
-        stack: error instanceof Error ? error.stack : undefined 
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        startupPhases: startupManager.getStartupSummary()
       });
       process.exit(1);
     });
@@ -139,17 +125,34 @@ async function startServer() {
     // Graceful shutdown
     process.on('SIGTERM', () => {
       logInfo("Received SIGTERM signal, initiating graceful shutdown");
-      server.close(() => {
-        logInfo("Server closed successfully");
+      if (server) {
+        server.close(async () => {
+          try {
+            // Run cleanup handlers
+            for (const phase of ['vite', 'routes', 'database'] as const) {
+              if (startupManager.isPhaseComplete(phase)) {
+                await Promise.all((startupManager as any).cleanupHandlers.get(phase)?.map((h: () => Promise<void>) => h()) || []);
+              }
+            }
+            logInfo("Server closed successfully");
+          } catch (error) {
+            logError("Error during cleanup", {
+              error: error instanceof Error ? error.message : String(error)
+            });
+          } finally {
+            process.exit(0);
+          }
+        });
+      } else {
         process.exit(0);
-      });
+      }
     });
 
   } catch (error) {
     logError("Failed to start server", { 
-      error,
+      error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      message: error instanceof Error ? error.message : String(error)
+      startupPhases: startupManager.getStartupSummary()
     });
     process.exit(1);
   }

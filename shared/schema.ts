@@ -145,6 +145,36 @@ const memberProfiles = pgTable("member_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
+// Member Profile Schema
+const insertMemberProfileSchema = createInsertSchema(memberProfiles)
+  .extend({
+    userId: z.string().transform(val => parseInt(val)),
+    birthDate: z.coerce.date().optional(),
+    height: z.string().optional(),
+    weight: z.string().optional(),
+    fitnessGoals: z.array(z.string()).optional(),
+    healthConditions: z.array(z.string()).optional(),
+    medications: z.array(z.string()).optional(),
+    injuries: z.array(z.string()).optional(),
+    liabilityWaiverSigned: z.boolean().optional(),
+    liabilityWaiverSignedDate: z.coerce.date().optional(),
+    photoReleaseWaiverSigned: z.boolean().optional(),
+    photoReleaseWaiverSignedDate: z.coerce.date().optional(),
+    preferredContactMethod: z.enum(["email", "phone", "text"]).optional(),
+    marketingOptIn: z.boolean().optional(),
+    hadPhysicalLastYear: z.boolean().optional(),
+    physicianClearance: z.boolean().optional()
+  })
+  .omit({
+    createdAt: true,
+    updatedAt: true
+  });
+
+// Export the schema and type
+export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
+export { insertMemberProfileSchema };
+
+
 const memberAssessments = pgTable("member_assessments", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -769,7 +799,7 @@ const insertExerciseSchema = createInsertSchema(exercises)
     primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
     secondaryMuscleGroupIds: z.array(z.string()).transform(val => val.map(id => parseInt(id))),
     instructions: z.array(z.string()).min(1, "Instructions are required"),
-    tips: z.array(z.string()).optional(),
+    tips:z.array(z.string()).optional(),
     equipment: z.array(z.string()).optional(),
     videoUrl: z.string().url("Invalid URL").optional(),
   })
@@ -1119,6 +1149,7 @@ export type InsertProgress = z.infer<typeof insertProgressSchema>;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
 export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
 
 // =====================
 // Exports
@@ -1184,6 +1215,7 @@ export type {
   InsertSchedule,
   InsertStrengthMetric,
   InsertMemberMealPlan,
+  InsertMemberProfile
 };
 
 // Export tables, schemas, relations and utilities
@@ -1244,6 +1276,7 @@ export {
   insertScheduleSchema,
   insertStrengthMetricSchema,
   insertPricingPlanSchema,
+  insertMemberProfileSchema,
 
   // Relations
   usersRelations,
