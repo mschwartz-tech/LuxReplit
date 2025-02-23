@@ -172,8 +172,6 @@ const insertMemberProfileSchema = createInsertSchema(memberProfiles)
 
 // Export the schema and type
 export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
-export { insertMemberProfileSchema };
-
 
 const memberAssessments = pgTable("member_assessments", {
   id: serial("id").primaryKey(),
@@ -801,7 +799,7 @@ const insertExerciseSchema = createInsertSchema(exercises)
     instructions: z.array(z.string()).min(1, "Instructions are required"),
     tips:z.array(z.string()).optional(),
     equipment: z.array(z.string()).optional(),
-    videoUrl: z.string().url("Invalid URL").optional(),
+    videoUrl:z.string().url("Invalid URL").optional(),
   })
   .omit({ id: true, createdAt: true });
 
