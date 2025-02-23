@@ -27,18 +27,18 @@ import {
 } from "@/components/ui/table";
 
 interface Measurements {
-  chest?: number;
-  waist?: number;
-  hips?: number;
-  thighs?: number;
-  arms?: number;
+  chest?: number | null;
+  waist?: number | null;
+  hips?: number | null;
+  thighs?: number | null;
+  arms?: number | null;
 }
 
 interface ChartData {
   progressDate: Date;
   measurements: Measurements;
   weight: string;
-  bodyFatPercentage?: string;
+  bodyFatPercentage?: string | null;
 }
 
 export default function ClientProfilePage() {
@@ -87,17 +87,29 @@ export default function ClientProfilePage() {
 
   const chartData: ChartData[] = assessments?.map(assessment => ({
     progressDate: new Date(assessment.assessmentDate),
-    measurements: assessment.measurements as Measurements,
+    measurements: {
+      chest: assessment.measurements?.chest ?? null,
+      waist: assessment.measurements?.waist ?? null,
+      hips: assessment.measurements?.hips ?? null,
+      thighs: assessment.measurements?.thighs ?? null,
+      arms: assessment.measurements?.arms ?? null,
+    },
     weight: assessment.weight || '0',
     bodyFatPercentage: assessment.bodyFatPercentage
   })) || [];
 
   const exportProgress = () => {
-    const data = assessments?.map(assessment => ({
+    if (!assessments) return;
+
+    const data = assessments.map(assessment => ({
       date: format(new Date(assessment.assessmentDate), 'yyyy-MM-dd'),
-      ...assessment.measurements,
       weight: assessment.weight,
       bodyFatPercentage: assessment.bodyFatPercentage,
+      chest: assessment.measurements?.chest,
+      waist: assessment.measurements?.waist,
+      hips: assessment.measurements?.hips,
+      thighs: assessment.measurements?.thighs,
+      arms: assessment.measurements?.arms,
       notes: assessment.notes
     }));
 
@@ -327,7 +339,7 @@ export default function ClientProfilePage() {
                                         <span className="text-sm text-muted-foreground capitalize">
                                           {key}
                                         </span>
-                                        <span className="text-sm">{value ? `${value} cm` : 'Not recorded'}</span>
+                                        <span className="text-sm">{value !== null ? `${value} cm` : 'Not recorded'}</span>
                                       </div>
                                     ))}
                                   </div>

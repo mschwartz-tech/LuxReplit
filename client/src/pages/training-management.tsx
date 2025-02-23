@@ -66,13 +66,16 @@ export default function TrainingManagement() {
 
   const createWorkoutPlanMutation = useMutation({
     mutationFn: async (data: typeof insertWorkoutPlanSchema._type) => {
+      if (!data.memberId) {
+        throw new Error("Member ID is required");
+      }
       const newPlan = {
         ...data,
         status: "active" as const,
         trainerId: isTrainer ? user?.id : undefined,
-        memberId: data.memberId || undefined,
+        memberId: data.memberId,
         frequencyPerWeek: Number(data.frequencyPerWeek),
-        completionRate: "0",
+        completionRate: 0,
       };
       const res = await apiRequest("POST", "/api/workout-plans", newPlan);
       if (!res.ok) {
