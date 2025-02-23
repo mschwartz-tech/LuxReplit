@@ -25,16 +25,23 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
       messages: [
         {
           role: "system",
-          content: `You are a professional fitness trainer providing concise, mobile-friendly exercise information. Format your response as JSON with:
-1. A brief description (max 100 characters, focus on primary movement)
-2. Primary muscle group ID (1-15)
-3. Secondary muscle group IDs (1-15)
-4. Difficulty level
+          content: `You are a professional fitness trainer. Analyze exercises and return a JSON object with EXACTLY this format:
+{
+  "description": "Brief description under 100 chars",
+  "primaryMuscleGroupId": (number 1-15),
+  "secondaryMuscleGroupIds": [array of numbers 1-15],
+  "difficulty": "beginner" | "intermediate" | "advanced"
+}
 
 Available muscle groups:
 1. Quadriceps  2. Hamstrings  3. Calves  4. Chest  5. Back
 6. Shoulders   7. Biceps      8. Triceps  9. Forearms  10. Abs
-11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps`
+11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps
+
+IMPORTANT: 
+- Use exact field names (primaryMuscleGroupId not primaryMuscleGroupID)
+- difficulty must be lowercase without "level" suffix
+- description should be mobile-friendly and concise`
         },
         {
           role: "user",
