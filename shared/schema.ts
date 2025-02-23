@@ -1074,6 +1074,20 @@ const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
   })
   .omit({ id: true, createdAt: true });
 
+// Add the memberMealPlan insert schema after line 914
+const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
+  .extend({
+    memberId: z.string().transform(val => parseInt(val)),
+    mealPlanId: z.string().transform(val => parseInt(val)),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date().optional(),
+    status: z.enum(["pending", "active", "completed"]).default("pending"),
+    customMeals: z.record(z.unknown()).optional(),
+  })
+  .omit({
+    assignedAt: true,
+  });
+
 // =====================
 // Exports
 // =====================
