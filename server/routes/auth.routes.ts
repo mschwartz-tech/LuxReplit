@@ -69,8 +69,8 @@ const validateRequest = (schema: z.ZodSchema) => asyncHandler(async (req: Reques
   }
 });
 
-router.post("/register", 
-  validateRequest(registrationSchema), 
+router.post("/register",
+  validateRequest(registrationSchema),
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const { confirmPassword, ...userData } = req.body;
 
@@ -97,9 +97,9 @@ router.post("/register",
       const { password, ...userWithoutPassword } = user;
       res.status(201).json(userWithoutPassword);
     });
-}));
+  }));
 
-router.post("/login", 
+router.post("/login",
   authLimiter,
   validateRequest(z.object({
     username: z.string().min(1, "Username is required"),
@@ -134,7 +134,7 @@ router.post("/login",
       logError("Login error", { error });
       next(error);
     }
-}));
+  }));
 
 router.post("/logout", asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) {
@@ -142,13 +142,21 @@ router.post("/logout", asyncHandler(async (req: Request, res: Response, next: Ne
   }
 
   const username = (req.user as User).username;
+  logInfo("Logging out user", { username });
 
   req.logout((err: Error) => {
-    if (err) return next(err);
+    if (err) {
+      logError("Logout error", { error: err });
+      return next(err);
+    }
+
     req.session?.destroy((err) => {
-      if (err) return next(err);
+      if (err) {
+        logError("Session destruction error", { error: err });
+        return next(err);
+      }
       res.clearCookie('connect.sid');
-      logInfo("User logged out", { username });
+      logInfo("User logged out and session destroyed", { username });
       res.sendStatus(200);
     });
   });
@@ -165,7 +173,7 @@ router.get("/user", asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Password reset request
-router.post("/forgot-password", 
+router.post("/forgot-password",
   authLimiter,
   validateRequest(z.object({
     email: z.string().email("Invalid email address")
@@ -180,6 +188,6 @@ router.post("/forgot-password",
       // TODO: Implement actual password reset email sending
       logInfo("Password reset requested", { email: req.body.email });
     }
-}));
+  }));
 
 export default router;
