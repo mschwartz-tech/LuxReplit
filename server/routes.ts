@@ -13,6 +13,7 @@ import { paymentRoutes } from "./routes/payment.routes";
 import { marketingCampaignRoutes } from "./routes/marketingCampaign.routes";
 import { scheduleRoutes } from "./routes/schedule.routes";
 import { placeRoutes } from "./routes/place.routes";
+import { strengthMetricRoutes } from "./routes/strengthMetric.routes";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
