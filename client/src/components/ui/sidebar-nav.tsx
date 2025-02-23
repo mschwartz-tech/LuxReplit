@@ -37,7 +37,7 @@ export function SidebarNav() {
     {
       title: "Member Management",
       icon: Users,
-      href: "/member-management",
+      href: "/members", 
       roles: ["admin"],
     },
     {
