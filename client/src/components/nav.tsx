@@ -1,12 +1,25 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Dumbbell, Home, Users, Calendar, Settings, Utensils } from "lucide-react";
+import { 
+  Dumbbell, 
+  Home, 
+  Users, 
+  Calendar, 
+  Settings, 
+  Utensils,
+  UserCog,
+  BookOpen,
+  GraduationCap,
+  ClipboardList
+} from "lucide-react";
 import { LogoutButton } from "./logout-button";
 import { useAuth } from "@/hooks/use-auth";
 
 export function Navigation() {
   const [path] = useLocation();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const isTrainer = user?.role === 'trainer';
 
   return (
     <nav className="flex flex-col gap-2 p-4 min-w-[200px] border-r h-screen">
@@ -22,6 +35,69 @@ export function Navigation() {
             <Home className="h-4 w-4" />
             Dashboard
           </Link>
+
+          {isAdmin && (
+            <>
+              <Link
+                to="/member-management"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/member-management" && "bg-muted text-primary"
+                )}
+              >
+                <Users className="h-4 w-4" />
+                Member Management
+              </Link>
+
+              <Link
+                to="/trainer-management"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/trainer-management" && "bg-muted text-primary"
+                )}
+              >
+                <UserCog className="h-4 w-4" />
+                Trainer Management
+              </Link>
+            </>
+          )}
+
+          {(isAdmin || isTrainer) && (
+            <>
+              <Link
+                to="/exercise-library"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/exercise-library" && "bg-muted text-primary"
+                )}
+              >
+                <BookOpen className="h-4 w-4" />
+                Exercise Library
+              </Link>
+
+              <Link
+                to="/training-programs"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/training-programs" && "bg-muted text-primary"
+                )}
+              >
+                <GraduationCap className="h-4 w-4" />
+                Training Programs
+              </Link>
+
+              <Link
+                to="/training-management"
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  path === "/training-management" && "bg-muted text-primary"
+                )}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Training Management
+              </Link>
+            </>
+          )}
 
           <Link
             to="/meal-plans"
@@ -45,22 +121,8 @@ export function Navigation() {
             Workout Plans
           </Link>
 
-          {/* Show members link only for admin users */}
-          {user?.role === 'admin' && (
-            <Link
-              to="/members"
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                path === "/members" && "bg-muted text-primary"
-              )}
-            >
-              <Users className="h-4 w-4" />
-              Members
-            </Link>
-          )}
-
           {/* Show schedule for both admins and trainers */}
-          {(user?.role === 'admin' || user?.role === 'trainer') && (
+          {(isAdmin || isTrainer) && (
             <Link
               to="/schedule"
               className={cn(

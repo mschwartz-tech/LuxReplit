@@ -15,6 +15,8 @@ import {
   UserPlus,
   ClipboardList,
   UserCog,
+  BookOpen,
+  GraduationCap,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -41,6 +43,18 @@ export function SidebarNav() {
       icon: UserCog,
       href: "/trainer-management",
       roles: ["admin"],
+    },
+    {
+      title: "Exercise Library",
+      icon: BookOpen,
+      href: "/exercise-library",
+      roles: ["admin", "trainer"],
+    },
+    {
+      title: "Training Programs",
+      icon: GraduationCap,
+      href: "/training-programs",
+      roles: ["admin", "trainer"],
     },
     {
       title: "Training Management",
