@@ -324,12 +324,12 @@ export default function MealPlansPage() {
             <CardContent>
               <div className="space-y-4">
                 <Input
-                  placeholder="Plan Name"
+                  placeholder="Enter plan name"
                   value={newPlan.name}
                   onChange={(e) => setNewPlan(prev => ({ ...prev, name: e.target.value }))}
                 />
                 <Textarea
-                  placeholder="Description"
+                  placeholder="Enter plan description"
                   value={newPlan.description}
                   onChange={(e) => setNewPlan(prev => ({ ...prev, description: e.target.value }))}
                 />
@@ -367,7 +367,9 @@ export default function MealPlansPage() {
                                       <FormControl>
                                         <Input
                                           type="number"
+                                          placeholder="Enter daily calorie target"
                                           {...field}
+                                          className="h-8"
                                           onChange={(e) => field.onChange(Number(e.target.value))}
                                         />
                                       </FormControl>
@@ -384,7 +386,9 @@ export default function MealPlansPage() {
                                       <FormControl>
                                         <Input
                                           type="number"
+                                          placeholder="Number of meals"
                                           {...field}
+                                          className="h-8"
                                           onChange={(e) => field.onChange(Number(e.target.value))}
                                         />
                                       </FormControl>
@@ -408,6 +412,7 @@ export default function MealPlansPage() {
                                       <FormControl>
                                         <Input
                                           type="number"
+                                          placeholder="Enter %"
                                           {...field}
                                           className="h-8"
                                           onChange={(e) => {
@@ -429,6 +434,7 @@ export default function MealPlansPage() {
                                       <FormControl>
                                         <Input
                                           type="number"
+                                          placeholder="Enter %"
                                           {...field}
                                           className="h-8"
                                           onChange={(e) => {
@@ -450,6 +456,7 @@ export default function MealPlansPage() {
                                       <FormControl>
                                         <Input
                                           type="number"
+                                          placeholder="Enter %"
                                           {...field}
                                           className="h-8"
                                           onChange={(e) => {
@@ -476,10 +483,10 @@ export default function MealPlansPage() {
                                     <FormItem>
                                       <FormLabel>Diet Type</FormLabel>
                                       <FormControl>
-                                        <MultiSelect
-                                          options={dietaryOptions}
-                                          selected={field.value}
-                                          onChange={field.onChange}
+                                        <Input
+                                          placeholder="Enter dietary preferences"
+                                          {...field}
+                                          className="h-8"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -493,10 +500,10 @@ export default function MealPlansPage() {
                                     <FormItem>
                                       <FormLabel>Restrictions</FormLabel>
                                       <FormControl>
-                                        <MultiSelect
-                                          options={dietaryRestrictionOptions}
-                                          selected={field.value}
-                                          onChange={field.onChange}
+                                        <Input
+                                          placeholder="Enter dietary restrictions"
+                                          {...field}
+                                          className="h-8"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -630,16 +637,8 @@ export default function MealPlansPage() {
                     <option key={plan.id} value={plan.id}>{plan.name}</option>
                   ))}
                 </select>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+                <Input type="date" placeholder="Start Date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Input type="date" placeholder="End Date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 <Button onClick={handleAssignPlan}>Assign Plan</Button>
               </div>
             </CardContent>
