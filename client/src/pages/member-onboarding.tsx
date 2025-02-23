@@ -775,7 +775,7 @@ const PackageSelectionStep = ({ form, gymLocations }: StepProps) => (
                 <SelectValue placeholder="Select gym location" />
               </SelectTrigger>
               <SelectContent>
-                {gymLocations?.map((location) => (
+                {gymLocations?.map((location: {id: number, gymName: string}) => (
                   <SelectItem
                     key={location.id}
                     value={location.id.toString()}
@@ -823,7 +823,7 @@ const PackageSelectionStep = ({ form, gymLocations }: StepProps) => (
   </div>
 );
 
-const validateFormData = (data: OnboardingForm) => {
+const validateFormData = async (data: OnboardingForm) => {
   const errors: Partial<Record<keyof OnboardingForm, string>> = {};
 
   // Email validation
@@ -940,9 +940,8 @@ export default function MemberOnboardingPage() {
             description: "Please sign the photo release waiver before proceeding.",
             variant: "destructive"
           });
-          return;
-        }
-      } else if (`currentStep === 4) {
+          return        }
+      } else if (currentStep === 4) {
         const finalData = form.getValues();
         await onSubmit(finalData);
         return;
@@ -976,204 +975,99 @@ export default function MemberOnboardingPage() {
   const onSubmit = async (data: OnboardingForm) => {
     try {
       setIsSubmitting(true);
-      console.log('Form submission started');
 
-      // Validate form data
-      try {
-        validateFormData(data);
-      } catch (error) {
-        const errors = JSON.parse((error as Error).message);
-        Object.entries(errors).forEach(([field, message]) => {
-          form.setError(field as any, { message: message as string});
-        });
-        throw new Error("Form validation failed");
-      }
+      // Validate the form data
+      await validateFormData(data);
 
-      console.log('Submitting form data:', data);
-
-      // Prepare user data
+      // Create the user account first
       const userData = {
         email: data.email,
         password: "temporary123", // This should be changed on first login
         role: "user",
-        name: `${data.firstName}${data.middleInitial ? ` ${data.middleInitial}` : ''} ${data.lastName}`,
+        name: `${data.firstName}${data.middleInitial ? ` ${data.middleInitial}` : ''} ${data.lastName}`
       };
 
       // Create user account with timeout and retry
-      const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 5000) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+      const createUser = async (retries = 3, timeout = 5000): Promise<any> => {
         try {
-          const response = await fetch(url, {
-            ...options,
-            signal: controller.signal,
+          const response = await fetch("/api/users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(userData)
           });
-          clearTimeout(timeoutId);
-          return response;
+
+          if (!response.ok) {
+            throw new Error("Failed to create user account");
+          }
+
+          return await response.json();
         } catch (error) {
-          clearTimeout(timeoutId);
+          if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, timeout));
+            return createUser(retries - 1, timeout * 2);
+          }
           throw error;
         }
       };
 
-      const maxRetries = 3;
-      let userResponse;
-      let retryCount = 0;
+      const user = await createUser();
 
-      while (retryCount < maxRetries) {
-        try {
-          userResponse = await fetchWithTimeout('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
-          });
-
-          if (!userResponse.ok) {
-            const errorText = await userResponse.text();
-            throw new Error(errorText);
-          }
-
-          break;
-        } catch (error) {
-          retryCount++;
-          if (retryCount === maxRetries) {
-            throw error;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-      }
-
-      const newUser = await userResponse.json();
-      const userId = newUser.id;
-
-      // Create member profile
+      // Create the member profile
       const memberData = {
-        userId,
+        userId: user.id,
         ...data,
-        startDate: new Date().toISOString(),
-        membershipStatus: 'active',
+        birthDate: new Date(data.birthYear, data.birthMonth - 1, data.birthDay).toISOString(),
+        height: (data.heightFeet * 12 + data.heightInches).toString(),
+        weight: parseFloat(data.weight),
+        fitnessGoals: data.fitnessGoals.join(","),
+        healthConditions: data.healthConditions?.join(",") || "",
+        medications: data.medications?.join(",") || "",
+        injuries: data.injuries?.join(",") || "",
+        liabilitySignature: liabilitySignaturePad.current?.toDataURL() || "",
+        photoReleaseSignature: photoReleaseSignaturePad.current?.toDataURL() || "",
       };
 
-      let memberResponse;
-      retryCount = 0;
+      const response = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(memberData)
+      });
 
-      while (retryCount < maxRetries) {
-        try {
-          memberResponse = await fetchWithTimeout('/api/members', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(memberData),
-          });
-
-          if (!memberResponse.ok) {
-            const memberResponseText = await memberResponse.text();
-            throw new Error(memberResponseText);
-          }
-
-          break;
-        } catch (e) {
-          retryCount++;
-          if (retryCount === maxRetries) {
-            throw e;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
+      if (!response.ok) {
+        throw new Error("Failed to create member profile");
       }
 
-      const newMember = await memberResponse.json();
+      const member = await response.json();
 
-      // Save signature data if available
-      if (liabilitySignaturePad.current?.toData().length) {
-        const signatureData = {
-          memberId: newMember.id,
-          userId,
-          signatureType: 'liability',
-          signatureData: liabilitySignaturePad.current.toDataURL(),
-          timestamp: new Date().toISOString(),
-        };
+      // If training package is selected, redirect to checkout
+      if (data.sessionDuration && data.sessionsPerWeek) {
+        const params = new URLSearchParams({
+          memberId: member.id.toString(),
+          sessionDuration: data.sessionDuration,
+          sessionsPerWeek: data.sessionsPerWeek,
+          paymentType: data.paymentType || "biweekly",
+          gymLocationId: data.gymLocationId?.toString() || "",
+          membershipType: data.membershipType || "luxe_essentials"
+        });
 
-        let profileResponse;
-        retryCount = 0;
-
-        while (retryCount < maxRetries) {
-          try {
-            profileResponse = await fetchWithTimeout('/api/signatures', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(signatureData),
-            });
-
-            if (!profileResponse.ok) {
-              const profileResponseText = await profileResponse.text();
-              throw new Error(profileResponseText);
-            }
-
-            break;
-          } catch (error) {
-            toast({
-              title: "Warning",
-              description: "Failed to save liability signature, but member was created",
-              variant: "warning",
-            });
-            console.error('Error saving liability signature:', error);
-            break;
-          }
-        }
-      }
-
-      if (photoReleaseSignaturePad.current?.toData().length) {
-        const signatureData = {
-          memberId: newMember.id,
-          userId,
-          signatureType: 'photo_release',
-          signatureData: photoReleaseSignaturePad.current.toDataURL(),
-          timestamp: new Date().toISOString(),
-        };
-
-        let profileResponse;
-        retryCount = 0;
-
-        while (retryCount < maxRetries) {
-          try {
-            profileResponse = await fetchWithTimeout('/api/signatures', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(signatureData),
-            });
-
-            if (!profileResponse.ok) {
-              const profileResponseText = await profileResponse.text();
-              throw new Error(profileResponseText);
-            }
-
-            break;
-          } catch (error) {
-            toast({
-              title: "Warning",
-              description: "Failed to save photo release signature, but member was created",
-              variant: "warning",
-            });
-            console.error('Error saving photo release signature:', error);
-            break;
-          }
-        }
+        navigate(`/member-checkout?${params.toString()}`);
+      } else {
+        navigate("/gym-members");
       }
 
       toast({
         title: "Success",
-        description: "Member onboarding completed successfully",
+        description: "Member registration completed successfully",
       });
-
-      navigate('/member/' + newMember.id + '/profile');
     } catch (error) {
-      console.error('Error during member onboarding:', error);
-      setIsSubmitting(false);
+      console.error("Registration error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create member",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to complete registration",
+        variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
