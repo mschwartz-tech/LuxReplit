@@ -15,7 +15,8 @@ import {
   Users,
   UserCheck,
   Filter,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -24,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Link } from "wouter";
 
 export default function SchedulePage() {
   const { user } = useAuth();
@@ -43,11 +45,7 @@ export default function SchedulePage() {
     enabled: !!user,
   });
 
-  if (!user) {
-    return <div className="p-8">Please log in to access the schedule.</div>;
-  }
-
-  if (!isAdmin) {
+  if (!user || !isAdmin) {
     return <div className="p-8">Only administrators can access this page.</div>;
   }
 
@@ -77,7 +75,14 @@ export default function SchedulePage() {
       <div className="relative z-10 p-8">
         <div className="flex justify-between items-center mb-8">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">Schedule Management</h1>
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <h1 className="text-3xl font-bold tracking-tight">Schedule Management</h1>
+            </div>
             <p className="text-muted-foreground">
               Manage group fitness classes and trainer schedules
             </p>
@@ -125,7 +130,7 @@ export default function SchedulePage() {
             <div className="grid gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Upcoming Group Classes</CardTitle>
+                  <CardTitle>Group Classes Schedule</CardTitle>
                   <CardDescription>
                     View and manage scheduled group fitness classes
                   </CardDescription>
