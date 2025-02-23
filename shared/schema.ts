@@ -26,11 +26,7 @@ import {
   insertSubscriptionSchema
 } from './subscriptions';
 
-// =====================
-// Schema Definitions
-// =====================
-
-// Define schemas at the top level
+// Define top-level schemas
 const mealItemSchema = z.object({
   meal: z.string(),
   food: z.string(),
@@ -40,6 +36,11 @@ const mealItemSchema = z.object({
   fats: z.number().optional(),
 });
 
+export type MealItem = z.infer<typeof mealItemSchema>;
+
+// =====================
+// Database Tables
+// =====================
 
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -745,7 +746,7 @@ const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
 }));
 
 // =====================
-// Insert Schema Definitions
+// Schema Definitions
 // =====================
 
 const insertUserSchema = createInsertSchema(users)
@@ -778,7 +779,7 @@ const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing
   });
 
 const insertExerciseSchema = createInsertSchema(exercises)
-  .extend({
+    .extend({
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
     primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
     secondaryMuscleGroupIds: z.array(z.string()).transform(val => val.map(id => parseInt(id))),
@@ -1070,12 +1071,74 @@ const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
   });
 
 // =====================
+// Type Definitions
+// =====================
+
+// Base types
+export type User = typeof users.$inferSelect;
+export type Member = typeof members.$inferSelect;
+export type WorkoutPlan = typeof workoutPlans.$inferSelect;
+export type WorkoutLog = typeof workoutLogs.$inferSelect;
+export type Schedule = typeof schedules.$inferSelect;
+export type Exercise = typeof exercises.$inferSelect;
+export type MuscleGroup = typeof muscleGroups.$inferSelect;
+export type PricingPlan = typeof pricingPlans.$inferSelect;
+export type GymMembershipPricing = typeof gymMembershipPricing.$inferSelect;
+export type MembershipPricing = typeof membershipPricing.$inferSelect;
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type MemberMealPlan = typeof memberMealPlans.$inferSelect;
+export type Progress = typeof progress.$inferSelect;
+export type StrengthMetric = typeof strengthMetrics.$inferSelect;
+export type MovementPattern = typeof movementPatterns.$inferSelect;
+export type TrainingPackage = typeof trainingPackages.$inferSelect;
+export type TrainingClient = typeof trainingClients.$inferSelect;
+export type MemberProfile = typeof memberProfiles.$inferSelect;
+export type MemberAssessment = typeof memberAssessments.$inferSelect;
+export type MemberProgressPhoto = typeof memberProgressPhotos.$inferSelect;
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+export type Invoice = typeof invoices.$inferSelect;
+export type Class = typeof classes.$inferSelect;
+export type ClassRegistration = typeof classRegistrations.$inferSelect;
+export type ClassTemplate = typeof classTemplates.$inferSelect;
+export type ClassWaitlist = typeof classWaitlist.$inferSelect;
+export type PaymentMethod = typeof payments.$inferSelect;
+export type PaymentStatus = typeof payments.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+
+
+// Insert types
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
+export type InsertExercise = z.infer<typeof insertExerciseSchema>;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
+export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
+export type InsertMember = z.infer<typeof insertMemberSchema>;
+export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
+export type InsertMovementPattern = z.infer<typeof insertMovementPatternSchema>;
+export type InsertClass = z.infer<typeof insertClassSchema>;
+export type InsertClassTemplate = z.infer<typeof insertClassTemplateSchema>;
+export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
+export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
+export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
+export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
+export type InsertTrainingPackage = z.infer<typeof insertTrainingPackageSchema>;
+export type InsertTrainingClient = z.infer<typeof insertTrainingClientSchema>;
+export type InsertProgress = z.infer<typeof insertProgressSchema>;
+export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
+export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
+export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
+
+// =====================
 // Exports
 // =====================
 
-// Export Types
-// Export shared types
-export type MealItem = z.infer<typeof mealItemSchema>;
+// Export types
 export type {
   PaymentMethod,
   PaymentStatus,
@@ -1083,10 +1146,8 @@ export type {
   InsertPayment,
   Subscription,
   InsertSubscription,
-};
-
-// Export table types
-export type {
+  MealItem,
+  // Base types
   User,
   Member,
   WorkoutPlan,
@@ -1112,35 +1173,65 @@ export type {
   Class,
   ClassRegistration,
   ClassTemplate,
-  ClassWaitlist
+  ClassWaitlist,
+  // Insert types
+  InsertUser,
+  InsertGymMembershipPricing,
+  InsertExercise,
+  InsertInvoice,
+  InsertMarketingCampaign,
+  InsertMealPlan,
+  InsertMemberAssessment,
+  InsertMemberProgressPhoto,
+  InsertMember,
+  InsertMuscleGroup,
+  InsertMovementPattern,
+  InsertClass,
+  InsertClassTemplate,
+  InsertClassRegistration,
+  InsertClassWaitlist,
+  InsertWorkoutPlan,
+  InsertWorkoutLog,
+  InsertTrainingPackage,
+  InsertTrainingClient,
+  InsertProgress,
+  InsertSchedule,
+  InsertStrengthMetric,
+  InsertMemberMealPlan,
 };
 
-// Export insert types
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
-export type InsertExercise = z.infer<typeof insertExerciseSchema>;
-export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
-export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
-export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
-export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
-export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
-export type InsertMember = z.infer<typeof insertMemberSchema>;
-export type InsertMuscleGroup = z.infer<typeof insertMuscleGroupSchema>;
-export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
-export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
-export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
-export type InsertTrainingPackage = z.infer<typeof insertTrainingPackageSchema>;
-export type InsertTrainingClient = z.infer<typeof insertTrainingClientSchema>;
-export type InsertProgress = z.infer<typeof insertProgressSchema>;
-export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
-export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
-export type InsertClass = z.infer<typeof insertClassSchema>;
-export type InsertClassTemplate = z.infer<typeof insertClassTemplateSchema>;
-export type InsertClassRegistration = z.infer<typeof insertClassRegistrationSchema>;
-export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
-
-// Export insert schemas
+// Export tables, schemas, relations and utilities
 export {
+  // Tables
+  users,
+  members,
+  movementPatterns,
+  trainingPackages,
+  trainingClients,
+  memberProfiles,
+  memberAssessments,
+  memberProgressPhotos,
+  workoutPlans,
+  workoutLogs,
+  schedules,
+  invoices,
+  marketingCampaigns,
+  muscleGroups,
+  exercises,
+  pricingPlans,
+  gymMembershipPricing,
+  membershipPricing,
+  mealPlans,
+  memberMealPlans,
+  sessions,
+  classes,
+  classRegistrations,
+  classTemplates,
+  classWaitlist,
+  progress,
+  strengthMetrics,
+
+  // Insert schemas
   insertUserSchema,
   insertGymMembershipPricingSchema,
   insertExerciseSchema,
@@ -1151,6 +1242,11 @@ export {
   insertMemberProgressPhotoSchema,
   insertMemberSchema,
   insertMuscleGroupSchema,
+  insertMovementPatternSchema,
+  insertClassSchema,
+  insertClassTemplateSchema,
+  insertClassRegistrationSchema,
+  insertClassWaitlistSchema,
   insertMemberMealPlanSchema,
   insertPaymentSchema,
   insertSubscriptionSchema,
@@ -1161,53 +1257,9 @@ export {
   insertProgressSchema,
   insertScheduleSchema,
   insertStrengthMetricSchema,
-  insertClassSchema,
-  insertClassTemplateSchema,
-  insertClassRegistrationSchema,
-  insertClassWaitlistSchema,
-  subscriptions,
-  subscriptionsRelations,
-  type Subscription,
-  type InsertSubscription,
-  insertSubscriptionSchema
-};
+  insertPricingPlanSchema,
 
-// Export tables
-export {
-  users,
-  members,
-  workoutPlans,
-  workoutLogs,
-  schedules,
-  exercises,
-  muscleGroups,
-  pricingPlans,
-  gymMembershipPricing,
-  membershipPricing,
-  mealPlans,
-  memberMealPlans,
-  progress,
-  strengthMetrics,
-  movementPatterns,
-  trainingPackages,
-  trainingClients,
-  memberProfiles,
-  memberAssessments,
-  memberProgressPhotos,
-  marketingCampaigns,
-  invoices,
-  classes,
-  classRegistrations,
-  classTemplates,
-  classWaitlist,
-  payments,
-  subscriptions,
-  // Add the view creation SQL
-  createScheduledBlocksView
-};
-
-// Export relations
-export {
+  // Relations
   usersRelations,
   membersRelations,
   movementPatternsRelations,
@@ -1233,6 +1285,14 @@ export {
   classWaitlistRelations,
   progressRelations,
   strengthMetricsRelations,
+  // Payment and subscription relations (imported)
   paymentsRelations,
-  subscriptionsRelations
+  subscriptionsRelations,
+
+  // External tables
+  payments,
+  subscriptions,
+
+  // Utilities
+  createScheduledBlocksView,
 };
