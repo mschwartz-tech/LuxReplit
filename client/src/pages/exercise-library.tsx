@@ -30,11 +30,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Exercise, MuscleGroup, insertExerciseSchema } from "@shared/schema";
+import { Exercise, insertExerciseSchema } from "@shared/schema";
 import { useState, useEffect, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+
 
 // Predefined muscle groups
 const MUSCLE_GROUPS = [
@@ -107,19 +108,28 @@ export default function ExerciseLibrary() {
           ...data,
           primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
           secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(Number),
-          instructions: data.instructions || [],
-          tips: data.tips || [],
-          equipment: data.equipment || [],
         };
 
-        const res = await apiRequest("POST", "/api/exercises", formattedData);
-        const responseData = await res.json();
+        const response = await fetch('/api/exercises', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formattedData),
+        });
 
-        if (!res.ok) {
-          throw new Error(responseData.message || "Failed to create exercise");
+        if (!response.ok) {
+          const errorData = await response.text();
+          try {
+            const parsedError = JSON.parse(errorData);
+            throw new Error(parsedError.message || 'Failed to create exercise');
+          } catch {
+            throw new Error(errorData || 'Failed to create exercise');
+          }
         }
 
-        return responseData;
+        const result = await response.json();
+        return result;
       } catch (error) {
         if (error instanceof Error) {
           throw new Error(error.message);
@@ -147,16 +157,26 @@ export default function ExerciseLibrary() {
 
   const predictMuscleGroupsMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/exercises/predict-muscle-groups", { exerciseName: name });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to predict muscle groups");
+      const response = await fetch('/api/exercises/predict-muscle-groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ exerciseName: name }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        try {
+          const parsedError = JSON.parse(errorData);
+          throw new Error(parsedError.message || 'Failed to predict muscle groups');
+        } catch {
+          throw new Error(errorData || 'Failed to predict muscle groups');
+        }
       }
-      return res.json() as Promise<{
-        primaryMuscleGroupId: string;
-        secondaryMuscleGroupIds: string[];
-        difficulty: "beginner" | "intermediate" | "advanced";
-      }>;
+
+      const result = await response.json();
+      return result;
     },
     onSuccess: (data) => {
       // Convert predicted IDs to match our predefined muscle groups
@@ -168,11 +188,11 @@ export default function ExerciseLibrary() {
         form.setValue("primaryMuscleGroupId", primaryId);
       }
 
-      const validSecondaryIds = secondaryIds.filter(id => 
+      const validSecondaryIds = secondaryIds.filter(id =>
         MUSCLE_GROUPS.some(g => g.id === id)
       );
       form.setValue("secondaryMuscleGroupIds", validSecondaryIds);
-      form.setValue("difficulty", data.difficulty);
+      form.setValue("difficulty", data.difficulty || "beginner");
 
       toast({
         title: "Success",
