@@ -26,6 +26,22 @@ import {
   insertSubscriptionSchema
 } from './subscriptions';
 
+// =====================
+// Shared Types & Schemas
+// =====================
+
+// Meal Plan Types
+export const mealItemSchema = z.object({
+  meal: z.string(),
+  food: z.string(),
+  calories: z.number().optional(),
+  protein: z.number().optional(),
+  carbs: z.number().optional(),
+  fats: z.number().optional(),
+});
+
+export type MealItem = z.infer<typeof mealItemSchema>;
+
 // Define all tables first
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -794,7 +810,8 @@ const insertInvoiceSchema = createInsertSchema(invoices)
     status: z.enum(["pending", "paid", "cancelled"]).default("pending"),
     dueDate: z.coerce.date(),
     description: z.string().min(1, "Description is required"),
-  })  .omit({
+  })
+  .omit({
     createdAt: true,
   });
 
@@ -812,9 +829,7 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
 const insertMealPlanSchema = createInsertSchema(mealPlans)
   .extend({
     trainerId: z.string().transform(val => parseInt(val)).optional(),
-    meals: z.record(z.unknown()).or(z.string()).transform(val =>
-      typeof val === 'string' ? JSON.parse(val) : val
-    ),
+    meals: z.array(mealItemSchema),
     macroDistribution: z.object({
       protein: z.number().min(0).max(100),
       carbs: z.number().min(0).max(100),
@@ -1080,37 +1095,54 @@ const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
 // Exports
 // =====================
 
-// Export core tables and their relations
+export type {
+  MealItem,
+  PaymentMethod,
+  PaymentStatus,
+  Payment,
+  InsertPayment,
+  Subscription,
+  InsertSubscription
+};
+
 export {
-  // Core tables
+  // Types
+  MealItem,
+  PaymentMethod,
+  PaymentStatus,
+  Payment,
+  InsertPayment,
+  Subscription,
+  InsertSubscription,
+
+  // Tables
   users,
   members,
   movementPatterns,
   trainingPackages,
   trainingClients,
-  workoutPlans,
-  workoutLogs,
   memberProfiles,
   memberAssessments,
   memberProgressPhotos,
+  workoutPlans,
+  workoutLogs,
   schedules,
-  exercises,
+  invoices,
+  marketingCampaigns,
   muscleGroups,
+  exercises,
   pricingPlans,
   gymMembershipPricing,
   membershipPricing,
   mealPlans,
   memberMealPlans,
-  progress,
-  strengthMetrics,
-  marketingCampaigns,
-  invoices,
-  scheduledBlocks,
   sessions,
   classes,
+  classRegistrations,
   classTemplates,
   classWaitlist,
-  classRegistrations,
+  progress,
+  strengthMetrics,
 
   // Relations
   usersRelations,
@@ -1139,7 +1171,9 @@ export {
   progressRelations,
   strengthMetricsRelations,
 
-  // Insert schemas
+  // Schemas
+  mealItemSchema,
+  insertMealPlanSchema,
   insertUserSchema,
   insertMemberSchema,
   insertWorkoutPlanSchema,
@@ -1149,40 +1183,19 @@ export {
   insertMuscleGroupSchema,
   insertPricingPlanSchema,
   insertGymMembershipPricingSchema,
-  insertMealPlanSchema,
   insertMemberMealPlanSchema,
   insertProgressSchema,
   insertStrengthMetricSchema,
-  insertMovementPatternSchema,
-  insertTrainingPackageSchema,
-  insertTrainingClientSchema,
-  insertMemberProfileSchema,
-  insertMemberAssessmentSchema,
-  insertMemberProgressPhotoSchema,
-  insertInvoiceSchema,
   insertMarketingCampaignSchema,
+  insertInvoiceSchema,
   insertClassSchema,
   insertClassTemplateSchema,
   insertClassRegistrationSchema,
   insertClassWaitlistSchema,
-};
-
-// Re-export payment-related types and schemas
-export {
   payments,
   paymentsRelations,
-  type PaymentMethod,
-  type PaymentStatus,
-  type Payment,
-  type InsertPayment,
-  insertPaymentSchema,
-};
-
-// Re-export subscription-related types and schemas
-export {
   subscriptions,
   subscriptionsRelations,
-  type Subscription,
-  type InsertSubscription,
+  insertPaymentSchema,
   insertSubscriptionSchema,
 };
