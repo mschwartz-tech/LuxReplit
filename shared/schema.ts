@@ -7,17 +7,23 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Import payment and subscription types from their respective files
+// Import from payments and subscriptions modules
 import { 
   payments, 
-  insertPaymentSchema,
-  type PaymentMethod, 
-  type PaymentStatus 
+  paymentsRelations,
+  type PaymentMethod,
+  type PaymentStatus,
+  type Payment,
+  type InsertPayment,
+  insertPaymentSchema
 } from './payments';
 
 import { 
-  subscriptions, 
-  insertSubscriptionSchema,
+  subscriptions,
+  subscriptionsRelations,
+  type Subscription,
+  type InsertSubscription,
+  insertSubscriptionSchema
 } from './subscriptions';
 
 // Define all tables first
@@ -788,8 +794,7 @@ const insertInvoiceSchema = createInsertSchema(invoices)
     status: z.enum(["pending", "paid", "cancelled"]).default("pending"),
     dueDate: z.coerce.date(),
     description: z.string().min(1, "Description is required"),
-  })
-  .omit({
+  })  .omit({
     createdAt: true,
   });
 
@@ -798,8 +803,8 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
     createdBy: z.string().transform(val => parseInt(val)).optional(),
-    status: z.enum(["draft", "active","completed"]).default("draft"),
-    targetAudience: z.enum(["all", "active", "inactive"]).default("all"),  })
+    status: z.enum(["draft","active","completed"]).default("draft"),
+    targetAudience:z.enum(["all", "active","inactive"]).default("all"),  })
   .omit({
     id: true,
   });
@@ -1075,18 +1080,19 @@ const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
 // Exports
 // =====================
 
+// Export core tables and their relations
 export {
-  // Tables
+  // Core tables
   users,
   members,
   movementPatterns,
   trainingPackages,
   trainingClients,
+  workoutPlans,
+  workoutLogs,
   memberProfiles,
   memberAssessments,
   memberProgressPhotos,
-  workoutPlans,
-  workoutLogs,
   schedules,
   exercises,
   muscleGroups,
@@ -1097,16 +1103,14 @@ export {
   memberMealPlans,
   progress,
   strengthMetrics,
-  invoices,
   marketingCampaigns,
-  sessions,
+  invoices,
   scheduledBlocks,
-  classRegistrations,
+  sessions,
+  classes,
   classTemplates,
   classWaitlist,
-  classes,
-  payments,
-  subscriptions,
+  classRegistrations,
 
   // Relations
   usersRelations,
@@ -1135,7 +1139,7 @@ export {
   progressRelations,
   strengthMetricsRelations,
 
-  // Insert Schemas
+  // Insert schemas
   insertUserSchema,
   insertMemberSchema,
   insertWorkoutPlanSchema,
@@ -1161,73 +1165,24 @@ export {
   insertClassTemplateSchema,
   insertClassRegistrationSchema,
   insertClassWaitlistSchema,
-  insertPaymentSchema,
-  insertSubscriptionSchema,
 };
 
-// Types export
-export type {
-  User,
-  Member,
-  WorkoutPlan,
-  WorkoutLog,
-  Schedule,
-  Exercise,
-  MuscleGroup,
-  PricingPlan,
-  GymMembershipPricing,
-  MembershipPricing,
-  MealPlan,
-  MemberMealPlan,
-  Progress,
-  StrengthMetric,
-  MovementPattern,
-  TrainingPackage,
-  TrainingClient,
-  MemberProfile,
-  MemberAssessment,
-  MemberProgressPhoto,
-  MarketingCampaign,
-  Invoice,
-  ScheduledBlock,
-  ClassRegistration,
-  ClassTemplate,
-  ClassWaitlist,
-  Payment,
-  InsertPayment,
-  Subscription,
-  InsertSubscription,
-  PaymentMethod,
-  PaymentStatus
-} from './types';
+// Re-export payment-related types and schemas
+export {
+  payments,
+  paymentsRelations,
+  type PaymentMethod,
+  type PaymentStatus,
+  type Payment,
+  type InsertPayment,
+  insertPaymentSchema,
+};
 
-// Insert types export
-export type {
-  InsertUser,
-  InsertMember,
-  InsertWorkoutPlan,
-  InsertWorkoutLog,
-  InsertSchedule,
-  InsertExercise,
-  InsertMuscleGroup,
-  InsertPricingPlan,
-  InsertGymMembershipPricing,
-  InsertMealPlan,
-  InsertMemberMealPlan,
-  InsertProgress,
-  InsertStrengthMetric,
-  InsertMovementPattern,
-  InsertTrainingPackage,
-  InsertTrainingClient,
-  InsertMemberProfile,
-  InsertMemberAssessment,
-  InsertMemberProgressPhoto,
-  InsertInvoice,
-  InsertMarketingCampaign,
-  InsertClass,
-  InsertClassTemplate,
-  InsertClassRegistration,
-  InsertClassWaitlist,
-  InsertPayment,
-  InsertSubscription
-} from './types';
+// Re-export subscription-related types and schemas
+export {
+  subscriptions,
+  subscriptionsRelations,
+  type Subscription,
+  type InsertSubscription,
+  insertSubscriptionSchema,
+};

@@ -2,10 +2,7 @@ import { pgTable, serial, integer, text, timestamp, numeric, boolean } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
-
-// Import from schema for type reference
 import { members } from "./schema";
-import { payments } from "./payments";
 
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
@@ -25,12 +22,12 @@ export const subscriptions = pgTable("subscriptions", {
   nextBillingDate: timestamp("next_billing_date"),
   autoRenew: boolean("auto_renew").notNull().default(true),
   canceledAt: timestamp("canceled_at"),
-  metadata: text("metadata"),  // For storing subscription-specific details
+  metadata: text("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   member: one(members, {
     fields: [subscriptions.memberId],
     references: [members.id],
