@@ -13,8 +13,9 @@ import {
   PopoverTrigger,
 } from "./popover";
 import { cn } from "@/lib/utils";
-import { Check, Loader2, MapPin } from "lucide-react";
+import { Check, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "./alert";
 
 interface AddressAutocompleteProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -40,6 +41,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [placesService, setPlacesService] = useState<any>(null);
   const [autocompleteService, setAutocompleteService] = useState<any>(null);
   const [fallbackMode, setFallbackMode] = useState(false);
@@ -48,17 +50,19 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
-    console.log("Initializing Google Places API");
-
     if (!apiKey) {
-      console.error("Google Places API key is missing");
+      setInitError("Google Places API key is missing. Please contact support.");
       setFallbackMode(true);
+      toast({
+        title: "Configuration Error",
+        description: "Address autocomplete is unavailable. Please enter address manually.",
+        variant: "destructive",
+      });
       return;
     }
 
     const initializePlacesServices = () => {
       try {
-        console.log("Attempting to initialize Places services");
         if (!window.google?.maps?.places) {
           throw new Error("Places API not loaded");
         }
@@ -71,23 +75,27 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         setAutocompleteService(autocompleteServiceInstance);
         setIsScriptLoaded(true);
         setFallbackMode(false);
+        setInitError(null);
         initRetryCount.current = 0;
-        console.log("Places services initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Places services:", error);
         if (initRetryCount.current < maxRetries) {
           initRetryCount.current += 1;
-          console.log(`Retrying initialization (attempt ${initRetryCount.current})`);
           setTimeout(initializePlacesServices, 1000 * initRetryCount.current);
         } else {
-          console.error("Max retries reached, falling back to manual mode");
+          const errorMessage = "Unable to initialize address lookup. Please enter address manually.";
+          setInitError(errorMessage);
           setFallbackMode(true);
+          toast({
+            title: "Service Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
         }
       }
     };
 
     if (window.google?.maps?.places) {
-      console.log("Google Places API already loaded, initializing services");
       initializePlacesServices();
       return;
     }
@@ -103,18 +111,22 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       console.error("Failed to load Google Maps script");
       if (initRetryCount.current < maxRetries) {
         initRetryCount.current += 1;
-        console.log(`Retrying script load (attempt ${initRetryCount.current})`);
         setTimeout(() => {
           document.head.appendChild(script);
         }, 1000 * initRetryCount.current);
       } else {
-        console.error("Max retries reached for script loading");
+        const errorMessage = "Failed to load address lookup service. Please enter address manually.";
+        setInitError(errorMessage);
         setFallbackMode(true);
+        toast({
+          title: "Service Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
       }
     };
 
     document.head.appendChild(script);
-    console.log("Google Places API script added to document");
 
     return () => {
       if (script.parentNode) {
@@ -124,7 +136,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         delete window.initGooglePlaces;
       }
     };
-  }, []);
+  }, [toast]);
 
   const handleSearch = useCallback(async (input: string) => {
     if (!input || !autocompleteService || fallbackMode) {
@@ -134,7 +146,6 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     try {
       setIsLoading(true);
-      console.log("Searching for address:", input);
 
       const request = {
         input,
@@ -146,12 +157,17 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         request,
         (results: any, status: any) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-            console.log("Got address suggestions:", results.length);
             setSuggestions(results);
             setOpen(true);
           } else {
-            console.log("No address suggestions found or error:", status);
             setSuggestions([]);
+            if (status !== window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+              toast({
+                title: "Search Error",
+                description: "Unable to find address suggestions. Please try again.",
+                variant: "destructive",
+              });
+            }
           }
           setIsLoading(false);
         }
@@ -160,8 +176,13 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       console.error("Address lookup failed:", error);
       setSuggestions([]);
       setIsLoading(false);
+      toast({
+        title: "Search Error",
+        description: "Failed to search for addresses. Please try again.",
+        variant: "destructive",
+      });
     }
-  }, [autocompleteService, fallbackMode]);
+  }, [autocompleteService, fallbackMode, toast]);
 
   const handleAddressSelect = useCallback(async (placeId: string, description: string) => {
     if (fallbackMode) {
@@ -179,7 +200,6 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     try {
       setIsLoading(true);
-      console.log("Getting details for place:", placeId);
 
       placesService.getDetails(
         {
@@ -188,17 +208,26 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         },
         (place: any, status: any) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
-            console.log("Got place details:", place);
             const address = {
-              address: place.formatted_address || '',
+              address: '',
               city: '',
               state: '',
               zipCode: ''
             };
 
+            // Extract street number and street name first
+            let streetNumber = '';
+            let streetName = '';
+
             place.address_components.forEach((component: any) => {
               const type = component.types[0];
               switch (type) {
+                case 'street_number':
+                  streetNumber = component.long_name;
+                  break;
+                case 'route':
+                  streetName = component.long_name;
+                  break;
                 case 'locality':
                   address.city = component.long_name;
                   break;
@@ -211,12 +240,18 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
               }
             });
 
-            console.log("Parsed address:", address);
+            // Combine street number and name for the full street address
+            address.address = `${streetNumber} ${streetName}`.trim();
+
             onAddressSelect(address);
             setValue(place.formatted_address || description);
             setOpen(false);
           } else {
-            console.error("Failed to get place details:", status);
+            toast({
+              title: "Error",
+              description: "Failed to get address details. Please try again.",
+              variant: "destructive",
+            });
           }
           setIsLoading(false);
         }
@@ -224,59 +259,73 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
     } catch (error) {
       console.error("Error getting address details:", error);
       setIsLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to process address selection. Please try again.",
+        variant: "destructive",
+      });
     }
-  }, [fallbackMode, onAddressSelect, placesService]);
+  }, [fallbackMode, onAddressSelect, placesService, toast]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div className="relative w-full">
-          <Input
-            className={cn("pr-8", className)}
-            value={value}
-            onChange={(e) => {
-              const newValue = e.target.value;
-              setValue(newValue);
-              if (!fallbackMode) {
-                handleSearch(newValue);
-              }
-            }}
-            placeholder={fallbackMode ? "Enter full address..." : "Search for an address..."}
-            {...props}
-          />
-          {isLoading ? (
-            <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
-          ) : (
-            <MapPin className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command>
-          {suggestions.length === 0 ? (
-            <CommandEmpty>No addresses found</CommandEmpty>
-          ) : (
-            <CommandGroup>
-              {suggestions.map((suggestion) => (
-                <CommandItem
-                  key={suggestion.place_id}
-                  value={suggestion.description}
-                  onSelect={() => handleAddressSelect(suggestion.place_id, suggestion.description)}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === suggestion.description ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {suggestion.description}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <div className="space-y-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <div className="relative w-full">
+            <Input
+              className={cn("pr-8", className)}
+              value={value}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                setValue(newValue);
+                if (!fallbackMode) {
+                  handleSearch(newValue);
+                }
+              }}
+              placeholder={fallbackMode ? "Enter full address..." : "Search for an address..."}
+              {...props}
+            />
+            {isLoading ? (
+              <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+            ) : (
+              <MapPin className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <Command>
+            {suggestions.length === 0 ? (
+              <CommandEmpty>No addresses found</CommandEmpty>
+            ) : (
+              <CommandGroup>
+                {suggestions.map((suggestion) => (
+                  <CommandItem
+                    key={suggestion.place_id}
+                    value={suggestion.description}
+                    onSelect={() => handleAddressSelect(suggestion.place_id, suggestion.description)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === suggestion.description ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {suggestion.description}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {initError && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{initError}</AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }
 
