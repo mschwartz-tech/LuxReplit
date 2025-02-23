@@ -155,9 +155,9 @@ export default function ExerciseLibrary() {
     },
   });
 
-  const predictMuscleGroupsMutation = useMutation({
+  const predictExerciseDetailsMutation = useMutation({
     mutationFn: async (name: string) => {
-      const response = await fetch('/api/exercises/predict-muscle-groups', {
+      const response = await fetch('/api/exercises/predict-details', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,34 +169,24 @@ export default function ExerciseLibrary() {
         const errorData = await response.text();
         try {
           const parsedError = JSON.parse(errorData);
-          throw new Error(parsedError.message || 'Failed to predict muscle groups');
+          throw new Error(parsedError.message || 'Failed to predict exercise details');
         } catch {
-          throw new Error(errorData || 'Failed to predict muscle groups');
+          throw new Error(errorData || 'Failed to predict exercise details');
         }
       }
 
-      const result = await response.json();
-      return result;
+      return response.json();
     },
     onSuccess: (data) => {
-      // Convert predicted IDs to match our predefined muscle groups
-      const primaryId = Number(data.primaryMuscleGroupId);
-      const secondaryIds = data.secondaryMuscleGroupIds.map(Number);
-
-      // Only set values if they exist in our predefined groups
-      if (MUSCLE_GROUPS.some(g => g.id === primaryId)) {
-        form.setValue("primaryMuscleGroupId", primaryId);
-      }
-
-      const validSecondaryIds = secondaryIds.filter(id =>
-        MUSCLE_GROUPS.some(g => g.id === id)
-      );
-      form.setValue("secondaryMuscleGroupIds", validSecondaryIds);
-      form.setValue("difficulty", data.difficulty || "beginner");
+      // Update form with AI predictions
+      form.setValue("description", data.description);
+      form.setValue("difficulty", data.difficulty);
+      form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId);
+      form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds);
 
       toast({
         title: "Success",
-        description: "Muscle groups predicted successfully",
+        description: "Exercise details predicted successfully",
       });
     },
     onError: (error: Error) => {
@@ -214,7 +204,7 @@ export default function ExerciseLibrary() {
 
   useEffect(() => {
     if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
-      predictMuscleGroupsMutation.mutate(debouncedExerciseName);
+      predictExerciseDetailsMutation.mutate(debouncedExerciseName);
     }
   }, [debouncedExerciseName]);
 

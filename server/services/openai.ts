@@ -9,58 +9,34 @@ export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function generateMovementPatternDescription(exerciseName: string): Promise<string> {
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-0125-preview", 
-      messages: [
-        {
-          role: "system",
-          content: "You are a fitness expert providing concise, mobile-friendly exercise instructions. Focus on 3 key aspects:\n1. Primary movement (1 short sentence)\n2. Form cues (2-3 bullet points)\n3. Key muscles engaged (comma-separated list)\n\nKeep the entire response under 100 words and use simple, clear language."
-        },
-        {
-          role: "user",
-          content: `Generate a mobile-friendly movement pattern description for: ${exerciseName}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 150,
-      response_format: { type: "text" }
-    });
-
-    return response.choices[0].message.content || "Movement pattern description unavailable.";
-  } catch (error) {
-    logError("Error generating movement pattern description:", error);
-    throw new Error("Failed to generate movement pattern description");
-  }
-}
-
-export async function predictMuscleGroups(exerciseName: string): Promise<{
+export interface ExerciseAIResponse {
+  description: string;
   primaryMuscleGroupId: number;
   secondaryMuscleGroupIds: number[];
   difficulty: "beginner" | "intermediate" | "advanced";
-}> {
+}
+
+export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4-0125-preview",
       messages: [
         {
           role: "system",
-          content: `You are a professional trainer with expertise in exercise biomechanics. Analyze exercises and determine their primary and secondary muscle groups, and difficulty level.
-Primary muscle groups (IDs):
-1. Quadriceps, 2. Hamstrings, 3. Calves, 4. Chest, 5. Back, 6. Shoulders, 
-7. Biceps, 8. Triceps, 9. Core, 10. Glutes
+          content: `You are a professional fitness trainer providing concise, mobile-friendly exercise information. Format your response as JSON with:
+1. A brief description (max 100 characters, focus on primary movement)
+2. Primary muscle group ID (1-15)
+3. Secondary muscle group IDs (1-15)
+4. Difficulty level
 
-Respond in JSON format with:
-{
-  "primaryMuscleGroupId": number (1-10),
-  "secondaryMuscleGroupIds": number[] (1-10, exclude primary),
-  "difficulty": "beginner" | "intermediate" | "advanced"
-}`
+Available muscle groups:
+1. Quadriceps  2. Hamstrings  3. Calves  4. Chest  5. Back
+6. Shoulders   7. Biceps      8. Triceps  9. Forearms  10. Abs
+11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps`
         },
         {
           role: "user",
-          content: `Analyze the primary and secondary muscle groups and difficulty level for this exercise: ${exerciseName}`
+          content: `Analyze this exercise: ${exerciseName}`
         }
       ],
       response_format: { type: "json_object" },
@@ -68,34 +44,26 @@ Respond in JSON format with:
       max_tokens: 150
     });
 
-    let result;
-    try {
-      result = JSON.parse(response.choices[0].message.content || "{}");
-    } catch (parseError) {
-      logError("Error parsing OpenAI response:", {
-        error: parseError,
-        response: response.choices[0].message.content
-      });
-      throw new Error("Invalid API response format");
-    }
+    const result = JSON.parse(response.choices[0].message.content || "{}");
 
-    // Validate the response
+    // Validate response format
     if (
+      !result.description ||
       !result.primaryMuscleGroupId ||
       !Array.isArray(result.secondaryMuscleGroupIds) ||
       !result.difficulty ||
+      typeof result.description !== 'string' ||
       result.primaryMuscleGroupId < 1 ||
-      result.primaryMuscleGroupId > 10 ||
-      result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 10) ||
+      result.primaryMuscleGroupId > 15 ||
+      result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 15) ||
       !["beginner", "intermediate", "advanced"].includes(result.difficulty)
     ) {
-      logError("Invalid prediction format", { result });
-      throw new Error("Invalid prediction format");
+      throw new Error("Invalid AI response format");
     }
 
     return result;
   } catch (error) {
-    logError("Error predicting muscle groups and difficulty:", error);
-    throw new Error("Failed to predict muscle groups and difficulty");
+    logError("Error generating exercise details:", error);
+    throw new Error("Failed to generate exercise details");
   }
 }
