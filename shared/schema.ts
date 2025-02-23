@@ -49,7 +49,7 @@ const members = pgTable("members", {
   membershipStatus: text("membership_status", {
     enum: ["active", "inactive", "suspended"]
   }).notNull(),
-  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id).notNull(),
+  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id), // Removed .notNull()
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
@@ -797,9 +797,9 @@ const insertExerciseSchema = createInsertSchema(exercises)
     primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
     secondaryMuscleGroupIds: z.array(z.string()).transform(val => val.map(id => parseInt(id))),
     instructions: z.array(z.string()).min(1, "Instructions are required"),
-    tips:z.array(z.string()).optional(),
+    tips: z.array(z.string()).optional(),
     equipment: z.array(z.string()).optional(),
-    videoUrl:z.string().url("Invalid URL").optional(),
+    videoUrl: z.string().url("Invalid URL").optional(),
   })
   .omit({ id: true, createdAt: true });
 
@@ -823,14 +823,14 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
     endDate: z.coerce.date(),
     createdBy: z.string().transform(val => parseInt(val)).optional(),
     status: z.enum(["draft", "active", "completed"]).default("draft"),
-    targetAudience: z.enum(["all", "active","inactive"]).default("all")
+    targetAudience: z.enum(["all", "active", "inactive"]).default("all")
   })
   .omit({
     id: true
   });
 
 const insertMealPlanSchema = createInsertSchema(mealPlans)
-.extend({
+  .extend({
     trainerId: z.string().transform(val => parseInt(val)).optional(),
     meals: z.array(mealItemSchema),
     macroDistribution: z.object({
@@ -893,7 +893,7 @@ const insertMemberSchema = createInsertSchema(members)
     assignedTrainerId: z.string().transform(val => parseInt(val)).optional(),
     membershipType: z.enum(["luxe_essentials", "luxe_strive", "luxe_all_access", "training_only"]),
     membershipStatus: z.enum(["active", "inactive", "suspended"]),
-    gymLocationId: z.string().transform(val => parseInt(val)),
+    gymLocationId: z.string().transform(val => parseInt(val)).optional(),
     startDate: z.coerce.date(),
     endDate: z.coerce.date().optional(),
   })

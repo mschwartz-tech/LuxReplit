@@ -12,7 +12,7 @@ import { Plus, Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkoutPlan, WorkoutLog, insertWorkoutPlanSchema, insertWorkoutLogSchema, Member } from "@shared/schema";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -202,120 +202,55 @@ export default function TrainingManagement() {
             </p>
           </div>
           {(isAdmin || isTrainer) && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create Workout Plan
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Workout Plan</DialogTitle>
-                  <DialogDescription>
-                    Create a new workout plan for a client. You can set the title, description, and weekly frequency.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit((data) => createWorkoutPlanMutation.mutate(data))} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="title"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Title</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Full Body Workout" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Description</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="A comprehensive workout targeting all major muscle groups..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="frequencyPerWeek"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Weekly Frequency</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={7}
-                              {...field}
-                              onChange={e => field.onChange(parseInt(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="memberId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Assign Client</FormLabel>
-                          <Select
-                            value={field.value?.toString() ?? undefined}
-                            onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a client" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {members?.map((member) => (
-                                <SelectItem key={member.id} value={member.id.toString()}>
-                                  Client #{member.id}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={createWorkoutPlanMutation.isPending}
-                    >
-                      {createWorkoutPlanMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        "Create Plan"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            <Link href="/clients/new">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Client
+              </Button>
+            </Link>
           )}
         </div>
       </div>
 
       <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Clients</CardTitle>
+            <CardDescription>
+              View and manage your assigned clients
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              {!members || members.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  No clients assigned yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h3 className="font-medium">Client #{member.id}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Status: {member.membershipStatus}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Link href={`/client/${member.id}`}>
+                          <Button variant="outline" size="sm">
+                            View Profile
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Workout Plans</CardTitle>
