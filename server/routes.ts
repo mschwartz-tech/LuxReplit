@@ -14,6 +14,7 @@ import { marketingCampaignRoutes } from "./routes/marketingCampaign.routes";
 import { scheduleRoutes } from "./routes/schedule.routes";
 import { placeRoutes } from "./routes/place.routes";
 import { strengthMetricRoutes } from "./routes/strengthMetric.routes";
+import { generateExerciseDetails } from "./services/openai";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -40,6 +41,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/health", asyncHandler(async (req: Request, res: Response) => {
     logInfo("Health check requested");
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  }));
+
+  // Exercise prediction endpoint
+  app.post("/api/exercises/predict-details", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { exerciseName } = req.body;
+      if (!exerciseName) {
+        return res.status(400).json({ message: "Exercise name is required" });
+      }
+
+      const prediction = await generateExerciseDetails(exerciseName);
+      res.json(prediction);
+    } catch (error) {
+      logError("Error predicting exercise details:", error);
+      res.status(500).json({ message: "Failed to predict exercise details" });
+    }
   }));
 
   // Member routes
@@ -101,7 +118,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //Place Search Routes
   app.get("/api/places/search", requireAuth, placeRoutes.search);
   app.get("/api/places/:placeId/details", requireAuth, placeRoutes.getDetails);
-
 
   // Authentication Routes
   app.post("/api/logout", (req, res, next) => {
