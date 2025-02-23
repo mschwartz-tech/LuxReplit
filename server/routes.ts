@@ -26,6 +26,7 @@ import {
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
 import { errorHandler } from "./middleware/error";
+import { searchAddresses, getPlaceDetails } from "./services/places";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -441,6 +442,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const pricing = await storage.getAllMembershipPricing();
     logInfo("All membership pricing retrieved", { count: pricing.length });
     res.json(pricing);
+  }));
+
+  // Add new routes for address search
+  app.get("/api/places/search", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query.q as string;
+    if (!query) {
+      return res.status(400).json({ error: "Search query is required" });
+    }
+
+    try {
+      const results = await searchAddresses(query);
+      res.json(results);
+    } catch (error) {
+      logError("Address search failed", { error: error.message });
+      res.status(500).json({ error: "Failed to search addresses" });
+    }
+  }));
+
+  app.get("/api/places/:placeId/details", requireAuth, asyncHandler(async (req: Request, res: Response) => {
+    const { placeId } = req.params;
+    try {
+      const details = await getPlaceDetails(placeId);
+      res.json(details);
+    } catch (error) {
+      logError("Place details retrieval failed", { error: error.message });
+      res.status(500).json({ error: "Failed to get address details" });
+    }
   }));
 
   // Add payment routes after line 377
