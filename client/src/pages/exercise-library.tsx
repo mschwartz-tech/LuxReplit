@@ -36,6 +36,25 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
+// Predefined muscle groups
+const MUSCLE_GROUPS = [
+  { id: 1, name: "Quadriceps" },
+  { id: 2, name: "Hamstrings" },
+  { id: 3, name: "Calves" },
+  { id: 4, name: "Chest" },
+  { id: 5, name: "Back" },
+  { id: 6, name: "Shoulders" },
+  { id: 7, name: "Biceps" },
+  { id: 8, name: "Triceps" },
+  { id: 9, name: "Forearms" },
+  { id: 10, name: "Abs" },
+  { id: 11, name: "Obliques" },
+  { id: 12, name: "Lower Back" },
+  { id: 13, name: "Glutes" },
+  { id: 14, name: "Hip Flexors" },
+  { id: 15, name: "Traps" }
+];
+
 // Debounce utility
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -66,14 +85,19 @@ export default function ExerciseLibrary() {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
 
-  const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
-    queryKey: ["/api/exercises"],
-    enabled: !!user,
-  });
-
-  const { data: muscleGroups = [], isLoading: isLoadingMuscleGroups } = useQuery<MuscleGroup[]>({
-    queryKey: ["/api/muscle-groups"],
-    enabled: !!user,
+  const form = useForm({
+    resolver: zodResolver(insertExerciseSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      difficulty: "beginner" as const,
+      primaryMuscleGroupId: 0,
+      secondaryMuscleGroupIds: [] as number[],
+      instructions: [""] as string[],
+      tips: [] as string[],
+      equipment: [] as string[],
+      videoUrl: "",
+    },
   });
 
   const createExerciseMutation = useMutation({
@@ -121,31 +145,6 @@ export default function ExerciseLibrary() {
     },
   });
 
-  const generatePatternMutation = useMutation({
-    mutationFn: async (exerciseName: string) => {
-      const res = await apiRequest("POST", "/api/exercises/generate-pattern", { exerciseName });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to generate pattern description");
-      }
-      return res.json() as Promise<{ description: string }>;
-    },
-    onSuccess: (data) => {
-      form.setValue("description", data.description);
-      toast({
-        title: "Success",
-        description: "Movement pattern description generated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const predictMuscleGroupsMutation = useMutation({
     mutationFn: async (name: string) => {
       const res = await apiRequest("POST", "/api/exercises/predict-muscle-groups", { exerciseName: name });
@@ -160,12 +159,24 @@ export default function ExerciseLibrary() {
       }>;
     },
     onSuccess: (data) => {
-      form.setValue("primaryMuscleGroupId", parseInt(data.primaryMuscleGroupId));
-      form.setValue("secondaryMuscleGroupIds", data.secondaryMuscleGroupIds.map(id => parseInt(id)));
+      // Convert predicted IDs to match our predefined muscle groups
+      const primaryId = Number(data.primaryMuscleGroupId);
+      const secondaryIds = data.secondaryMuscleGroupIds.map(Number);
+
+      // Only set values if they exist in our predefined groups
+      if (MUSCLE_GROUPS.some(g => g.id === primaryId)) {
+        form.setValue("primaryMuscleGroupId", primaryId);
+      }
+
+      const validSecondaryIds = secondaryIds.filter(id => 
+        MUSCLE_GROUPS.some(g => g.id === id)
+      );
+      form.setValue("secondaryMuscleGroupIds", validSecondaryIds);
       form.setValue("difficulty", data.difficulty);
+
       toast({
         title: "Success",
-        description: "Muscle groups and difficulty predicted successfully",
+        description: "Muscle groups predicted successfully",
       });
     },
     onError: (error: Error) => {
@@ -177,31 +188,20 @@ export default function ExerciseLibrary() {
     },
   });
 
-  const form = useForm({
-    resolver: zodResolver(insertExerciseSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      difficulty: "beginner" as const,
-      primaryMuscleGroupId: 0,
-      secondaryMuscleGroupIds: [] as number[],
-      instructions: [""] as string[],
-      tips: [] as string[],
-      equipment: [] as string[],
-      videoUrl: "",
-    },
-  });
-
   // Watch the exercise name field and debounce it
   const exerciseName = form.watch("name");
   const debouncedExerciseName = useDebounce(exerciseName, 1000); // 1 second delay
 
   useEffect(() => {
     if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
-      generatePatternMutation.mutate(debouncedExerciseName);
       predictMuscleGroupsMutation.mutate(debouncedExerciseName);
     }
   }, [debouncedExerciseName]);
+
+  const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
+    queryKey: ["/api/exercises"],
+    enabled: !!user,
+  });
 
   const filteredExercises = useMemo(() => {
     if (!exercises) return [];
@@ -218,7 +218,7 @@ export default function ExerciseLibrary() {
     });
   }, [exercises, searchQuery, selectedDifficulty, selectedMuscleGroup]);
 
-  if (isLoadingExercises || isLoadingMuscleGroups) {
+  if (isLoadingExercises) {
     return (
       <div className="flex h-[200px] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -254,7 +254,7 @@ export default function ExerciseLibrary() {
               <DialogHeader>
                 <DialogTitle>Add New Exercise</DialogTitle>
                 <DialogDescription>
-                  Create a new exercise. The movement description will be automatically generated based on the exercise name.
+                  Create a new exercise. The muscle groups will be automatically predicted based on the exercise name.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -266,7 +266,7 @@ export default function ExerciseLibrary() {
                       <FormItem>
                         <FormLabel>Exercise Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Barbell Back Squat" {...field} />
+                          <Input placeholder="e.g. Barbell Back Squat" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -280,9 +280,8 @@ export default function ExerciseLibrary() {
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Movement description will be generated automatically..."
+                            placeholder="Describe the exercise..."
                             {...field}
-                            disabled={generatePatternMutation.isPending}
                           />
                         </FormControl>
                         <FormMessage />
@@ -315,76 +314,74 @@ export default function ExerciseLibrary() {
                         </FormItem>
                       )}
                     />
-                    <div className="grid gap-4">
-                      <FormField
-                        control={form.control}
-                        name="primaryMuscleGroupId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Primary Muscle Group</FormLabel>
-                            <Select
-                              value={field.value ? field.value.toString() : undefined}
-                              onValueChange={(value) => field.onChange(parseInt(value))}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Select primary muscle group" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {muscleGroups?.map((group: MuscleGroup) => (
-                                  <SelectItem key={group.id} value={group.id.toString()}>
-                                    {group.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="secondaryMuscleGroupIds"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Secondary Muscle Groups</FormLabel>
-                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
-                              {muscleGroups?.map((group: MuscleGroup) => (
-                                <div key={group.id} className="flex items-center space-x-2">
-                                  <input
-                                    type="checkbox"
-                                    id={`muscle-${group.id}`}
-                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                    checked={field.value.includes(group.id)}
-                                    onChange={(e) => {
-                                      const value = parseInt(group.id.toString());
-                                      if (e.target.checked) {
-                                        field.onChange([...field.value, value]);
-                                      } else {
-                                        field.onChange(field.value.filter((id: number) => id !== value));
-                                      }
-                                    }}
-                                    disabled={group.id === form.getValues("primaryMuscleGroupId")}
-                                  />
-                                  <label
-                                    htmlFor={`muscle-${group.id}`}
-                                    className={`text-sm ${
-                                      group.id === form.getValues("primaryMuscleGroupId")
-                                        ? "text-gray-400"
-                                        : "text-gray-700"
-                                    }`}
-                                  >
-                                    {group.name}
-                                  </label>
-                                </div>
+                    <FormField
+                      control={form.control}
+                      name="primaryMuscleGroupId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Primary Muscle Group</FormLabel>
+                          <Select
+                            value={field.value ? field.value.toString() : undefined}
+                            onValueChange={(value) => field.onChange(parseInt(value))}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select primary muscle group" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {MUSCLE_GROUPS.map((group) => (
+                                <SelectItem key={group.id} value={group.id.toString()}>
+                                  {group.name}
+                                </SelectItem>
                               ))}
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="secondaryMuscleGroupIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Secondary Muscle Groups</FormLabel>
+                          <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
+                            {MUSCLE_GROUPS.map((group) => (
+                              <div key={group.id} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`muscle-${group.id}`}
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  checked={field.value.includes(group.id)}
+                                  onChange={(e) => {
+                                    const value = group.id;
+                                    if (e.target.checked) {
+                                      field.onChange([...field.value, value]);
+                                    } else {
+                                      field.onChange(field.value.filter((id: number) => id !== value));
+                                    }
+                                  }}
+                                  disabled={group.id === form.getValues("primaryMuscleGroupId")}
+                                />
+                                <label
+                                  htmlFor={`muscle-${group.id}`}
+                                  className={`text-sm ${
+                                    group.id === form.getValues("primaryMuscleGroupId")
+                                      ? "text-gray-400"
+                                      : "text-gray-700"
+                                  }`}
+                                >
+                                  {group.name}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                   <Button
                     type="submit"
@@ -460,7 +457,7 @@ export default function ExerciseLibrary() {
                   <SelectValue placeholder="Muscle Group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {muscleGroups?.map((group: MuscleGroup) => (
+                  {MUSCLE_GROUPS.map((group) => (
                     <SelectItem key={group.id} value={group.id.toString()}>
                       {group.name}
                     </SelectItem>
@@ -482,7 +479,7 @@ export default function ExerciseLibrary() {
             <ScrollArea className="h-[600px]">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredExercises.map((exercise: Exercise) => {
-                  const muscleGroup = muscleGroups?.find(g => g.id === exercise.primaryMuscleGroupId);
+                  const muscleGroup = MUSCLE_GROUPS.find(g => g.id === exercise.primaryMuscleGroupId);
 
                   return (
                     <Card key={exercise.id}>
