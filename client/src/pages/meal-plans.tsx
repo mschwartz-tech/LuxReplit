@@ -20,6 +20,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Slider } from "@/components/ui/slider";
+import {ScrollArea} from "@/components/ui/scroll-area";
+
 
 interface Meal {
   meal: string;
@@ -341,7 +343,7 @@ export default function MealPlansPage() {
                         Generate with AI
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-h-[90vh] overflow-hidden">
                       <DialogHeader>
                         <DialogTitle>Generate AI Meal Plan</DialogTitle>
                         <DialogDescription>
@@ -349,105 +351,227 @@ export default function MealPlansPage() {
                         </DialogDescription>
                       </DialogHeader>
 
-                      <Form {...aiForm}>
-                        <form onSubmit={aiForm.handleSubmit(handleGenerateAiPlan)} className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                              control={aiForm.control}
-                              name="calorieTarget"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Daily Calorie Target</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) => field.onChange(Number(e.target.value))}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                      <ScrollArea className="h-[calc(90vh-8rem)] pr-4">
+                        <Form {...aiForm}>
+                          <form onSubmit={aiForm.handleSubmit(handleGenerateAiPlan)} className="space-y-6">
+                            {/* Basic Settings Section */}
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-semibold">Basic Settings</h3>
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={aiForm.control}
+                                  name="calorieTarget"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Daily Calories</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          onChange={(e) => field.onChange(Number(e.target.value))}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={aiForm.control}
+                                  name="mealsPerDay"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Meals/Day</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          onChange={(e) => field.onChange(Number(e.target.value))}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
 
-                            <FormField
-                              control={aiForm.control}
-                              name="mealsPerDay"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Meals Per Day</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...field}
-                                      onChange={(e) => field.onChange(Number(e.target.value))}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
+                            {/* Macro Distribution Section */}
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-semibold">Macro Distribution</h3>
+                              <div className="grid grid-cols-3 gap-4">
+                                <FormField
+                                  control={aiForm.control}
+                                  name="macroDistribution.protein"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Protein %</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          className="h-8"
+                                          onChange={(e) => {
+                                            const value = Number(e.target.value);
+                                            field.onChange(Math.min(100, Math.max(0, value)));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={aiForm.control}
+                                  name="macroDistribution.carbs"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Carbs %</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          className="h-8"
+                                          onChange={(e) => {
+                                            const value = Number(e.target.value);
+                                            field.onChange(Math.min(100, Math.max(0, value)));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={aiForm.control}
+                                  name="macroDistribution.fats"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Fats %</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          className="h-8"
+                                          onChange={(e) => {
+                                            const value = Number(e.target.value);
+                                            field.onChange(Math.min(100, Math.max(0, value)));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
 
-                          <div className="space-y-4">
-                            <h3 className="text-lg font-semibold">Macro Distribution</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Dietary Preferences Section */}
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-semibold">Dietary Preferences</h3>
+                              <div className="space-y-4">
+                                <FormField
+                                  control={aiForm.control}
+                                  name="dietaryPreferences"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Diet Type</FormLabel>
+                                      <FormControl>
+                                        <MultiSelect
+                                          options={dietaryOptions}
+                                          selected={field.value}
+                                          onChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={aiForm.control}
+                                  name="dietaryRestrictions"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Restrictions</FormLabel>
+                                      <FormControl>
+                                        <MultiSelect
+                                          options={dietaryRestrictionOptions}
+                                          selected={field.value}
+                                          onChange={field.onChange}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Cooking Preferences Section */}
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-semibold">Cooking Preferences</h3>
+                              <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                  control={aiForm.control}
+                                  name="cookingSkillLevel"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Skill Level</FormLabel>
+                                      <FormControl>
+                                        <select
+                                          className="w-full h-8 px-2 border rounded text-sm"
+                                          {...field}
+                                        >
+                                          {cookingSkillLevels.map(level => (
+                                            <option key={level.value} value={level.value}>
+                                              {level.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={aiForm.control}
+                                  name="maxPrepTime"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Prep Time</FormLabel>
+                                      <FormControl>
+                                        <select
+                                          className="w-full h-8 px-2 border rounded text-sm"
+                                          {...field}
+                                        >
+                                          {mealPrepTimeOptions.map(option => (
+                                            <option key={option.value} value={option.value}>
+                                              {option.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Additional Preferences Section */}
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-semibold">Additional Preferences</h3>
                               <FormField
                                 control={aiForm.control}
-                                name="macroDistribution.protein"
+                                name="excludedIngredients"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Protein (%)</FormLabel>
+                                    <FormLabel>Excluded Ingredients</FormLabel>
                                     <FormControl>
                                       <Input
-                                        type="number"
+                                        placeholder="Enter ingredients to exclude (comma-separated)"
                                         {...field}
-                                        onChange={(e) => {
-                                          const value = Number(e.target.value);
-                                          field.onChange(Math.min(100, Math.max(0, value)));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={aiForm.control}
-                                name="macroDistribution.carbs"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Carbs (%)</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        {...field}
-                                        onChange={(e) => {
-                                          const value = Number(e.target.value);
-                                          field.onChange(Math.min(100, Math.max(0, value)));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={aiForm.control}
-                                name="macroDistribution.fats"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Fats (%)</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        {...field}
-                                        onChange={(e) => {
-                                          const value = Number(e.target.value);
-                                          field.onChange(Math.min(100, Math.max(0, value)));
-                                        }}
+                                        className="h-8"
+                                        onChange={(e) => field.onChange(e.target.value.split(',').map(i => i.trim()))}
                                       />
                                     </FormControl>
                                     <FormMessage />
@@ -455,146 +579,27 @@ export default function MealPlansPage() {
                                 )}
                               />
                             </div>
-                          </div>
 
-                          <FormField
-                            control={aiForm.control}
-                            name="dietaryRestrictions"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Dietary Restrictions</FormLabel>
-                                <FormControl>
-                                  <MultiSelect
-                                    options={dietaryRestrictionOptions}
-                                    selected={field.value}
-                                    onChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={aiForm.control}
-                            name="cookingSkillLevel"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Cooking Skill Level</FormLabel>
-                                <FormControl>
-                                  <select
-                                    className="w-full p-2 border rounded"
-                                    {...field}
-                                  >
-                                    {cookingSkillLevels.map(level => (
-                                      <option key={level.value} value={level.value}>
-                                        {level.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={aiForm.control}
-                            name="maxPrepTime"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Maximum Meal Prep Time</FormLabel>
-                                <FormControl>
-                                  <select
-                                    className="w-full p-2 border rounded"
-                                    {...field}
-                                  >
-                                    {mealPrepTimeOptions.map(option => (
-                                      <option key={option.value} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={aiForm.control}
-                            name="excludedIngredients"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Excluded Ingredients</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="Enter ingredients to exclude (comma-separated)"
-                                    {...field}
-                                    onChange={(e) => field.onChange(e.target.value.split(',').map(i => i.trim()))}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-
-                          <FormField
-                            control={aiForm.control}
-                            name="dietaryPreferences"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Dietary Preferences</FormLabel>
-                                <FormControl>
-                                  <MultiSelect
-                                    options={dietaryOptions}
-                                    selected={field.value}
-                                    onChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={aiForm.control}
-                            name="fitnessGoals"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Fitness Goals</FormLabel>
-                                <FormControl>
-                                  <MultiSelect
-                                    options={fitnessGoalOptions}
-                                    selected={field.value}
-                                    onChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <Button
-                            type="submit"
-                            disabled={isGenerating}
-                            className="w-full"
-                          >
-                            {isGenerating ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Wand2 className="w-4 h-4 mr-2" />
-                                Generate Plan
-                              </>
-                            )}
-                          </Button>
-                        </form>
-                      </Form>
+                            <Button
+                              type="submit"
+                              disabled={isGenerating}
+                              className="w-full"
+                            >
+                              {isGenerating ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="w-4 h-4 mr-2" />
+                                  Generate Plan
+                                </>
+                              )}
+                            </Button>
+                          </form>
+                        </Form>
+                      </ScrollArea>
                     </DialogContent>
                   </Dialog>
                 </div>
