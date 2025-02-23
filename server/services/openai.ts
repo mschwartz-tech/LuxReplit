@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { logError } from './logger';
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable is required");
@@ -11,7 +12,7 @@ export const openai = new OpenAI({
 export async function generateMovementPatternDescription(exerciseName: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", 
+      model: "gpt-4-0125-preview", 
       messages: [
         {
           role: "system",
@@ -23,12 +24,13 @@ export async function generateMovementPatternDescription(exerciseName: string): 
         }
       ],
       temperature: 0.7,
-      max_tokens: 150
+      max_tokens: 150,
+      response_format: { type: "text" }
     });
 
     return response.choices[0].message.content || "Movement pattern description unavailable.";
   } catch (error) {
-    console.error("Error generating movement pattern description:", error);
+    logError("Error generating movement pattern description:", error);
     throw new Error("Failed to generate movement pattern description");
   }
 }
@@ -40,7 +42,7 @@ export async function predictMuscleGroups(exerciseName: string): Promise<{
 }> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4-0125-preview",
       messages: [
         {
           role: "system",
@@ -66,7 +68,16 @@ Respond in JSON format with:
       max_tokens: 150
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content || "{}");
+    } catch (parseError) {
+      logError("Error parsing OpenAI response:", {
+        error: parseError,
+        response: response.choices[0].message.content
+      });
+      throw new Error("Invalid API response format");
+    }
 
     // Validate the response
     if (
@@ -78,12 +89,13 @@ Respond in JSON format with:
       result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 10) ||
       !["beginner", "intermediate", "advanced"].includes(result.difficulty)
     ) {
+      logError("Invalid prediction format", { result });
       throw new Error("Invalid prediction format");
     }
 
     return result;
   } catch (error) {
-    console.error("Error predicting muscle groups and difficulty:", error);
+    logError("Error predicting muscle groups and difficulty:", error);
     throw new Error("Failed to predict muscle groups and difficulty");
   }
 }
