@@ -1,4 +1,4 @@
-import { SidebarNav } from "@/components/ui/sidebar-nav";
+import { Navigation } from "@/components/nav";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -7,8 +7,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen">
-      <SidebarNav />
-      {children}
+      <Navigation />
+      <main className="flex-1 overflow-y-auto p-8">
+        {children}
+      </main>
     </div>
   );
 }
