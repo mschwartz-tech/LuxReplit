@@ -40,7 +40,6 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [placesService, setPlacesService] = useState<any>(null);
   const [autocompleteService, setAutocompleteService] = useState<any>(null);
@@ -50,8 +49,12 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
+    console.log("Google Places API Key exists:", !!apiKey);
+
     if (!apiKey) {
-      setInitError("Google Places API key is missing. Please contact support.");
+      const error = "Google Places API key is missing. Please contact support.";
+      console.error(error);
+      setInitError(error);
       setFallbackMode(true);
       toast({
         title: "Configuration Error",
@@ -63,27 +66,35 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     const initializePlacesServices = () => {
       try {
+        console.log("Attempting to initialize Places services...");
         if (!window.google?.maps?.places) {
           throw new Error("Places API not loaded");
         }
 
+        // Create a dummy map div for PlacesService (required by the API)
         const dummyElement = document.createElement('div');
         const placesServiceInstance = new window.google.maps.places.PlacesService(dummyElement);
         const autocompleteServiceInstance = new window.google.maps.places.AutocompleteService();
 
+        console.log("Services created successfully");
+
         setPlacesService(placesServiceInstance);
         setAutocompleteService(autocompleteServiceInstance);
-        setIsScriptLoaded(true);
-        setFallbackMode(false);
         setInitError(null);
+        setFallbackMode(false);
         initRetryCount.current = 0;
+
+        console.log("Places services initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Places services:", error);
+
         if (initRetryCount.current < maxRetries) {
           initRetryCount.current += 1;
+          console.log(`Retrying initialization (attempt ${initRetryCount.current}/${maxRetries})`);
           setTimeout(initializePlacesServices, 1000 * initRetryCount.current);
         } else {
           const errorMessage = "Unable to initialize address lookup. Please enter address manually.";
+          console.error(errorMessage);
           setInitError(errorMessage);
           setFallbackMode(true);
           toast({
@@ -95,27 +106,32 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       }
     };
 
+    // If Google Maps is already loaded, initialize services directly
     if (window.google?.maps?.places) {
+      console.log("Google Maps already loaded, initializing services directly");
       initializePlacesServices();
       return;
     }
 
+    // Otherwise, load the script
+    console.log("Loading Google Maps script...");
     window.initGooglePlaces = initializePlacesServices;
 
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`;
     script.async = true;
     script.defer = true;
-
     script.onerror = () => {
       console.error("Failed to load Google Maps script");
       if (initRetryCount.current < maxRetries) {
         initRetryCount.current += 1;
+        console.log(`Retrying script load (attempt ${initRetryCount.current}/${maxRetries})`);
         setTimeout(() => {
           document.head.appendChild(script);
         }, 1000 * initRetryCount.current);
       } else {
         const errorMessage = "Failed to load address lookup service. Please enter address manually.";
+        console.error(errorMessage);
         setInitError(errorMessage);
         setFallbackMode(true);
         toast({
@@ -127,6 +143,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
     };
 
     document.head.appendChild(script);
+    console.log("Google Maps script added to document");
 
     return () => {
       if (script.parentNode) {
@@ -146,6 +163,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     try {
       setIsLoading(true);
+      console.log("Searching for address:", input);
 
       const request = {
         input,
@@ -156,10 +174,13 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       autocompleteService.getPlacePredictions(
         request,
         (results: any, status: any) => {
+          console.log("Places API response status:", status);
           if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+            console.log("Found suggestions:", results.length);
             setSuggestions(results);
             setOpen(true);
           } else {
+            console.log("No suggestions found or error:", status);
             setSuggestions([]);
             if (status !== window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
               toast({
@@ -200,6 +221,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     try {
       setIsLoading(true);
+      console.log("Getting details for place:", placeId);
 
       placesService.getDetails(
         {
@@ -207,7 +229,9 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
           fields: ['address_components', 'formatted_address']
         },
         (place: any, status: any) => {
+          console.log("Place details status:", status);
           if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+            console.log("Got place details:", place);
             const address = {
               address: '',
               city: '',
@@ -215,7 +239,6 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
               zipCode: ''
             };
 
-            // Extract street number and street name first
             let streetNumber = '';
             let streetName = '';
 
@@ -240,13 +263,14 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
               }
             });
 
-            // Combine street number and name for the full street address
             address.address = `${streetNumber} ${streetName}`.trim();
+            console.log("Parsed address:", address);
 
             onAddressSelect(address);
             setValue(place.formatted_address || description);
             setOpen(false);
           } else {
+            console.error("Failed to get place details:", status);
             toast({
               title: "Error",
               description: "Failed to get address details. Please try again.",
