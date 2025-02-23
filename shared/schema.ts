@@ -7,12 +7,18 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Import payments table and types
-import { payments, insertPaymentSchema } from './payments';
+// Import payment and subscription types from their respective files
+import { 
+  payments, 
+  insertPaymentSchema,
+  type PaymentMethod, 
+  type PaymentStatus 
+} from './payments';
 
-// =====================
-// Table Definitions
-// =====================
+import { 
+  subscriptions, 
+  insertSubscriptionSchema,
+} from './subscriptions';
 
 // Define all tables first
 const users = pgTable("users", {
@@ -792,9 +798,8 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
     createdBy: z.string().transform(val => parseInt(val)).optional(),
-    status: z.enum(["draft", "active", "completed"]).default("draft"),
-    targetAudience: z.enum(["all", "active", "inactive"]).default("all"),
-  })
+    status: z.enum(["draft", "active","completed"]).default("draft"),
+    targetAudience: z.enum(["all", "active", "inactive"]).default("all"),  })
   .omit({
     id: true,
   });
@@ -1074,6 +1079,12 @@ export {
   // Tables
   users,
   members,
+  movementPatterns,
+  trainingPackages,
+  trainingClients,
+  memberProfiles,
+  memberAssessments,
+  memberProgressPhotos,
   workoutPlans,
   workoutLogs,
   schedules,
@@ -1086,39 +1097,36 @@ export {
   memberMealPlans,
   progress,
   strengthMetrics,
-  movementPatterns,
-  trainingPackages,
-  trainingClients,
-  memberProfiles,
-  memberAssessments,
-  memberProgressPhotos,
-  marketingCampaigns,
   invoices,
+  marketingCampaigns,
+  sessions,
   scheduledBlocks,
   classRegistrations,
   classTemplates,
   classWaitlist,
+  classes,
   payments,
-
+  subscriptions,
 
   // Relations
   usersRelations,
   membersRelations,
-  workoutPlansRelations,
-  workoutLogsRelations,
-  schedulesRelations,
-  exercisesRelations,
-  pricingPlansRelations,
-  gymMembershipPricingRelations,
-  membershipPricingRelations,
-  mealPlansRelations,
-  memberMealPlansRelations,
   movementPatternsRelations,
   trainingPackagesRelations,
   trainingClientsRelations,
   memberProfilesRelations,
   memberAssessmentsRelations,
   memberProgressPhotosRelations,
+  workoutPlansRelations,
+  workoutLogsRelations,
+  schedulesRelations,
+  invoicesRelations,
+  exercisesRelations,
+  pricingPlansRelations,
+  gymMembershipPricingRelations,
+  membershipPricingRelations,
+  mealPlansRelations,
+  memberMealPlansRelations,
   sessionsRelations,
   classesRelations,
   classRegistrationsRelations,
@@ -1127,8 +1135,7 @@ export {
   progressRelations,
   strengthMetricsRelations,
 
-
-  // Schemas
+  // Insert Schemas
   insertUserSchema,
   insertMemberSchema,
   insertWorkoutPlanSchema,
@@ -1154,7 +1161,8 @@ export {
   insertClassTemplateSchema,
   insertClassRegistrationSchema,
   insertClassWaitlistSchema,
-  insertPaymentSchema
+  insertPaymentSchema,
+  insertSubscriptionSchema,
 };
 
 // Types export
@@ -1188,7 +1196,9 @@ export type {
   Payment,
   InsertPayment,
   Subscription,
-  InsertSubscription
+  InsertSubscription,
+  PaymentMethod,
+  PaymentStatus
 } from './types';
 
 // Insert types export
@@ -1220,5 +1230,4 @@ export type {
   InsertClassWaitlist,
   InsertPayment,
   InsertSubscription
-
 } from './types';

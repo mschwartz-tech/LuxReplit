@@ -1,10 +1,22 @@
 // Import and re-export everything from schema
 export * from './schema';
 
-// Import and re-export payment and subscription schemas
-export { insertPaymentSchema } from './payments';
-export { insertSubscriptionSchema } from './subscriptions';
+// Import and re-export payment types
+export {
+  payments,
+  insertPaymentSchema,
+  type Payment,
+  type InsertPayment,
+  type PaymentMethod,
+  type PaymentStatus
+} from './payments';
 
-// Re-export payment and subscription types
-export type { Payment, InsertPayment } from './payments';
-export type { Subscription, InsertSubscription } from './subscriptions';
+// Import and re-export subscription types
+export {
+  subscriptions,
+  insertSubscriptionSchema,
+  type Subscription,
+  type InsertSubscription,
+  type SubscriptionStatus,
+  type SubscriptionPeriod
+} from './subscriptions';

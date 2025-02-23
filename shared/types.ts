@@ -10,10 +10,6 @@ import {
   classWaitlist, classes
 } from './schema';
 
-// Re-export payment and subscription types
-export type { Payment, InsertPayment } from './payments';
-export type { Subscription, InsertSubscription } from './subscriptions';
-
 // Table Types
 export type User = typeof users.$inferSelect;
 export type Member = typeof members.$inferSelect;

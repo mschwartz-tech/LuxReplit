@@ -977,9 +977,11 @@ export class DatabaseStorage implements IStorage {
   // Meal Plans
   async getMealPlans(): Promise<MealPlan[]> {
     try {
-      return await db.select().from(mealPlans);
+      const plans = await db.select().from(mealPlans);
+      logMealPlanInfo('Successfully retrieved all meal plans');
+      return plans;
     } catch (error) {
-      console.error("Error getting meal plans:", error);
+      logMealPlanError('Failed to retrieve meal plans', error);
       return [];
     }
   }
@@ -992,31 +994,41 @@ export class DatabaseStorage implements IStorage {
         .where(eq(mealPlans.id, id))
         .leftJoin(users, eq(mealPlans.trainerId, users.id));
 
-      if (!result) return null;
+      if (!result) {
+        logMealPlanInfo(`No meal plan found with id: ${id}`);
+        return null;
+      }
 
+      logMealPlanInfo(`Successfully retrieved meal plan with id: ${id}`);
       return {
         ...result.meal_plans,
         trainerId: result.meal_plans.trainerId,
       };
     } catch (error) {
-      console.error("Error getting meal plan:", error);
+      logMealPlanError(`Failed to retrieve meal plan with id: ${id}`, error);
       return null;
     }
   }
 
   async createMealPlan(data: InsertMealPlan): Promise<MealPlan> {
     try {
-      // Ensure macroDistribution is properly formatted
+      // Validate macro distribution
       const macroDistribution = typeof data.macroDistribution === 'string'
         ? JSON.parse(data.macroDistribution)
         : data.macroDistribution || { protein: 30, carbs: 40, fats: 30 };
+
+      const total = macroDistribution.protein + macroDistribution.carbs + macroDistribution.fats;
+      if (total !== 100) {
+        const error = new Error('Macro distribution must total 100%');
+        logMealPlanValidation(0, { macroDistribution, total });
+        throw error;
+      }
 
       // Format meals as JSON if needed
       const meals = typeof data.meals === 'string' 
         ? JSON.parse(data.meals) 
         : data.meals;
 
-      // Convert numeric fields to strings for database
       const [newPlan] = await db
         .insert(mealPlans)
         .values({
@@ -1036,9 +1048,10 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
+      logMealPlanInfo('Successfully created new meal plan', { planId: newPlan.id });
       return newPlan;
     } catch (error) {
-      console.error("Error creating meal plan:", error);
+      logMealPlanError('Failed to create meal plan', error, { data });
       throw error;
     }
   }
@@ -1051,9 +1064,17 @@ export class DatabaseStorage implements IStorage {
       const updateData: any = { ...data };
 
       if (data.macroDistribution) {
-        updateData.macroDistribution = typeof data.macroDistribution === 'string'
+        const macroDistribution = typeof data.macroDistribution === 'string'
           ? JSON.parse(data.macroDistribution)
           : data.macroDistribution;
+
+        const total = macroDistribution.protein + macroDistribution.carbs + macroDistribution.fats;
+        if (total !== 100) {
+          const error = new Error('Macro distribution must total 100%');
+          logMealPlanValidation(id, { macroDistribution, total });
+          throw error;
+        }
+        updateData.macroDistribution = macroDistribution;
       }
 
       if (data.meals) {
@@ -1080,9 +1101,10 @@ export class DatabaseStorage implements IStorage {
         .where(eq(mealPlans.id, id))
         .returning();
 
+      logMealPlanInfo(`Successfully updated meal plan with id: ${id}`);
       return updatedPlan;
     } catch (error) {
-      console.error("Error updating meal plan:", error);
+      logMealPlanError(`Failed to update meal plan with id: ${id}`, error, { data });
       throw error;
     }
   }
@@ -1090,8 +1112,9 @@ export class DatabaseStorage implements IStorage {
   async deleteMealPlan(id: number): Promise<void> {
     try {
       await db.delete(mealPlans).where(eq(mealPlans.id, id));
+      logMealPlanInfo(`Successfully deleted meal plan with id: ${id}`);
     } catch (error) {
-      console.error("Error deleting meal plan:", error);
+      logMealPlanError(`Failed to delete meal plan with id: ${id}`, error);
       throw error;
     }
   }
@@ -1158,7 +1181,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-async deleteMemberMealPlan(id: number): Promise<void> {
+  async deleteMemberMealPlan(id: number): Promise<void> {
     try {
       await db.delete(memberMealPlans).where(eq(memberMealPlans.id, id));
     } catch (error) {
@@ -1693,3 +1716,16 @@ CREATE TABLE IF NOT EXISTS training_clients (
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 `;
+
+// Placeholder for logging functions.  These would need to be implemented separately.
+const logMealPlanInfo = (message: string, data?: any) => {
+  console.log(`Meal Plan Info: ${message}`, data);
+}
+
+const logMealPlanError = (message: string, error: any, data?: any) => {
+  console.error(`Meal Plan Error: ${message}`, error, data);
+}
+
+const logMealPlanValidation = (id: number, data: any) => {
+  console.warn(`Meal Plan Validation Error (id: ${id}):`, data);
+}
