@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { storage } from "../storage";
 import { logError, logInfo } from "../services/logger";
 import { asyncHandler } from "../middleware/async";
@@ -20,7 +20,7 @@ export const mealPlanRoutes = {
 
   create: asyncHandler(async (req: Request, res: Response) => {
     const { dietaryPreferences, calorieTarget, mealsPerDay, daysInPlan, allergies, fitnessGoals } = req.body;
-    
+
     try {
       const generatedMealPlan = await generateMealPlan({
         dietaryPreferences,
@@ -32,7 +32,7 @@ export const mealPlanRoutes = {
       });
 
       const mealPlan = await storage.createMealPlan({
-        userId: (req.user as any).id,
+        memberId: (req.user as any).id,
         meals: generatedMealPlan,
         preferences: dietaryPreferences,
         createdAt: new Date()
@@ -55,10 +55,12 @@ export const mealPlanRoutes = {
   }),
 
   delete: asyncHandler(async (req: Request, res: Response) => {
-    const deleted = await storage.deleteMealPlan(parseInt(req.params.id));
-    if (!deleted) {
-      return res.status(404).json({ message: "Meal plan not found" });
+    try {
+      await storage.deleteMealPlan(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      logError("Error deleting meal plan", { error: String(error) });
+      res.status(500).json({ message: "Failed to delete meal plan" });
     }
-    res.status(204).send();
   })
 };

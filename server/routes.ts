@@ -59,10 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/members/:id/profile", requireRole(["admin", "trainer"]), memberRoutes.updateProfile);
   app.post("/api/members/:id/profile", requireRole(["admin", "trainer"]), memberRoutes.createProfile);
   app.get("/api/members/:id/progress", requireAuth, memberRoutes.getProgress);
-  app.get("/api/members/:id/strength-metrics", requireAuth, (req, res) => strengthMetricRoutes.getMetrics(req, res));
-  app.post("/api/progress/:progressId/strength-metrics", requireRole(["admin", "trainer"]), (req, res) => strengthMetricRoutes.createMetric(req, res));
-  app.get("/api/progress/:progressId/strength-metrics", requireAuth, (req, res) => strengthMetricRoutes.getProgressMetrics(req, res));
-
+  app.get("/api/members/:id/strength-metrics", requireAuth, (req, res, next) => strengthMetricRoutes.getMetrics(req, res, next));
+  app.post("/api/progress/:progressId/strength-metrics", requireRole(["admin", "trainer"]), (req, res, next) => strengthMetricRoutes.createMetric(req, res, next));
+  app.get("/api/progress/:progressId/strength-metrics", requireAuth, (req, res, next) => strengthMetricRoutes.getProgressMetrics(req, res, next));
 
   // Meal plan routes
   app.use("/api/meal-plans", requireAuth, mealPlanRoutes);

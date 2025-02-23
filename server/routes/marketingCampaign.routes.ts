@@ -10,7 +10,7 @@ export const marketingCampaignRoutes = {
       const campaigns = await storage.getMarketingCampaigns();
       res.json(campaigns);
     } catch (error) {
-      logError("Failed to fetch marketing campaigns", error);
+      logError("Failed to fetch marketing campaigns", { error: String(error) });
       res.status(500).json({ error: "Failed to fetch marketing campaigns" });
     }
   }),
@@ -23,7 +23,7 @@ export const marketingCampaignRoutes = {
       }
       res.json(campaign);
     } catch (error) {
-      logError("Failed to fetch marketing campaign", error);
+      logError("Failed to fetch marketing campaign", { error: String(error) });
       res.status(500).json({ error: "Failed to fetch marketing campaign" });
     }
   }),
@@ -40,7 +40,7 @@ export const marketingCampaignRoutes = {
       logInfo("Marketing campaign created", { campaignId: campaign.id });
       res.status(201).json(campaign);
     } catch (error) {
-      logError("Failed to create marketing campaign", error);
+      logError("Failed to create marketing campaign", { error: String(error) });
       res.status(500).json({ error: "Failed to create marketing campaign" });
     }
   })
