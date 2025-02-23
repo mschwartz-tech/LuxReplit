@@ -71,14 +71,32 @@ async function startServer() {
 
     // Register routes and get HTTP server
     logInfo("Registering routes...");
-    const server = await registerRoutes(app);
-    logInfo("Routes registered successfully");
+    let server;
+    try {
+      server = await registerRoutes(app);
+      logInfo("Routes registered successfully");
+    } catch (routeError) {
+      logError("Failed to register routes", { 
+        error: routeError,
+        stack: routeError instanceof Error ? routeError.stack : undefined,
+        message: routeError instanceof Error ? routeError.message : String(routeError)
+      });
+      throw routeError;
+    }
 
     // Setup Vite in development
     if (process.env.NODE_ENV !== "production") {
       logInfo("Setting up Vite development server...");
-      await setupVite(app, server);
-      logInfo("Vite development server setup complete");
+      try {
+        await setupVite(app, server);
+        logInfo("Vite development server setup complete");
+      } catch (viteError) {
+        logError("Failed to setup Vite", { 
+          error: viteError,
+          stack: viteError instanceof Error ? viteError.stack : undefined 
+        });
+        throw viteError;
+      }
     }
 
     // Start the server
@@ -95,12 +113,19 @@ async function startServer() {
 
     // Handle server errors
     server.on("error", (error) => {
-      logError("Server error occurred", { error });
+      logError("Server error occurred", { 
+        error,
+        stack: error instanceof Error ? error.stack : undefined 
+      });
       process.exit(1);
     });
 
   } catch (error) {
-    logError("Failed to start server", { error });
+    logError("Failed to start server", { 
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+      message: error instanceof Error ? error.message : String(error)
+    });
     process.exit(1);
   }
 }
