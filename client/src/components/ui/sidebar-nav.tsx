@@ -123,7 +123,7 @@ export function SidebarNav() {
   const handleLogout = async () => {
     try {
       await logoutMutation.mutateAsync();
-      setLocation('/login');
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Logout failed:', error);
     }
