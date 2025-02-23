@@ -25,6 +25,9 @@ export function Navigation() {
 
   return (
     <nav className="flex flex-col gap-2 p-4 min-w-[200px] border-r h-screen">
+      <div className="mb-4">
+        <img src="/assets/branding/icon.png" alt="Logo" className="h-12 w-auto" />
+      </div>
       <div className="flex-1">
         <div className="space-y-1">
           <Link
