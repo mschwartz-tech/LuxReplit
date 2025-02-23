@@ -80,6 +80,7 @@ export default function ExerciseLibrary() {
   const isTrainer = user?.role === "trainer";
   const canEdit = isAdmin || isTrainer;
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+  const [isAIThinking, setIsAIThinking] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
@@ -157,6 +158,7 @@ export default function ExerciseLibrary() {
 
   const predictExerciseDetailsMutation = useMutation({
     mutationFn: async (name: string) => {
+      setIsAIThinking(true);
       const response = await fetch('/api/exercises/predict-details', {
         method: 'POST',
         headers: {
@@ -187,13 +189,13 @@ export default function ExerciseLibrary() {
           form.setValue("description", data.description, { shouldValidate: true });
         }
 
-        if (typeof data.difficulty === 'string' && 
+        if (typeof data.difficulty === 'string' &&
             ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
           form.setValue("difficulty", data.difficulty, { shouldValidate: true });
         }
 
-        if (typeof data.primaryMuscleGroupId === 'number' && 
-            data.primaryMuscleGroupId >= 1 && 
+        if (typeof data.primaryMuscleGroupId === 'number' &&
+            data.primaryMuscleGroupId >= 1 &&
             data.primaryMuscleGroupId <= 15) {
           form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
         }
@@ -219,6 +221,8 @@ export default function ExerciseLibrary() {
           description: "Received predictions but couldn't update all form fields",
           variant: "destructive",
         });
+      } finally {
+        setIsAIThinking(false);
       }
     },
     onError: (error: Error) => {
@@ -228,6 +232,7 @@ export default function ExerciseLibrary() {
         description: error.message,
         variant: "destructive",
       });
+      setIsAIThinking(false);
     },
   });
 
@@ -311,6 +316,11 @@ export default function ExerciseLibrary() {
                         <FormControl>
                           <Input placeholder="e.g. Barbell Back Squat" {...field} />
                         </FormControl>
+                        {isAIThinking && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            SentravisionAI is thinking...
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

@@ -794,9 +794,13 @@ const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing
 const insertExerciseSchema = createInsertSchema(exercises)
   .extend({
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
-    primaryMuscleGroupId: z.string().transform(val => parseInt(val)),
-    secondaryMuscleGroupIds: z.array(z.string()).transform(val => val.map(id => parseInt(id))),
-    instructions: z.array(z.string()).min(1, "Instructions are required"),
+    primaryMuscleGroupId: z.number().or(z.string()).transform(val =>
+      typeof val === 'string' ? parseInt(val) : val
+    ),
+    secondaryMuscleGroupIds: z.array(z.number().or(z.string())).transform(val =>
+      val.map(id => typeof id === 'string' ? parseInt(id) : id)
+    ),
+    instructions: z.array(z.string()).min(1, "Instructions arerequired"),
     tips: z.array(z.string()).optional(),
     equipment: z.array(z.string()).optional(),
     videoUrl: z.string().url("Invalid URL").optional(),
