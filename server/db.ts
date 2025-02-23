@@ -15,7 +15,7 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 10, // Reduced from 20 to prevent connection exhaustion
-  idleTimeoutMillis: 0, // Disable idle timeout for serverless
+  idleTimeoutMillis: 30000, // Set idle timeout to 30 seconds
   connectionTimeoutMillis: 5000, // Reduced timeout for faster failures
   maxUses: 5000, // Reduced from 7500 to prevent connection issues
   keepAlive: true, // Enable keepalive
@@ -25,12 +25,9 @@ export const pool = new Pool({
 });
 
 // Add error handling for the pool
-pool.on('error', (err, client) => {
+pool.on('error', (err) => {
   logError('Unexpected error on idle client', { error: err });
-  // Don't exit process, attempt to recover
-  if (client) {
-    client.release(true); // Release with error
-  }
+  // Don't attempt to release the client here as it may already be released
 });
 
 // Initialize database connection with retry mechanism
@@ -68,3 +65,12 @@ export const db = drizzle(pool, { schema });
 export async function ensureDatabaseInitialized() {
   await initializeDatabase();
 }
+
+// Handle cleanup on process termination
+process.on('SIGTERM', async () => {
+  try {
+    await pool.end();
+  } catch (err) {
+    logError('Error during pool cleanup', { error: err });
+  }
+});
