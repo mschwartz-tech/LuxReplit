@@ -39,7 +39,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isScriptLoaded, setIsScriptLoaded] = useState(true); // Start as true to allow input
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [placesService, setPlacesService] = useState<any>(null);
   const [autocompleteService, setAutocompleteService] = useState<any>(null);
   const [fallbackMode, setFallbackMode] = useState(false);
@@ -48,6 +48,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
   useEffect(() => {
     const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API;
+    console.log("Initializing Google Places API");
 
     if (!apiKey) {
       console.error("Google Places API key is missing");
@@ -55,13 +56,9 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       return;
     }
 
-    if (window.google?.maps?.places) {
-      initializePlacesServices();
-      return;
-    }
-
-    async function initializePlacesServices() {
+    const initializePlacesServices = () => {
       try {
+        console.log("Attempting to initialize Places services");
         if (!window.google?.maps?.places) {
           throw new Error("Places API not loaded");
         }
@@ -75,15 +72,24 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         setIsScriptLoaded(true);
         setFallbackMode(false);
         initRetryCount.current = 0;
+        console.log("Places services initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Places services:", error);
         if (initRetryCount.current < maxRetries) {
           initRetryCount.current += 1;
+          console.log(`Retrying initialization (attempt ${initRetryCount.current})`);
           setTimeout(initializePlacesServices, 1000 * initRetryCount.current);
         } else {
+          console.error("Max retries reached, falling back to manual mode");
           setFallbackMode(true);
         }
       }
+    };
+
+    if (window.google?.maps?.places) {
+      console.log("Google Places API already loaded, initializing services");
+      initializePlacesServices();
+      return;
     }
 
     window.initGooglePlaces = initializePlacesServices;
@@ -97,15 +103,18 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
       console.error("Failed to load Google Maps script");
       if (initRetryCount.current < maxRetries) {
         initRetryCount.current += 1;
+        console.log(`Retrying script load (attempt ${initRetryCount.current})`);
         setTimeout(() => {
           document.head.appendChild(script);
         }, 1000 * initRetryCount.current);
       } else {
+        console.error("Max retries reached for script loading");
         setFallbackMode(true);
       }
     };
 
     document.head.appendChild(script);
+    console.log("Google Places API script added to document");
 
     return () => {
       if (script.parentNode) {
@@ -125,6 +134,8 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     try {
       setIsLoading(true);
+      console.log("Searching for address:", input);
+
       const request = {
         input,
         componentRestrictions: { country: 'us' },
@@ -135,9 +146,11 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         request,
         (results: any, status: any) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+            console.log("Got address suggestions:", results.length);
             setSuggestions(results);
             setOpen(true);
           } else {
+            console.log("No address suggestions found or error:", status);
             setSuggestions([]);
           }
           setIsLoading(false);
@@ -151,7 +164,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
   }, [autocompleteService, fallbackMode]);
 
   const handleAddressSelect = useCallback(async (placeId: string, description: string) => {
-    if (fallbackMode || !placesService) {
+    if (fallbackMode) {
       const parts = description.split(',').map(part => part.trim());
       onAddressSelect({
         address: parts[0] || '',
@@ -166,6 +179,8 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
 
     try {
       setIsLoading(true);
+      console.log("Getting details for place:", placeId);
+
       placesService.getDetails(
         {
           placeId,
@@ -173,6 +188,7 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
         },
         (place: any, status: any) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+            console.log("Got place details:", place);
             const address = {
               address: place.formatted_address || '',
               city: '',
@@ -195,9 +211,12 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
               }
             });
 
+            console.log("Parsed address:", address);
             onAddressSelect(address);
             setValue(place.formatted_address || description);
             setOpen(false);
+          } else {
+            console.error("Failed to get place details:", status);
           }
           setIsLoading(false);
         }
@@ -222,7 +241,6 @@ export function AddressAutocomplete({ onAddressSelect, className, ...props }: Ad
                 handleSearch(newValue);
               }
             }}
-            disabled={false} // Remove the disabled state
             placeholder={fallbackMode ? "Enter full address..." : "Search for an address..."}
             {...props}
           />
