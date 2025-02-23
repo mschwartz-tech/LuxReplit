@@ -19,6 +19,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Slider } from "@/components/ui/slider";
 
 interface Meal {
   meal: string;
@@ -38,13 +39,47 @@ interface MealPlan {
   createdAt: string;
 }
 
+const dietaryRestrictionOptions = [
+  { label: 'Gluten-Free', value: 'gluten_free' },
+  { label: 'Dairy-Free', value: 'dairy_free' },
+  { label: 'Nut-Free', value: 'nut_free' },
+  { label: 'Shellfish-Free', value: 'shellfish_free' },
+  { label: 'Soy-Free', value: 'soy_free' },
+  { label: 'Egg-Free', value: 'egg_free' },
+];
+
+const cookingSkillLevels = [
+  { label: 'Beginner', value: 'beginner' },
+  { label: 'Intermediate', value: 'intermediate' },
+  { label: 'Advanced', value: 'advanced' },
+];
+
+const mealPrepTimeOptions = [
+  { label: '15 minutes or less', value: '15_min' },
+  { label: '15-30 minutes', value: '30_min' },
+  { label: '30-60 minutes', value: '60_min' },
+  { label: '60+ minutes', value: 'over_60_min' },
+];
+
 const aiMealPlanSchema = z.object({
   dietaryPreferences: z.array(z.string()).optional(),
-  calorieTarget: z.number().min(500).max(10000).optional(),
-  mealsPerDay: z.number().min(1).max(6).optional(),
-  daysInPlan: z.number().min(1).max(30).optional(),
-  allergies: z.array(z.string()).optional(),
+  calorieTarget: z.number().min(500).max(10000),
+  mealsPerDay: z.number().min(1).max(6),
+  daysInPlan: z.number().min(1).max(30),
+  dietaryRestrictions: z.array(z.string()).optional(),
   fitnessGoals: z.array(z.string()).optional(),
+  macroDistribution: z.object({
+    protein: z.number().min(0).max(100),
+    carbs: z.number().min(0).max(100),
+    fats: z.number().min(0).max(100),
+  }).refine(data => {
+    const total = data.protein + data.carbs + data.fats;
+    return total === 100;
+  }, "Macro distribution must total 100%"),
+  cookingSkillLevel: z.string(),
+  maxPrepTime: z.string(),
+  preferredCuisines: z.array(z.string()).optional(),
+  excludedIngredients: z.array(z.string()).optional(),
 });
 
 const dietaryOptions = [
@@ -82,8 +117,17 @@ export default function MealPlansPage() {
       calorieTarget: 2000,
       mealsPerDay: 3,
       daysInPlan: 1,
-      allergies: [],
+      dietaryRestrictions: [],
       fitnessGoals: [],
+      macroDistribution: {
+        protein: 30,
+        carbs: 40,
+        fats: 30,
+      },
+      cookingSkillLevel: 'intermediate',
+      maxPrepTime: '30_min',
+      preferredCuisines: [],
+      excludedIngredients: [],
     },
   });
 
@@ -145,13 +189,11 @@ export default function MealPlansPage() {
       });
 
       if (!response.ok) throw new Error('Failed to assign meal plan');
-      
 
       toast({
         title: 'Success',
         description: 'Meal plan assigned successfully'
       });
-      
 
       // Reset form
       setSelectedMember(null);
@@ -198,13 +240,11 @@ export default function MealPlansPage() {
       });
 
       if (!response.ok) throw new Error('Failed to create meal plan');
-      
 
       toast({
         title: 'Success',
         description: 'Meal plan created successfully'
       });
-      
 
       fetchMealPlans();
       setNewPlan({
@@ -311,15 +351,121 @@ export default function MealPlansPage() {
 
                       <Form {...aiForm}>
                         <form onSubmit={aiForm.handleSubmit(handleGenerateAiPlan)} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={aiForm.control}
+                              name="calorieTarget"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Daily Calorie Target</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={aiForm.control}
+                              name="mealsPerDay"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Meals Per Day</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="number"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold">Macro Distribution</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <FormField
+                                control={aiForm.control}
+                                name="macroDistribution.protein"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Protein (%)</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...field}
+                                        onChange={(e) => {
+                                          const value = Number(e.target.value);
+                                          field.onChange(Math.min(100, Math.max(0, value)));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={aiForm.control}
+                                name="macroDistribution.carbs"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Carbs (%)</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...field}
+                                        onChange={(e) => {
+                                          const value = Number(e.target.value);
+                                          field.onChange(Math.min(100, Math.max(0, value)));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={aiForm.control}
+                                name="macroDistribution.fats"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Fats (%)</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...field}
+                                        onChange={(e) => {
+                                          const value = Number(e.target.value);
+                                          field.onChange(Math.min(100, Math.max(0, value)));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+
                           <FormField
                             control={aiForm.control}
-                            name="dietaryPreferences"
+                            name="dietaryRestrictions"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Dietary Preferences</FormLabel>
+                                <FormLabel>Dietary Restrictions</FormLabel>
                                 <FormControl>
                                   <MultiSelect
-                                    options={dietaryOptions}
+                                    options={dietaryRestrictionOptions}
                                     selected={field.value}
                                     onChange={field.onChange}
                                   />
@@ -331,16 +477,21 @@ export default function MealPlansPage() {
 
                           <FormField
                             control={aiForm.control}
-                            name="calorieTarget"
+                            name="cookingSkillLevel"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Daily Calorie Target</FormLabel>
+                                <FormLabel>Cooking Skill Level</FormLabel>
                                 <FormControl>
-                                  <Input
-                                    type="number"
+                                  <select
+                                    className="w-full p-2 border rounded"
                                     {...field}
-                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                  />
+                                  >
+                                    {cookingSkillLevels.map(level => (
+                                      <option key={level.value} value={level.value}>
+                                        {level.label}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -349,15 +500,57 @@ export default function MealPlansPage() {
 
                           <FormField
                             control={aiForm.control}
-                            name="mealsPerDay"
+                            name="maxPrepTime"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Meals Per Day</FormLabel>
+                                <FormLabel>Maximum Meal Prep Time</FormLabel>
+                                <FormControl>
+                                  <select
+                                    className="w-full p-2 border rounded"
+                                    {...field}
+                                  >
+                                    {mealPrepTimeOptions.map(option => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={aiForm.control}
+                            name="excludedIngredients"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Excluded Ingredients</FormLabel>
                                 <FormControl>
                                   <Input
-                                    type="number"
+                                    placeholder="Enter ingredients to exclude (comma-separated)"
                                     {...field}
-                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    onChange={(e) => field.onChange(e.target.value.split(',').map(i => i.trim()))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+
+                          <FormField
+                            control={aiForm.control}
+                            name="dietaryPreferences"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Dietary Preferences</FormLabel>
+                                <FormControl>
+                                  <MultiSelect
+                                    options={dietaryOptions}
+                                    selected={field.value}
+                                    onChange={field.onChange}
                                   />
                                 </FormControl>
                                 <FormMessage />
