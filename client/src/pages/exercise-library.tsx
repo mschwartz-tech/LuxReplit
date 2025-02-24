@@ -268,7 +268,7 @@ export default function ExerciseLibrary() {
                 Add Exercise
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Exercise</DialogTitle>
                 <DialogDescription>
@@ -276,7 +276,7 @@ export default function ExerciseLibrary() {
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-4">
                   <FormField
                     control={form.control}
                     name="name"
