@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { generateExerciseDetails } from '../services/openai';
 import { logError, logInfo } from '../services/logger';
+import { db } from '../db';
+import { exercises } from '@shared/schema';
 
 const router = Router();
 
@@ -21,30 +23,47 @@ const handleApiError = (error: unknown, context: string) => {
   if (error instanceof z.ZodError) {
     return { 
       status: 400, 
-      message: 'Invalid request data: ' + error.errors[0].message 
+      error: 'Invalid request data',
+      details: error.errors
     };
   }
 
   if (error instanceof Error) {
     if (error.message.includes('API key')) {
-      return { status: 401, message: 'Authentication failed with AI service' };
+      return { status: 401, error: 'Authentication failed with AI service' };
     }
     if (error.message.includes('rate limit')) {
-      return { status: 429, message: 'Too many requests. Please try again later' };
+      return { status: 429, error: 'Too many requests. Please try again later' };
     }
     if (error.message.includes('timeout')) {
-      return { status: 504, message: 'Request timed out. Please try again' };
+      return { status: 504, error: 'Request timed out. Please try again' };
     }
     if (error.message.includes('Invalid API response format')) {
-      return { status: 502, message: 'Received invalid response from AI service' };
+      return { status: 502, error: 'Received invalid response from AI service' };
     }
+    return { status: 500, error: error.message };
   }
 
   return { 
     status: 500, 
-    message: error instanceof Error ? error.message : 'An unexpected error occurred'
+    error: 'An unexpected error occurred'
   };
 };
+
+router.post('/exercises', async (req, res) => {
+  try {
+    logInfo('Creating new exercise:', {
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
+
+    const result = await db.insert(exercises).values(req.body).returning();
+    return res.json(result[0]);
+  } catch (error) {
+    const { status, error: errorMessage } = handleApiError(error, 'create-exercise');
+    return res.status(status).json({ error: errorMessage });
+  }
+});
 
 router.post('/exercise-ai/analyze', async (req, res) => {
   try {
@@ -77,64 +96,18 @@ router.post('/exercise-ai/analyze', async (req, res) => {
 
     return res.json(result);
   } catch (error) {
-    logError('Exercise analysis error:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      request: {
-        body: req.body,
-        headers: req.headers,
-        path: req.path
-      },
-      timestamp: new Date().toISOString()
-    });
-
-    const { status, message } = handleApiError(error, 'analyze');
-    return res.status(status).json({ message });
+    const { status, error: errorMessage } = handleApiError(error, 'analyze');
+    return res.status(status).json({ error: errorMessage });
   }
 });
 
-router.post('/api/debug/openai', async (req, res) => {
+router.get('/exercises', async (req, res) => {
   try {
-    logInfo('Debug endpoint request:', {
-      headers: req.headers,
-      body: req.body,
-      path: req.path,
-      method: req.method,
-      timestamp: new Date().toISOString()
-    });
-
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-
-    const { exerciseName } = predictExerciseSchema.parse(req.body);
-
-    logInfo('Initiating OpenAI API call:', {
-      exerciseName,
-      timestamp: new Date().toISOString()
-    });
-
-    const rawResponse = await generateExerciseDetails(exerciseName);
-
-    logInfo('Raw OpenAI API response:', {
-      response: rawResponse,
-      timestamp: new Date().toISOString()
-    });
-
-    return res.json(rawResponse);
+    const allExercises = await db.select().from(exercises);
+    return res.json(allExercises);
   } catch (error) {
-    logError('Debug endpoint error:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      request: {
-        body: req.body,
-        headers: req.headers,
-        path: req.path
-      },
-      timestamp: new Date().toISOString()
-    });
-
-    const { status, message } = handleApiError(error, 'debug');
-    return res.status(status).json({ message });
+    const { status, error: errorMessage } = handleApiError(error, 'get-exercises');
+    return res.status(status).json({ error: errorMessage });
   }
 });
 
