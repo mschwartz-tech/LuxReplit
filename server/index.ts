@@ -40,14 +40,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Set JSON content type for all API routes early in the middleware chain
+// API routes should be handled before any other middleware
 app.use('/api', (req, res, next) => {
   res.type('application/json');
+  // Ensure Vite doesn't intercept API requests
+  res.setHeader('X-Custom-Route', 'api');
   next();
 });
-
-// Apply security headers middleware after content type is set
-app.use(securityHeaders);
 
 // Session middleware setup with improved error handling
 app.use(
@@ -75,28 +74,25 @@ app.use(
 // Setup authentication after session middleware
 setupAuth(app);
 
-// API routes should be excluded from standard rate limiting
-app.use('/api', (req, res, next) => {
-  // Skip rate limiting for OpenAI routes
-  if (req.path.includes('/api/exercises/analyze')) {
-    return next();
-  }
-  const routeLimiter = getRouteLimiter(req.path);
-  routeLimiter(req, res, next);
-});
-
-// Error handler should be last
-app.use(errorHandler);
-
-// Initialize the server
-async function startServer() {
+// Register routes before Vite middleware
+const startServer = async () => {
   try {
     await ensureDatabaseInitialized();
     const server = await registerRoutes(app);
 
+    // Apply Vite middleware last to prevent it from intercepting API routes
     if (process.env.NODE_ENV !== "production" && process.env.DISABLE_VITE !== 'true') {
+      app.use((req, res, next) => {
+        if (req.path.startsWith('/api')) {
+          return next('route');
+        }
+        next();
+      });
       await setupVite(app, server);
     }
+
+    // Error handler should be last
+    app.use(errorHandler);
 
     const port = Number(process.env.PORT) || 5000;
     server.listen(port, '0.0.0.0', () => {
@@ -104,15 +100,6 @@ async function startServer() {
         port,
         env: process.env.NODE_ENV || 'development'
       });
-    });
-
-    // Handle server errors
-    server.on("error", (error: Error) => {
-      logError("Server error occurred", {
-        error: error.message,
-        stack: error.stack
-      });
-      process.exit(1);
     });
 
     return server;
@@ -123,7 +110,7 @@ async function startServer() {
     });
     throw error;
   }
-}
+};
 
 startServer().catch((error) => {
   logError("Unhandled error during server startup:", error);

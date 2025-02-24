@@ -54,13 +54,16 @@ STRICT REQUIREMENTS:
 - primaryMuscleGroupId must be a single number 1-15
 - secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`;
 
-    // Log the request details
-    logInfo('OpenAI API request:', {
+    // Log the complete request configuration
+    logInfo('OpenAI API request configuration:', {
       model: "gpt-4o",
       exerciseName,
+      systemPrompt,
+      headers: openai.defaultHeaders,
       timestamp: new Date().toISOString()
     });
 
+    // Make the API request with strict JSON response format
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -78,11 +81,11 @@ STRICT REQUIREMENTS:
       max_tokens: 500
     });
 
-    // Log the raw response
-    logInfo('Raw OpenAI response:', {
+    // Log the complete raw response
+    logInfo('Raw OpenAI API response:', {
       status: response.choices[0].finish_reason,
       model: response.model,
-      content: response.choices[0].message.content,
+      rawContent: response.choices[0].message.content,
       timestamp: new Date().toISOString()
     });
 
@@ -90,12 +93,18 @@ STRICT REQUIREMENTS:
       throw new Error('Empty response from OpenAI');
     }
 
-    let content = response.choices[0].message.content.trim();
+    const content = response.choices[0].message.content.trim();
+
+    // Check for HTML content
+    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+      logError('Received HTML instead of JSON:', { content });
+      throw new Error('Invalid API response format: received HTML instead of JSON');
+    }
 
     try {
       const parsed = JSON.parse(content);
 
-      // Validate and format the response
+      // Format and validate the response
       const formatted: ExerciseAIResponse = {
         description: parsed.description?.slice(0, 100).trim() || '',
         primaryMuscleGroupId: Number(parsed.primaryMuscleGroupId),
@@ -105,7 +114,7 @@ STRICT REQUIREMENTS:
             Number.isInteger(id) && 
             id >= 1 && 
             id <= 15 && 
-            id !== parsed.primaryMuscleGroupId
+            id !== Number(parsed.primaryMuscleGroupId)
           )
           .slice(0, 5),
         difficulty: parsed.difficulty as "beginner" | "intermediate" | "advanced",
@@ -118,8 +127,10 @@ STRICT REQUIREMENTS:
           .slice(0, 10)
       };
 
-      // Final validation
-      if (!formatted.description) throw new Error('Missing description');
+      // Validate required fields
+      if (!formatted.description) {
+        throw new Error('Missing description');
+      }
       if (!Number.isInteger(formatted.primaryMuscleGroupId) || 
           formatted.primaryMuscleGroupId < 1 || 
           formatted.primaryMuscleGroupId > 15) {
