@@ -20,6 +20,8 @@ import { z } from "zod";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { MealPlanView } from "@/components/ui/meal-plan-view";
+import { Textarea } from "@/components/ui/textarea";
 
 // Types
 interface Member {
@@ -85,7 +87,7 @@ const fitnessGoalOptions = [
 
 // Validation Schemas
 const aiMealPlanSchema = z.object({
-  foodPreferences: z.array(z.string()),
+  foodPreferences: z.string().max(100),
   calorieTarget: z.number().min(500).max(10000),
   mealsPerDay: z.number().min(1).max(6),
   daysInPlan: z.number().min(1).max(30),
@@ -103,12 +105,6 @@ const aiMealPlanSchema = z.object({
   maxPrepTime: z.string(),
 });
 
-// Placeholder for CustomMultiSelect -  Needs implementation based on your UI library
-const CustomMultiSelect = ({ options, selected, onChange, placeholder, allowCustom }: any) => {
-  // Implement your custom multi-select logic here.  This is a placeholder.
-  return <div>Custom Multiselect Placeholder</div>;
-};
-
 
 export default function MealPlansPage() {
   const { user } = useAuth();
@@ -124,7 +120,7 @@ export default function MealPlansPage() {
   const aiForm = useForm({
     resolver: zodResolver(aiMealPlanSchema),
     defaultValues: {
-      foodPreferences: [],
+      foodPreferences: "",
       calorieTarget: 2000,
       mealsPerDay: 3,
       daysInPlan: 1,
@@ -358,14 +354,12 @@ export default function MealPlansPage() {
                       name="foodPreferences"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Food Preferences</FormLabel>
+                          <FormLabel>Food Preferences (max 100 words)</FormLabel>
                           <FormControl>
-                            <CustomMultiSelect
-                              options={dietaryOptions}
-                              selected={field.value}
-                              onChange={field.onChange}
-                              placeholder="Select or add food preferences..."
-                              allowCustom={true}
+                            <Textarea
+                              placeholder="Enter your food preferences, ingredients you like, favorite cuisines, etc..."
+                              className="h-24"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -524,31 +518,15 @@ export default function MealPlansPage() {
       )}
 
       {/* Display Meal Plans */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {mealPlans.map((plan: MealPlan) => (
           <Card key={plan.id}>
             <CardHeader>
               <CardTitle>{plan.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">{plan.description}</p>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600 mb-4">{plan.description}</p>
-              <div className="space-y-2">
-                {plan.meals.map((meal, index) => (
-                  <div key={index} className="border p-2 rounded">
-                    <h3 className="font-semibold">{meal.meal}</h3>
-                    <p>{meal.food}</p>
-                    <div className="text-sm text-gray-500 space-x-2">
-                      <span>Calories: {meal.calories}</span>
-                      <span>|</span>
-                      <span>Protein: {meal.protein}g</span>
-                      <span>|</span>
-                      <span>Carbs: {meal.carbs}g</span>
-                      <span>|</span>
-                      <span>Fats: {meal.fats}g</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <MealPlanView meals={plan.meals} />
             </CardContent>
           </Card>
         ))}

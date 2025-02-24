@@ -12,13 +12,40 @@ export * from './payments';
 export * from './subscriptions';
 
 // Define top-level schemas
+// Update mealItemSchema
 export const mealItemSchema = z.object({
   meal: z.string(),
   food: z.string(),
-  calories: z.number().optional(),
-  protein: z.number().optional(),
-  carbs: z.number().optional(),
-  fats: z.number().optional(),
+  ingredients: z.array(z.object({
+    item: z.string(),
+    amount: z.string(),
+    unit: z.string()
+  })),
+  instructions: z.array(z.string()),
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fats: z.number(),
+  dayNumber: z.number().min(1).max(7),
+  mealNumber: z.number().min(1)
+});
+
+// Update aiMealPlanSchema
+const aiMealPlanSchema = z.object({
+  foodPreferences: z.string().max(1000), // ~100 words limit
+  calorieTarget: z.number().min(500).max(10000),
+  mealsPerDay: z.number().min(1).max(6),
+  dietaryRestrictions: z.array(z.string()).optional(),
+  fitnessGoals: z.array(z.string()).optional(),
+  macroDistribution: z.object({
+    protein: z.number().min(0).max(100),
+    carbs: z.number().min(0).max(100),
+    fats: z.number().min(0).max(100),
+  }).refine(data => {
+    return data.protein + data.carbs + data.fats === 100;
+  }, "Macro distribution must total 100%"),
+  cookingSkillLevel: z.string(),
+  maxPrepTime: z.string(),
 });
 
 export type MealItem = z.infer<typeof mealItemSchema>;
@@ -761,14 +788,14 @@ const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
 // Schema Definitions
 // =====================
 
+// Fix the quote marks in the insertUserSchema
 const insertUserSchema = createInsertSchema(users)
   .extend({
     role: z.enum(["admin", "trainer", "user"]).default("user"),
     email: z.string().email("Invalid email format"),
     name: z.string().min(1, "Name is required"),
     username: z.string().min(3, "Username must be at least 3 characters"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-  })
+    password: z.string().min(8, "Password must be at least 8 characters"),  })
   .omit({
     createdAt: true,
   });
