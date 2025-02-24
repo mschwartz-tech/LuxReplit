@@ -7,27 +7,128 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Update the meal item schema to include temporary status
+// =====================
+// Meal Plan Related Tables & Schemas
+// =====================
+
+// Table for individual meals
+export const meals = pgTable("meals", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  calories: integer("calories").notNull(),
+  protein: numeric("protein").notNull(),
+  carbs: numeric("carbs").notNull(),
+  fats: numeric("fats").notNull(),
+  ingredients: jsonb("ingredients").notNull(),
+  instructions: text("instructions").array().notNull(),
+  prepTime: integer("prep_time").notNull(),
+  cookingDifficulty: text("cooking_difficulty", {
+    enum: ["beginner", "intermediate", "advanced"]
+  }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
+// Table for meal plans
+export const mealPlans = pgTable("meal_plans", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status", {
+    enum: ["draft", "active", "completed", "archived"]
+  }).notNull().default("draft"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  targetCalories: integer("target_calories").notNull(),
+  macroDistribution: jsonb("macro_distribution").notNull(),
+  dietaryPreferences: text("dietary_preferences").array(),
+  dietaryRestrictions: text("dietary_restrictions").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+});
+
+// Table for meal plan days
+export const mealPlanDays = pgTable("meal_plan_days", {
+  id: serial("id").primaryKey(),
+  mealPlanId: integer("meal_plan_id").references(() => mealPlans.id).notNull(),
+  dayNumber: integer("day_number").notNull(),
+  totalCalories: integer("total_calories").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    uniqueDayConstraint: uniqueIndex("unique_day_constraint").on(table.mealPlanId, table.dayNumber)
+  }
+});
+
+// Table for meal plan slots
+export const mealPlanSlots = pgTable("meal_plan_slots", {
+  id: serial("id").primaryKey(),
+  mealPlanDayId: integer("meal_plan_day_id").references(() => mealPlanDays.id).notNull(),
+  mealId: integer("meal_id").references(() => meals.id).notNull(),
+  slotNumber: integer("slot_number").notNull(),
+  status: text("status", {
+    enum: ["draft", "confirmed", "regeneration_requested"]
+  }).notNull().default("draft"),
+  isCustomized: boolean("is_customized").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    uniqueSlotConstraint: uniqueIndex("unique_slot_constraint").on(table.mealPlanDayId, table.slotNumber)
+  }
+});
+
+// Meal Plan Relations
+export const mealPlanRelations = relations(mealPlans, ({ many, one }) => ({
+  user: one(users, {
+    fields: [mealPlans.userId],
+    references: [users.id]
+  }),
+  days: many(mealPlanDays)
+}));
+
+export const mealPlanDayRelations = relations(mealPlanDays, ({ one, many }) => ({
+  mealPlan: one(mealPlans, {
+    fields: [mealPlanDays.mealPlanId],
+    references: [mealPlans.id]
+  }),
+  slots: many(mealPlanSlots)
+}));
+
+export const mealPlanSlotRelations = relations(mealPlanSlots, ({ one }) => ({
+  day: one(mealPlanDays, {
+    fields: [mealPlanSlots.mealPlanDayId],
+    references: [mealPlanDays.id]
+  }),
+  meal: one(meals, {
+    fields: [mealPlanSlots.mealId],
+    references: [meals.id]
+  })
+}));
+
+// Base schemas for validation
 export const mealItemSchema = z.object({
-  meal: z.string(),
-  food: z.string(),
+  id: z.number().optional(),
+  name: z.string(),
+  description: z.string().optional(),
+  calories: z.number().min(0),
+  protein: z.number().min(0),
+  carbs: z.number().min(0),
+  fats: z.number().min(0),
   ingredients: z.array(z.object({
     item: z.string(),
     amount: z.string(),
     unit: z.string()
   })),
   instructions: z.array(z.string()),
-  calories: z.number(),
-  protein: z.number(),
-  carbs: z.number(),
-  fats: z.number(),
-  dayNumber: z.number().min(1).max(7),
-  mealNumber: z.number().min(1),
-  isTemporary: z.boolean().default(false),
-  status: z.enum(["draft", "confirmed"]).default("draft")
+  prepTime: z.number().min(0),
+  cookingDifficulty: z.enum(["beginner", "intermediate", "advanced"])
 });
 
-// Existing aiMealPlanSchema remains unchanged
+// AI Meal Plan Generation Schema
 export const aiMealPlanSchema = z.object({
   foodPreferences: z.string().max(1000),
   calorieTarget: z.number().min(500).max(10000),
@@ -45,29 +146,41 @@ export const aiMealPlanSchema = z.object({
   maxPrepTime: z.string(),
 });
 
-// Define the temporary meal plan schema
-export const temporaryMealPlanSchema = z.object({
-  userId: z.number(),
-  meals: z.array(mealItemSchema),
-  macroDistribution: z.object({
-    protein: z.number().min(0).max(100),
-    carbs: z.number().min(0).max(100),
-    fats: z.number().min(0).max(100),
-  }).refine(data => {
-    return data.protein + data.carbs + data.fats === 100;
-  }, "Macro distribution must total 100%"),
-  targetCalories: z.number().min(500).max(10000),
-  expiresAt: z.date()
-});
+// Insert schemas
+export const insertMealSchema = createInsertSchema(meals)
+  .omit({ id: true, createdAt: true, updatedAt: true });
 
-// Export type definitions
-export type MealItem = z.infer<typeof mealItemSchema>;
+export const insertMealPlanSchema = createInsertSchema(mealPlans)
+  .extend({
+    targetCalories: z.number().min(500).max(10000),
+    macroDistribution: z.object({
+      protein: z.number().min(0).max(100),
+      carbs: z.number().min(0).max(100),
+      fats: z.number().min(0).max(100)
+    }).refine(data => {
+      return data.protein + data.carbs + data.fats === 100;
+    }, "Macro distribution must total 100%")
+  })
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertMealPlanDaySchema = createInsertSchema(mealPlanDays)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertMealPlanSlotSchema = createInsertSchema(mealPlanSlots)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+// Export types
+export type Meal = typeof meals.$inferSelect;
+export type InsertMeal = z.infer<typeof insertMealSchema>;
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type MealPlanDay = typeof mealPlanDays.$inferSelect;
+export type InsertMealPlanDay = z.infer<typeof insertMealPlanDaySchema>;
+export type MealPlanSlot = typeof mealPlanSlots.$inferSelect;
+export type InsertMealPlanSlot = z.infer<typeof insertMealPlanSlotSchema>;
 export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
-export type TemporaryMealPlan = z.infer<typeof temporaryMealPlanSchema>;
+export type MealItem = z.infer<typeof mealItemSchema>;
 
-// =====================
-// Database Tables
-// =====================
 
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -179,34 +292,6 @@ const memberProfiles = pgTable("member_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Member Profile Schema
-const insertMemberProfileSchema = createInsertSchema(memberProfiles)
-  .extend({
-    userId: z.string().transform(val => parseInt(val)),
-    birthDate: z.coerce.date().optional(),
-    height: z.string().optional(),
-    weight: z.string().optional(),
-    fitnessGoals: z.array(z.string()).optional(),
-    healthConditions: z.array(z.string()).optional(),
-    medications: z.array(z.string()).optional(),
-    injuries: z.array(z.string()).optional(),
-    liabilityWaiverSigned: z.boolean().optional(),
-    liabilityWaiverSignedDate: z.coerce.date().optional(),
-    photoReleaseWaiverSigned: z.boolean().optional(),
-    photoReleaseWaiverSignedDate: z.coerce.date().optional(),
-    preferredContactMethod: z.enum(["email", "phone", "text"]).optional(),
-    marketingOptIn: z.boolean().optional(),
-    hadPhysicalLastYear: z.boolean().optional(),
-    physicianClearance: z.boolean().optional()
-  })
-  .omit({
-    createdAt: true,
-    updatedAt: true
-  });
-
-// Export the schema and type
-export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
-
 const memberAssessments = pgTable("member_assessments", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -306,7 +391,6 @@ const muscleGroups = pgTable("muscle_groups", {
   bodyRegion: text("body_region", { enum: ["upper", "lower", "core"] }).notNull()
 });
 
-// Update the exercises table definition by removing tips and equipment
 const exercises = pgTable("exercises", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -358,31 +442,6 @@ const membershipPricing = pgTable("membership_pricing", {
     membershipLocationIdx: uniqueIndex("membership_location_idx").on(table.gymLocation),
     membershipActiveIdx: uniqueIndex("membership_active_idx").on(table.isActive)
   }
-});
-
-// Update mealPlans table to support draft and final states
-const mealPlans = pgTable("meal_plans", {
-  id: serial("id").primaryKey(),
-  trainerId: integer("trainer_id").references(() => users.id),
-  name: text("name").notNull(),
-  description: text("description"),
-  meals: jsonb("meals").notNull(),
-  macroDistribution: jsonb("macro_distribution").notNull().default(sql`'{"protein": 30, "carbs": 40, "fats": 30}'::jsonb`),
-  status: text("status", {
-    enum: ["draft", "confirmed", "active", "completed"]
-  }).notNull().default("draft"),
-  dietaryPreferences: text("dietary_preferences").array(),
-  dietaryRestrictions: text("dietary_restrictions").array(),
-  calorieTarget: integer("calorie_target"),
-  mealsPerDay: integer("meals_per_day"),
-  cookingSkillLevel: text("cooking_skill_level", {
-    enum: ["beginner", "intermediate", "advanced"]
-  }),
-  maxPrepTime: text("max_prep_time"),
-  excludedIngredients: text("excluded_ingredients").array(),
-  startDate: timestamp("start_date"),
-  endDate: timestamp("end_date"),
-  createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
 const memberMealPlans = pgTable("member_meal_plans", {
@@ -562,9 +621,7 @@ const strengthMetrics = pgTable("strength_metrics", {
   }
 });
 
-
-// Add temporary meal plan table
-export const temporaryMealPlans = pgTable("temporary_meal_plans", {
+const temporaryMealPlans = pgTable("temporary_meal_plans", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   meals: jsonb("meals").notNull(),
@@ -599,8 +656,7 @@ const membersRelations = relations(members, ({ one, many }) => ({
   progressPhotos: many(memberProgressPhotos),
   workoutPlans: many(workoutPlans),
   workoutLogs: many(workoutLogs),
-  schedules: many(schedules),
-  invoices: many(invoices),
+  schedules: many(schedules),  invoices: many(invoices),
   memberMealPlans: many(memberMealPlans),
   gymLocation: one(gymMembershipPricing, {
     fields: [members.gymLocationId],
@@ -707,7 +763,7 @@ const exercisesRelations = relations(exercises, ({ one, many }) => ({
 
 const pricingPlansRelations = relations(pricingPlans, ({ many }) => ({}));
 
-const gymMembershipPricingRelations = relations(gymMembershipPricing, ({ many }) => ({
+const gymMembershipPricingRelations = relations(gymMembershipPricing, ({ many}) => ({
   members: many(members)
 }));
 
@@ -716,11 +772,11 @@ const membershipPricingRelations = relations(membershipPricing, ({ many }) => ({
 }));
 
 const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
-  trainer: one(users, {
-    fields: [mealPlans.trainerId],
+  user: one(users, {
+    fields: [mealPlans.userId],
     references: [users.id]
   }),
-  memberMealPlans: many(memberMealPlans)
+  days: many(mealPlanDays)
 }));
 
 const memberMealPlansRelations = relations(memberMealPlans, ({ one }) => ({
@@ -807,7 +863,6 @@ const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
 // Schema Definitions
 // =====================
 
-// Fix the quote marks in the insertUserSchema
 const insertUserSchema = createInsertSchema(users)
   .extend({
     role: z.enum(["admin", "trainer", "user"]).default("user"),
@@ -837,7 +892,6 @@ const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing
     updatedAt: true,
   });
 
-// Update the exercise schema to match
 const insertExerciseSchema = createInsertSchema(exercises)
   .extend({
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
@@ -878,11 +932,10 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
     id: true
   });
 
-// Update the insert schema for meal plans
-const insertMealPlanSchema = createInsertSchema(mealPlans)
+const insertMealPlanSchema2 = createInsertSchema(mealPlans)
   .extend({
-    trainerId: z.string().transform(val => parseInt(val)).optional(),
-    meals: z.array(mealItemSchema),
+    userId: z.string().transform(val => parseInt(val)),
+    targetCalories: z.number().min(500).max(10000),
     macroDistribution: z.object({
       protein: z.number().min(0).max(100),
       carbs: z.number().min(0).max(100),
@@ -891,14 +944,9 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
       const total = data.protein + data.carbs + data.fats;
       return total === 100;
     }, "Macro distribution must total 100%"),
-    status: z.enum(["draft", "confirmed", "active", "completed"]).default("draft"),
+    status: z.enum(["draft", "active", "completed", "archived"]).default("draft"),
     dietaryPreferences: z.array(z.string()).optional(),
     dietaryRestrictions: z.array(z.string()).optional(),
-    calorieTarget: z.number().min(500).max(10000).optional(),
-    mealsPerDay: z.number().min(1).max(6).optional(),
-    cookingSkillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-    maxPrepTime: z.string().optional(),
-    excludedIngredients: z.array(z.string()).optional(),
     startDate: z.coerce.date().optional(),
     endDate: z.coerce.date().optional(),
   })
@@ -906,7 +954,6 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
     createdAt: true,
   });
 
-// Member Assessment Schema
 const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
   .extend({
     memberId: z.string().transform(val => parseInt(val)),
@@ -926,7 +973,6 @@ const insertMemberAssessmentSchema = createInsertSchema(memberAssessments)
     createdAt: true,
   });
 
-// Member Progress Photo Schema
 const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos)
   .extend({
     memberId: z.string().transform(val => parseInt(val)),
@@ -939,7 +985,6 @@ const insertMemberProgressPhotoSchema = createInsertSchema(memberProgressPhotos)
     createdAt: true,
   });
 
-// Member Schema
 const insertMemberSchema = createInsertSchema(members)
   .extend({
     userId: z.string().transform(val => parseInt(val)),
@@ -1073,7 +1118,6 @@ const insertWorkoutPlanSchema = createInsertSchema(workoutPlans)
   })
   .omit({ createdAt: true });
 
-// Add the class-related schemas after the workoutPlan schema
 const insertClassSchema = createInsertSchema(classes)
   .extend({
     trainerId: z.string().transform(val => parseInt(val)),
@@ -1123,7 +1167,6 @@ const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
   })
   .omit({ id: true, createdAt: true });
 
-// Add the memberMealPlan insert schema after line 914
 const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
   .extend({
     memberId: z.string().transform(val => parseInt(val)),
@@ -1137,7 +1180,6 @@ const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
     assignedAt: true,
   });
 
-// Create insert schemas for temporary meal plans
 export const insertTemporaryMealPlanSchema = createInsertSchema(temporaryMealPlans)
   .extend({
     userId: z.number(),
@@ -1163,7 +1205,6 @@ export type InsertTemporaryMealPlan = z.infer<typeof insertTemporaryMealPlanSche
 // Type Definitions
 // =====================
 
-// Base types
 export type User = typeof users.$inferSelect;
 export type Member = typeof members.$inferSelect;
 export type WorkoutPlan = typeof workoutPlans.$inferSelect;
@@ -1198,13 +1239,12 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 
 
-// Insert types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertGymMembershipPricing = z.infer<typeof insertGymMembershipPricingSchema>;
 export type InsertExercise = z.infer<typeof insertExerciseSchema>;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
-export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema2>;
 export type InsertMemberAssessment = z.infer<typeof insertMemberAssessmentSchema>;
 export type InsertMemberProgressPhoto = z.infer<typeof insertMemberProgressPhotoSchema>;
 export type InsertMember = z.infer<typeof insertMemberSchema>;
@@ -1217,23 +1257,26 @@ export type InsertClassWaitlist = z.infer<typeof insertClassWaitlistSchema>;
 export type InsertWorkoutPlan = z.infer<typeof insertWorkoutPlanSchema>;
 export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
 export type InsertTrainingPackage = z.infer<typeof insertTrainingPackageSchema>;
-export type InsertTrainingClient = z.infer<typeof insertTrainingClientSchema>;
 export type InsertProgress = z.infer<typeof insertProgressSchema>;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
 export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
-export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
 export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
 export type MealItem = z.infer<typeof mealItemSchema>;
 export type TemporaryMealPlan = z.infer<typeof temporaryMealPlanSchema>;
 export type InsertTemporaryMealPlan = z.infer<typeof insertTemporaryMealPlanSchema>;
+export type Meal = typeof meals.$inferSelect;
+export type InsertMeal = z.infer<typeof insertMealSchema>;
+export type MealPlanDay = typeof mealPlanDays.$inferSelect;
+export type InsertMealPlanDay = z.infer<typeof insertMealPlanDaySchema>;
+export type MealPlanSlot = typeof mealPlanSlots.$inferSelect;
+export type InsertMealPlanSlot = z.infer<typeof insertMealPlanSlotSchema>;
 
 
 // =====================
 // Exports
 // =====================
 
-// Export types and schemas
 export {
   // Tables
   users,
@@ -1264,6 +1307,9 @@ export {
   progress,
   strengthMetrics,
   temporaryMealPlans,
+  meals,
+  mealPlanDays,
+  mealPlanSlots,
 
   // Relations
   usersRelations,
@@ -1291,6 +1337,9 @@ export {
   classWaitlistRelations,
   progressRelations,
   strengthMetricsRelations,
+  mealPlanRelations,
+  mealPlanDayRelations,
+  mealPlanSlotRelations,
 
   // Schemas
   mealItemSchema,
@@ -1301,7 +1350,7 @@ export {
   insertExerciseSchema,
   insertInvoiceSchema,
   insertMarketingCampaignSchema,
-  insertMealPlanSchema,
+  insertMealPlanSchema2,
   insertMemberProfileSchema,
   insertTemporaryMealPlanSchema,
   insertMemberAssessmentSchema,
@@ -1315,10 +1364,14 @@ export {
   insertTrainingPackageSchema,
   insertProgressSchema,
   insertScheduleSchema,
-  insertStrengthMetricSchema
+  insertStrengthMetricSchema,
+  insertMealSchema,
+  insertMealPlanSchema,
+  insertMealPlanDaySchema,
+  insertMealPlanSlotSchema,
+  insertMemberMealPlanSchema
 };
 
-// Export types separately to avoid naming conflicts
 export type {
   User,
   Member,
@@ -1366,11 +1419,18 @@ export type {
   InsertClass,
   InsertClassTemplate,
   InsertClassRegistration,
+  InsertClassWaitlist,
   InsertWorkoutPlan,
   InsertWorkoutLog,
   InsertTrainingPackage,
   InsertProgress,
   InsertSchedule,
   InsertStrengthMetric,
-  InsertMemberMealPlan
+  InsertMemberMealPlan,
+  Meal,
+  InsertMeal,
+  MealPlanDay,
+  InsertMealPlanDay,
+  MealPlanSlot,
+  InsertMealPlanSlot
 };
