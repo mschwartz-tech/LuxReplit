@@ -81,14 +81,14 @@ export default function ExerciseLibrary() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [selectedExercises, setSelectedExercises] = useState<string[]>([]); // Fix type
+  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
 
   // State management
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
-  // Form setup with validation schema
+  // Form setup with validation schema and better error handling
   const form = useForm<FormData>({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -103,10 +103,10 @@ export default function ExerciseLibrary() {
     }
   });
 
-  // AI Analysis mutation with better error handling
+  // AI Analysis mutation with improved error handling
   const analyzeExerciseMutation = useMutation({
     mutationFn: async (exerciseName: string): Promise<AIAnalysisResponse> => {
-      if (!exerciseName || exerciseName.length < 3) {
+      if (!exerciseName || exerciseName.trim().length < 3) {
         throw new Error('Exercise name must be at least 3 characters');
       }
 
@@ -114,26 +114,26 @@ export default function ExerciseLibrary() {
       if (!res.ok) {
         const errorText = await res.text();
         try {
-          // Try to parse as JSON first
           const errorJson = JSON.parse(errorText);
           throw new Error(errorJson.message || 'Failed to analyze exercise');
         } catch (e) {
-          // If not JSON, use text directly
           throw new Error(errorText || 'Failed to analyze exercise');
         }
       }
-      const data = await res.json();
-      return data as AIAnalysisResponse;
+      return await res.json();
     },
     onSuccess: (data) => {
+      // Reset form with new values, maintaining existing data
+      const currentValues = form.getValues();
       form.reset({
-        ...form.getValues(),
-        description: data.description,
-        difficulty: data.difficulty,
-        primaryMuscleGroupId: data.primaryMuscleGroupId,
-        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds,
-        instructions: data.instructions,
+        ...currentValues,
+        description: data.description || currentValues.description,
+        difficulty: data.difficulty || currentValues.difficulty,
+        primaryMuscleGroupId: data.primaryMuscleGroupId || currentValues.primaryMuscleGroupId,
+        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds || currentValues.secondaryMuscleGroupIds,
+        instructions: data.instructions || currentValues.instructions,
       });
+
       toast({
         title: "AI analysis complete",
         description: "Exercise details have been generated",
@@ -157,15 +157,25 @@ export default function ExerciseLibrary() {
         setIsAnalyzing(true);
         analyzeExerciseMutation.mutate(name);
       }
-    }, 1000), // Wait 1 second after the user stops typing
+    }, 1000),
     [isAnalyzing]
   );
 
-  // Handle exercise name input with validation
+  // Handle exercise name input with improved validation
   const handleExerciseNameChange = (name: string) => {
-    form.setValue("name", name);
-    if (!isAnalyzing) {
-      debouncedAnalyze(name);
+    try {
+      form.setValue("name", name, { shouldValidate: true });
+      if (!isAnalyzing && name.length >= 3) {
+        setIsAnalyzing(true);
+        debouncedAnalyze(name);
+      }
+    } catch (error) {
+      console.error('Error setting exercise name:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update exercise name",
+        variant: "destructive",
+      });
     }
   };
 
