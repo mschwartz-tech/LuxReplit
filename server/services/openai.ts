@@ -26,12 +26,7 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
 
     logInfo('Generating exercise details for:', { exerciseName });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with exactly this format:
+    const systemPrompt = `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with exactly this format:
 {
   "description": "Brief description under 100 chars",
   "primaryMuscleGroupId": (single number 1-15),
@@ -53,7 +48,14 @@ STRICT REQUIREMENTS:
 - Each instruction step must be under 20 words
 - Difficulty must be exactly "beginner", "intermediate", or "advanced"
 - primaryMuscleGroupId must be a single number 1-15
-- secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`
+- secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
         },
         {
           role: "user",
@@ -70,15 +72,7 @@ STRICT REQUIREMENTS:
     }
 
     let content = response.choices[0].message.content.trim();
-
-    // Log raw response for debugging
     logInfo('Raw OpenAI response:', { content });
-
-    // Validate response format
-    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
-      logError('Received HTML instead of JSON:', { content });
-      throw new Error('Invalid API response format: received HTML instead of JSON');
-    }
 
     try {
       const parsed = JSON.parse(content);
@@ -118,7 +112,7 @@ STRICT REQUIREMENTS:
             id !== parsed.primaryMuscleGroupId
           )
           .slice(0, 5),
-        difficulty: parsed.difficulty,
+        difficulty: parsed.difficulty as "beginner" | "intermediate" | "advanced",
         instructions: parsed.instructions
           .filter((instruction: string) => typeof instruction === 'string' && instruction.trim())
           .map((instruction: string) => {
