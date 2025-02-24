@@ -161,9 +161,8 @@ export default function ExerciseLibrary() {
           form.setValue("description", data.description, { shouldValidate: true });
         }
 
-        // Handle instructions as an array
-        if (Array.isArray(data.instructions) && data.instructions.length > 0) {
-          console.log('Setting instructions:', data.instructions);
+        // Handle instructions array
+        if (Array.isArray(data.instructions)) {
           form.setValue("instructions", data.instructions, { shouldValidate: true });
         }
 
@@ -329,7 +328,7 @@ export default function ExerciseLibrary() {
                         <FormControl>
                           <Textarea
                             placeholder="Step-by-step instructions for performing the exercise..."
-                            value={Array.isArray(field.value) ? field.value.join('\n') : field.value}
+                            value={Array.isArray(field.value) ? field.value.join('\n') : ''}
                             onChange={(e) => {
                               const steps = e.target.value.split('\n').filter(step => step.trim());
                               field.onChange(steps);

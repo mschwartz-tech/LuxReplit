@@ -4,7 +4,6 @@ import { z } from 'zod';
 
 const router = Router();
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI();
 
 const predictExerciseSchema = z.object({
@@ -48,20 +47,6 @@ Output format must be JSON with exactly these fields:
   "difficulty": "beginner" | "intermediate" | "advanced",
   "primaryMuscleGroupId": number (1-15),
   "secondaryMuscleGroupIds": number[] (1-15)
-}
-
-Example response for "Push-up":
-{
-  "description": "A bodyweight exercise that strengthens the upper body by pushing away from the ground and returning to starting position while maintaining proper form.",
-  "instructions": [
-    "1. Start in a plank position with hands shoulder-width apart",
-    "2. Lower your body by bending your elbows, keeping core tight",
-    "3. Lower until chest nearly touches the ground",
-    "4. Push back up to starting position"
-  ],
-  "difficulty": "intermediate",
-  "primaryMuscleGroupId": 4,
-  "secondaryMuscleGroupIds": [6, 8]
 }`
         },
         {
@@ -73,6 +58,10 @@ Example response for "Push-up":
     });
 
     console.log('OpenAI response:', response.choices[0].message.content);
+    if (!response.choices[0].message.content) {
+      throw new Error('No content in OpenAI response');
+    }
+
     const result = JSON.parse(response.choices[0].message.content);
 
     // Validate and sanitize the response
@@ -92,7 +81,7 @@ Example response for "Push-up":
 
     const secondaryMuscleGroupIds = result.secondaryMuscleGroupIds
       .map(Number)
-      .filter(id => id >= 1 && id <= 15 && id !== primaryMuscleGroupId);
+      .filter((id: number) => id >= 1 && id <= 15 && id !== primaryMuscleGroupId);
 
     // Validate difficulty
     const difficulty = ['beginner', 'intermediate', 'advanced'].includes(result.difficulty) 
@@ -101,7 +90,7 @@ Example response for "Push-up":
 
     const response_data = {
       description: result.description,
-      instructions,
+      instructions: instructions,
       difficulty,
       primaryMuscleGroupId,
       secondaryMuscleGroupIds
