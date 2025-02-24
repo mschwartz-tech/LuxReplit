@@ -85,7 +85,7 @@ const fitnessGoalOptions = [
 
 // Validation Schemas
 const aiMealPlanSchema = z.object({
-  dietaryPreferences: z.array(z.string()).optional(),
+  foodPreferences: z.array(z.string()),
   calorieTarget: z.number().min(500).max(10000),
   mealsPerDay: z.number().min(1).max(6),
   daysInPlan: z.number().min(1).max(30),
@@ -103,6 +103,13 @@ const aiMealPlanSchema = z.object({
   maxPrepTime: z.string(),
 });
 
+// Placeholder for CustomMultiSelect -  Needs implementation based on your UI library
+const CustomMultiSelect = ({ options, selected, onChange, placeholder, allowCustom }: any) => {
+  // Implement your custom multi-select logic here.  This is a placeholder.
+  return <div>Custom Multiselect Placeholder</div>;
+};
+
+
 export default function MealPlansPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -117,7 +124,7 @@ export default function MealPlansPage() {
   const aiForm = useForm({
     resolver: zodResolver(aiMealPlanSchema),
     defaultValues: {
-      dietaryPreferences: [],
+      foodPreferences: [],
       calorieTarget: 2000,
       mealsPerDay: 3,
       daysInPlan: 1,
@@ -343,37 +350,30 @@ export default function MealPlansPage() {
                     </div>
                   </div>
 
-                  {/* Dietary Preferences */}
+                  {/* Food Preferences */}
                   <div className="space-y-4">
-                    <h3 className="text-sm font-semibold">Dietary Preferences</h3>
+                    <h3 className="text-sm font-semibold">Food Preferences</h3>
                     <FormField
                       control={aiForm.control}
-                      name="dietaryPreferences"
+                      name="foodPreferences"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Diet Type</FormLabel>
+                          <FormLabel>Food Preferences</FormLabel>
                           <FormControl>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select diet type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {dietaryOptions.map((option) => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <CustomMultiSelect
+                              options={dietaryOptions}
+                              selected={field.value}
+                              onChange={field.onChange}
+                              placeholder="Select or add food preferences..."
+                              allowCustom={true}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+
 
                   {/* Cooking Preferences */}
                   <div className="space-y-4">
