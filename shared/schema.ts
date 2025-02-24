@@ -798,14 +798,12 @@ const insertExerciseSchema = createInsertSchema(exercises)
       typeof val === 'string' ? parseInt(val) : val
     ),
     secondaryMuscleGroupIds: z.array(z.number().or(z.string())).transform(val =>
-      val.map(id => typeof id === 'string' ? parseInt(id) : id)
+      val.map(id => typeof id === 'string' ?parseInt(id) : id)
     ),
-    instructions: z.array(z.string()).min(1, "Instructions arerequired"),
-    tips: z.array(z.string()).optional(),
-    equipment: z.array(z.string()).optional(),
-    videoUrl: z.string().url("Invalid URL").optional(),
+    instructions: z.array(z.string()).min(1, "Instructions are required"),
+    videoUrl: z.string().url("Invalid URL").optional().nullable(),
   })
-  .omit({ id: true, createdAt: true });
+  .omit({ id: true, createdAt: true, tips: true, equipment: true });
 
 const insertInvoiceSchema = createInsertSchema(invoices)
   .extend({
