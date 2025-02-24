@@ -15,7 +15,6 @@ export const macroDistributionSchema = z.object({
 
 // Base meal item schema for validation
 export const mealItemSchema = z.object({
-  id: z.number().optional(),
   name: z.string(),
   description: z.string().optional(),
   calories: z.number().min(0),
@@ -97,7 +96,6 @@ export const meals = pgTable("meals", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Table for users
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -110,7 +108,6 @@ const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for members
 const members = pgTable("members", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -137,7 +134,6 @@ const members = pgTable("members", {
   }
 });
 
-// Table for movement patterns
 const movementPatterns = pgTable("movement_patterns", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -147,7 +143,6 @@ const movementPatterns = pgTable("movement_patterns", {
   }).notNull()
 });
 
-// Table for training packages
 const trainingPackages = pgTable("training_packages", {
   id: serial("id").primaryKey(),
   sessionDuration: integer("session_duration").notNull(),
@@ -161,7 +156,6 @@ const trainingPackages = pgTable("training_packages", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for training clients
 const trainingClients = pgTable("training_clients", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -175,7 +169,6 @@ const trainingClients = pgTable("training_clients", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for member profiles
 const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -213,7 +206,6 @@ const memberProfiles = pgTable("member_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Table for member assessments
 const memberAssessments = pgTable("member_assessments", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -226,7 +218,6 @@ const memberAssessments = pgTable("member_assessments", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for member progress photos
 const memberProgressPhotos = pgTable("member_progress_photos", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -237,7 +228,6 @@ const memberProgressPhotos = pgTable("member_progress_photos", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for workout plans
 const workoutPlans = pgTable("workout_plans", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -255,7 +245,6 @@ const workoutPlans = pgTable("workout_plans", {
   }
 });
 
-// Table for workout logs
 const workoutLogs = pgTable("workout_logs", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -266,7 +255,6 @@ const workoutLogs = pgTable("workout_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for schedules
 const schedules = pgTable("schedules", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -289,7 +277,6 @@ const schedules = pgTable("schedules", {
   }
 });
 
-// Table for invoices
 const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id),
@@ -300,7 +287,6 @@ const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for marketing campaigns
 const marketingCampaigns = pgTable("marketing_campaigns", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -312,7 +298,6 @@ const marketingCampaigns = pgTable("marketing_campaigns", {
   createdBy: integer("created_by").references(() => users.id)
 });
 
-// Table for muscle groups
 const muscleGroups = pgTable("muscle_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -320,7 +305,6 @@ const muscleGroups = pgTable("muscle_groups", {
   bodyRegion: text("body_region", { enum: ["upper", "lower", "core"] }).notNull()
 });
 
-// Table for exercises
 const exercises = pgTable("exercises", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -335,7 +319,6 @@ const exercises = pgTable("exercises", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for pricing plans
 const pricingPlans = pgTable("pricing_plans", {
   id: serial("id").primaryKey(),
   sessionsPerWeek: integer("sessions_per_week").notNull(),
@@ -347,7 +330,6 @@ const pricingPlans = pgTable("pricing_plans", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Table for gym membership pricing
 const gymMembershipPricing = pgTable("gym_membership_pricing", {
   id: serial("id").primaryKey(),
   gymName: text("gym_name").notNull().unique(),
@@ -359,7 +341,6 @@ const gymMembershipPricing = pgTable("gym_membership_pricing", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Table for membership pricing
 const membershipPricing = pgTable("membership_pricing", {
   id: serial("id").primaryKey(),
   gymLocation: text("gym_location").notNull(),
@@ -377,7 +358,6 @@ const membershipPricing = pgTable("membership_pricing", {
   }
 });
 
-// Table for member meal plans
 const memberMealPlans = pgTable("member_meal_plans", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
@@ -391,7 +371,6 @@ const memberMealPlans = pgTable("member_meal_plans", {
   }).notNull(),
 });
 
-// Table for sessions
 const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
@@ -421,7 +400,6 @@ const sessions = pgTable("sessions", {
   }
 });
 
-// Table for classes
 const classes = pgTable("classes", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
@@ -480,7 +458,6 @@ const createScheduledBlocksView = sql`
   WHERE status = 'scheduled'
 `;
 
-// Table for class registrations
 const classRegistrations = pgTable("class_registrations", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").references(() => classes.id).notNull(),
@@ -491,7 +468,6 @@ const classRegistrations = pgTable("class_registrations", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
-// Table for class templates
 const classTemplates = pgTable("class_templates", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
@@ -511,7 +487,6 @@ const classTemplates = pgTable("class_templates", {
   }
 });
 
-// Table for class waitlist
 const classWaitlist = pgTable("class_waitlist", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").references(() => classes.id).notNull(),
@@ -528,7 +503,6 @@ const classWaitlist = pgTable("class_waitlist", {
   }
 });
 
-// Table for progress
 const progress = pgTable("progress", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id, { onDelete: 'cascade' }).notNull(),
@@ -545,7 +519,6 @@ const progress = pgTable("progress", {
   }
 });
 
-// Table for strength metrics
 const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
   progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
@@ -562,7 +535,6 @@ const strengthMetrics = pgTable("strength_metrics", {
   }
 });
 
-// Table for temporary meal plans
 const temporaryMealPlans = pgTable("temporary_meal_plans", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -792,24 +764,26 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
     references: [members.id]
   })
 }));
+// Fix the string template syntax error and progressRelations
+const insertUserSchema = createInsertSchema(users)
+  .extend({
+    role: z.enum(["admin", "trainer", "user"]).default("user"),
+    email: z.string().email("Invalid email format"),
+    name: z.string().min(1, "Name is required"),
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+  })
+  .omit({
+    createdAt: true,
+  });
 
-const progressRelations = relations(progress, ({ one, many}) => ({
+// Fix the progress relations formatting
+const progressRelations = relations(progress, ({ one, many }) => ({
   member: one(members, {
     fields: [progress.memberId],
     references: [members.id],
-  }),  strengthMetrics: many(strengthMetrics)
-}));
-
-const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
-  progress: one(progress, {
-    fields: [strengthMetrics.progressId],
-    references: [progress.id],
   }),
-  exercise: one(exercises, {
-    fields: [strengthMetrics.exerciseId],
-    references: [exercises.id],
-  })
-}));
+  strengthMetrics: many(strengthMetrics)}));
 
 // =====================
 // Schema Definitions
