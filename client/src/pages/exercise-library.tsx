@@ -37,7 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Muscle groups definition
+// Muscle groups definition remains unchanged
 const MUSCLE_GROUPS = [
   { id: 1, name: "Quadriceps" },
   { id: 2, name: "Hamstrings" },
@@ -99,6 +99,38 @@ export default function ExerciseLibrary() {
     }
   });
 
+  // Create exercise mutation
+  const createExerciseMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const res = await apiRequest("POST", "/api/exercises", {
+        ...data,
+        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(id => Number(id)),
+        primaryMuscleGroupId: Number(data.primaryMuscleGroupId)
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create exercise");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Exercise created successfully",
+      });
+      setIsDialogOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/exercises"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Debounced analysis function
   const debouncedAnalyze = useCallback(
     debounce(async (exerciseName: string) => {
@@ -113,16 +145,18 @@ export default function ExerciseLibrary() {
           throw new Error(errorText);
         }
 
-        const data: AIAnalysisResponse = await res.json();
+        const data = await res.json();
 
         // Update form with AI response
+        const currentValues = form.getValues();
         form.reset({
-          ...form.getValues(),
-          description: data.description || "",
-          difficulty: data.difficulty || "beginner",
-          primaryMuscleGroupId: data.primaryMuscleGroupId || 1,
-          secondaryMuscleGroupIds: data.secondaryMuscleGroupIds || [],
-          instructions: data.instructions || [],
+          ...currentValues,
+          name: currentValues.name, // Keep the name unchanged
+          description: data.description || currentValues.description,
+          difficulty: data.difficulty || currentValues.difficulty,
+          primaryMuscleGroupId: data.primaryMuscleGroupId || currentValues.primaryMuscleGroupId,
+          secondaryMuscleGroupIds: data.secondaryMuscleGroupIds || currentValues.secondaryMuscleGroupIds,
+          instructions: data.instructions || currentValues.instructions,
         });
 
         toast({
@@ -152,38 +186,14 @@ export default function ExerciseLibrary() {
     }
   };
 
-  // Create exercise mutation
-  const createExerciseMutation = useMutation({
-    mutationFn: async (data: FormData) => {
-      const res = await apiRequest("POST", "/api/exercises", data);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create exercise");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Exercise created successfully",
-      });
-      setIsDialogOpen(false);
-      form.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/exercises"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Form submission handler
   const onSubmit = async (data: FormData) => {
     try {
-      await createExerciseMutation.mutateAsync(data);
+      await createExerciseMutation.mutateAsync({
+        ...data,
+        primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
+        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(id => Number(id))
+      });
     } catch (error) {
       console.error('Form submission error:', error);
     }
