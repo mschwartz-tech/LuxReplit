@@ -284,6 +284,42 @@ export interface IStorage {
   updateMealPlanSlot(id: number, updates: Partial<InsertMealPlanSlot>): Promise<MealPlanSlot>;
   requestSlotRegeneration(id: number): Promise<MealPlanSlot>;
   confirmSlot(id: number): Promise<MealPlanSlot>;
+
+  // Meal Plan Week Management
+  getCurrentWeekPlan(userId: number): Promise<MealPlan | null>;
+  getUpcomingWeekPlan(userId: number): Promise<MealPlan | null>;
+  transitionToNextWeek(userId: number): Promise<void>;
+
+  // Meal operations with macro constraints
+  regenerateMeal(
+    slotId: number,
+    constraints: {
+      targetCalories: number;
+      macroDistribution: {
+        protein: number;
+        carbs: number;
+        fats: number;
+      };
+    }
+  ): Promise<Meal>;
+
+  // Day operations
+  getDayMeals(dayId: number): Promise<Meal[]>;
+  updateDayMacros(
+    dayId: number,
+    macros: {
+      targetCalories: number;
+      macroDistribution: {
+        protein: number;
+        carbs: number;
+        fats: number;
+      };
+    }
+  ): Promise<MealPlanDay>;
+
+  // Slot operations
+  confirmMealSlot(slotId: number): Promise<MealPlanSlot>;
+  requestSlotRegeneration(slotId: number): Promise<MealPlanSlot>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -335,7 +371,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newUser;
     } catch (error) {
-      logError('Error creating user:', { 
+      logError('Error creating user:', {
         error,
         category: 'userManagement',
         feature: 'crudOperations'
@@ -395,7 +431,7 @@ export class DatabaseStorage implements IStorage {
 
       return newMember;
     } catch (error) {
-      logError('Error creating member:', { 
+      logError('Error creating member:', {
         error,
         category: 'memberManagement',
         feature: 'crudOperations'
@@ -432,15 +468,15 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         })
         .returning();
-        logFeatureProgress(
-          'memberManagement',
-          'crudOperations',
-          '✓',
-          { operation: 'create', entityType: 'memberProfile' }
-        );
+      logFeatureProgress(
+        'memberManagement',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'memberProfile' }
+      );
       return newProfile;
     } catch (error) {
-      logError('Error creating member profile:', { 
+      logError('Error creating member profile:', {
         error,
         category: 'memberManagement',
         feature: 'crudOperations'
@@ -525,7 +561,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newAssessment;
     } catch (error) {
-      logError('Error creating member assessment:', { 
+      logError('Error creating member assessment:', {
         error,
         category: 'memberManagement',
         feature: 'crudOperations'
@@ -580,7 +616,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newPhoto;
     } catch (error) {
-      logError('Error creating member progress photo:', { 
+      logError('Error creating member progress photo:', {
         error,
         category: 'memberManagement',
         feature: 'crudOperations'
@@ -712,7 +748,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newLog;
     } catch (error) {
-      logError('Error creating workout log:', { 
+      logError('Error creating workout log:', {
         error,
         category: 'workoutTracking',
         feature: 'crudOperations'
@@ -757,7 +793,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newSchedule;
     } catch (error) {
-      logError('Error creating schedule:', { 
+      logError('Error creating schedule:', {
         error,
         category: 'scheduling',
         feature: 'crudOperations'
@@ -805,7 +841,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newInvoice;
     } catch (error) {
-      logError('Error creating invoice:', { 
+      logError('Error creating invoice:', {
         error,
         category: 'billing',
         feature: 'crudOperations'
@@ -854,7 +890,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newCampaign;
     } catch (error) {
-      logError('Error creating marketing campaign:', { 
+      logError('Error creating marketing campaign:', {
         error,
         category: 'marketing',
         feature: 'crudOperations'
@@ -903,7 +939,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newGroup;
     } catch (error) {
-      logError('Error creating muscle group:', { 
+      logError('Error creating muscle group:', {
         error,
         category: 'exerciseLibrary',
         feature: 'crudOperations'
@@ -964,7 +1000,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newExercise;
     } catch (error) {
-      logError('Error creating exercise:', { 
+      logError('Error creating exercise:', {
         error,
         category: 'exerciseLibrary',
         feature: 'crudOperations'
@@ -1019,7 +1055,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newPlan;
     } catch (error) {
-      logError('Error creating pricing plan:', { 
+      logError('Error creating pricing plan:', {
         error,
         category: 'pricing',
         feature: 'crudOperations'
@@ -1100,7 +1136,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newPricing;
     } catch (error) {
-      logError('Error creating membership pricing:', { 
+      logError('Error creating membership pricing:', {
         error,
         category: 'pricing',
         feature: 'crudOperations'
@@ -1216,8 +1252,8 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Format meals as JSON if needed
-      const meals = typeof data.meals === 'string' 
-        ? JSON.parse(data.meals) 
+      const meals = typeof data.meals === 'string'
+        ? JSON.parse(data.meals)
         : data.meals;
 
       const [newPlan] = await db
@@ -1226,10 +1262,10 @@ export class DatabaseStorage implements IStorage {
           ...data,
           macroDistribution,
           meals,
-          dietaryPreferences: Array.isArray(data.dietaryPreferences) 
-            ? data.dietaryPreferences 
-            : data.dietaryPreferences 
-              ? [data.dietaryPreferences] 
+          dietaryPreferences: Array.isArray(data.dietaryPreferences)
+            ? data.dietaryPreferences
+            : data.dietaryPreferences
+              ? [data.dietaryPreferences]
               : [],
           dietaryRestrictions: Array.isArray(data.dietaryRestrictions)
             ? data.dietaryRestrictions
@@ -1362,7 +1398,7 @@ export class DatabaseStorage implements IStorage {
       );
       return results[0];
     } catch (error) {
-      logError('Error creating member meal plan:', { 
+      logError('Error creating member meal plan:', {
         error,
         category: 'mealPlanning',
         feature: 'crudOperations'
@@ -1420,7 +1456,8 @@ export class DatabaseStorage implements IStorage {
         .from(progress)
         .where(eq(progress.id, id));
       return record;
-    } catch (error) {      console.error("Error getting progress:", error);
+    } catch (error) {
+      console.error("Error getting progress:", error);
       return undefined;
     }
   }
@@ -1442,7 +1479,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newProgress;
     } catch (error) {
-      logError('Error creating progress:', { 
+      logError('Error creating progress:', {
         error,
         category: 'progressTracking',
         feature: 'crudOperations'
@@ -1566,7 +1603,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newPattern;
     } catch (error) {
-      logError('Error creating movement pattern:', { 
+      logError('Error creating movement pattern:', {
         error,
         category: 'movementPatterns',
         feature: 'crudOperations'
@@ -1619,7 +1656,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newPkg;
     } catch (error) {
-      logError('Error creating training package:', { 
+      logError('Error creating training package:', {
         error,
         category: 'trainingPackages',
         feature: 'crudOperations'
@@ -1700,7 +1737,7 @@ export class DatabaseStorage implements IStorage {
       );
       return newClient;
     } catch (error) {
-      logError('Error creating training client:', { 
+      logError('Error creating training client:', {
         error,
         category: 'trainingClientManagement',
         feature: 'crudOperations'
@@ -1973,6 +2010,214 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+  async getCurrentWeekPlan(userId: number): Promise<MealPlan | null> {
+    try {
+      const [plan] = await db
+        .select()
+        .from(mealPlans)
+        .where(
+          and(
+            eq(mealPlans.userId, userId),
+            eq(mealPlans.weekType, "current"),
+            eq(mealPlans.status, "active")
+          )
+        );
+      return plan || null;
+    } catch (error) {
+      logError('Error getting current week plan:', { error });
+      return null;
+    }
+  }
+
+  async getUpcomingWeekPlan(userId: number): Promise<MealPlan | null> {
+    try {
+      const [plan] = await db
+        .select()
+        .from(mealPlans)
+        .where(
+          and(
+            eq(mealPlans.userId, userId),
+            eq(mealPlans.weekType, "upcoming"),
+            eq(mealPlans.status, "active")
+          )
+        );
+      return plan || null;
+    } catch (error) {
+      logError('Error getting upcoming week plan:', { error });
+      return null;
+    }
+  }
+
+  async transitionToNextWeek(userId: number): Promise<void> {
+    try {
+      // Start transaction
+      await db.transaction(async (tx) => {
+        // Archive current week
+        await tx
+          .update(mealPlans)
+          .set({
+            status: "archived",
+            updatedAt: new Date()
+          })
+          .where(
+            and(
+              eq(mealPlans.userId, userId),
+              eq(mealPlans.weekType, "current"),
+              eq(mealPlans.status, "active")
+            )
+          );
+
+        // Transition upcoming to current
+        await tx
+          .update(mealPlans)
+          .set({
+            weekType: "current",
+            updatedAt: new Date()
+          })
+          .where(
+            and(
+              eq(mealPlans.userId, userId),
+              eq(mealPlans.weekType, "upcoming"),
+              eq(mealPlans.status, "active")
+            )
+          );
+      });
+    } catch (error) {
+      logError('Error transitioning to next week:', { error });
+      throw error;
+    }
+  }
+
+  async regenerateMeal(
+    slotId: number,
+    constraints: {
+      targetCalories: number,
+      macroDistribution: {
+        protein: number,
+        carbs: number,
+        fats: number
+      }
+    }
+  ): Promise<Meal> {
+    try {
+      // Get current meal to track replacement
+      const [currentSlot] = await db
+        .select()
+        .from(mealPlanSlots)
+        .where(eq(mealPlanSlots.id, slotId));
+
+      if (!currentSlot) {
+        throw new Error("Meal slot not found");
+      }
+
+      // Generate new meal with AI (implementation in separate service)
+      const newMeal = await this.createMeal({
+        // ... meal generation logic with constraints ...
+        replacedMealId: currentSlot.mealId
+      } as InsertMeal);
+
+      // Update slot with new meal
+      await db
+        .update(mealPlanSlots)
+        .set({
+          mealId: newMeal.id,
+          status: "draft",
+          updatedAt: new Date()
+        })
+        .where(eq(mealPlanSlots.id, slotId));
+
+      return newMeal;
+    } catch (error) {
+      logError('Error regenerating meal:', { error });
+      throw error;
+    }
+  }
+
+  async getDayMeals(dayId: number): Promise<Meal[]> {
+    try {
+      const result = await db
+        .select({
+          meal: meals
+        })
+        .from(meals)
+        .innerJoin(
+          mealPlanSlots,
+          eq(meals.id, mealPlanSlots.mealId)
+        )
+        .where(eq(mealPlanSlots.mealPlanDayId, dayId))
+        .orderBy(mealPlanSlots.slotNumber);
+
+      return result.map(r => r.meal);
+    } catch (error) {
+      logError('Error getting day meals:', { error });
+      return [];
+    }
+  }
+
+  async updateDayMacros(
+    dayId: number,
+    macros: {
+      targetCalories: number,
+      macroDistribution: {
+        protein: number,
+        carbs: number,
+        fats: number
+      }
+    }
+  ): Promise<MealPlanDay> {
+    try {
+      const [updated] = await db
+        .update(mealPlanDays)
+        .set({
+          targetCalories: macros.targetCalories,
+          macroDistribution: macros.macroDistribution,
+          updatedAt: new Date()
+        })
+        .where(eq(mealPlanDays.id, dayId))
+        .returning();
+
+      return updated;
+    } catch (error) {
+      logError('Error updating day macros:', { error });
+      throw error;
+    }
+  }
+
+  async confirmMealSlot(slotId: number): Promise<MealPlanSlot> {
+    try {
+      const [updated] = await db
+        .update(mealPlanSlots)
+        .set({
+          status: "confirmed",
+          updatedAt: new Date()
+        })
+        .where(eq(mealPlanSlots.id, slotId))
+        .returning();
+
+      return updated;
+    } catch (error) {
+      logError('Error confirming meal slot:', { error });
+      throw error;
+    }
+  }
+
+  async requestSlotRegeneration(slotId: number): Promise<MealPlanSlot> {
+    try {
+      const [updated] = await db
+        .update(mealPlanSlots)
+        .set({
+          status: "regeneration_requested",
+          updatedAt: new Date()
+        })
+        .where(eq(mealPlanSlots.id, slotId))
+        .returning();
+
+      return updated;
+    } catch (error) {
+      logError('Error requesting slot regeneration:', { error });
+      throw error;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();
@@ -2138,6 +2383,7 @@ CREATE TABLE IF NOT EXISTS meal_plans (
   userId INTEGER REFERENCES users(id),
   macroDistribution JSONB,
   status VARCHAR(50) DEFAULT 'draft',
+  weekType VARCHAR(50) DEFAULT 'current',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -2210,6 +2456,7 @@ CREATE TABLE IF NOT EXISTS meals (
   recipe TEXT,
   ingredients JSONB,
   macroDistribution JSONB,
+  replacedMealId INTEGER,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -2219,6 +2466,8 @@ CREATE TABLE IF NOT EXISTS meal_plan_days (
   mealPlanId INTEGER REFERENCES meal_plans(id),
   dayNumber INTEGER NOT NULL,
   day VARCHAR(10) NOT NULL,
+  targetCalories INTEGER,
+  macroDistribution JSONB,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -2247,262 +2496,3 @@ const logMealPlanValidation = (id: number, data: any) => {
   console.warn(`Meal Plan Validation Error (id: ${id}):`, data);
 }
 }
-
-export const storage = new DatabaseStorage();
-
-// Database schema queries
-
-const INIT_DB = `
-CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(255) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
-  role VARCHAR(50) NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS members (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
-  assignedTrainerId INTEGER REFERENCES users(id),
-  membership_type VARCHAR(50),
-  membership_status VARCHAR(50),
-  gym_location_id INTEGER,
-  birth_date DATE,
-  start_date TIMESTAMP WITH TIME ZONE,
-  end_date TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS workout_plans (
-  id SERIAL PRIMARY KEY,
-  member_id INTEGER REFERENCES members(id),
-  trainer_id INTEGER REFERENCES users(id),
-  name VARCHAR(255),
-  description TEXT,
-  frequency_per_week INTEGER,
-  completionRate VARCHAR(255),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS member_assessments (
-  id SERIAL PRIMARY KEY,
-  member_id INTEGER REFERENCES members(id),
-  trainer_id INTEGER REFERENCES users(id),
-  assessment_date TIMESTAMP WITH TIME ZONE,
-  weight VARCHAR(255),
-  bodyFatPercentage VARCHAR(255),
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-
-CREATE TABLE IF NOT EXISTS workout_logs (
-  id SERIAL PRIMARY KEY,
-  workout_plan_id INTEGER REFERENCES workout_plans(id),
-  member_id INTEGER REFERENCES members(id),
-  exercise_id INTEGER REFERENCES exercises(id),
-  sets INTEGER,
-  reps INTEGER,
-  weight DECIMAL,
-  notes TEXT,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS schedules (
-  id SERIAL PRIMARY KEY,
-  member_id INTEGER REFERENCES members(id),
-  trainer_id INTEGER REFERENCES users(id),
-  day VARCHAR(10),
-  time TIME,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS invoices (
-  id SERIAL PRIMARY KEY,
-  member_id INTEGER REFERENCES members(id),
-  invoice_date TIMESTAMP WITH TIME ZONE,
-  amount VARCHAR(255),
-  status VARCHAR(50),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS marketing_campaigns (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255),
-  description TEXT,
-  start_date TIMESTAMP WITH TIME ZONE,
-  end_date TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS member_profiles (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
-  height VARCHAR(10),
-  weight VARCHAR(10),
-  emergency_contact_name VARCHAR(255),
-  emergency_contact_phone VARCHAR(20),
-  allergies TEXT,
-  medical_conditions TEXT,
-  goals TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS member_progress_photos (
-  id SERIAL PRIMARY KEY,
-  member_id INTEGER REFERENCES members(id),
-  photo_date TIMESTAMP WITH TIME ZONE,
-  photo_url VARCHAR(255),
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS pricing_plans (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255),
-  description TEXT,
-  sessions_per_week INTEGER,
-  duration VARCHAR(50),
-  price DECIMAL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS exercises (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  primary_muscle_group_id INTEGER REFERENCES muscle_groups(id),
-  secondary_muscle_group_ids INTEGER[] DEFAULT '{}',
-  instructions TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS muscle_groups (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS membership_pricing (
-  id SERIAL PRIMARY KEY,
-  gymLocation VARCHAR(255) NOT NULL,
-  planName VARCHAR(255) NOT NULL,
-  price DECIMAL(10,2) NOT NULL,
-  membershipTier1 VARCHAR(255),
-  membershipTier2 VARCHAR(255),
-  membershipTier3 VARCHAR(255),
-  membershipTier4 VARCHAR(255),
-  isActive BOOLEAN DEFAULT TRUE,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS meal_plans (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  meals JSONB,
-  userId INTEGER REFERENCES users(id),
-  macroDistribution JSONB,
-  status VARCHAR(50) DEFAULT 'draft',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS member_meal_plans (
-  id SERIAL PRIMARY KEY,
-  member_id INTEGER REFERENCES members(id),
-  meal_plan_id INTEGER REFERENCES meal_plans(id),
-  start_date TIMESTAMP WITH TIME ZONE,
-  end_date TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS progress (
-  id SERIAL PRIMARY KEY,
-  memberId INTEGER REFERENCES members(id),
-  progressDate TIMESTAMP WITH TIME ZONE,
-  notes TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS strengthMetrics (
-  id SERIAL PRIMARY KEY,
-  progressId INTEGER REFERENCES progress(id),
-  exerciseId INTEGER REFERENCES exercises(id),
-  weightAmount VARCHAR(255),
-  reps INTEGER,
-  sets INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS movement_patterns (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL UNIQUE,
-  description TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS training_packages (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  price DECIMAL(10,2) NOT NULL,
-  sessions_included INTEGER NOT NULL,
-  duration VARCHAR(50) NOT NULL,
-  isActive BOOLEAN DEFAULT TRUE,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS training_clients (
-  id SERIAL PRIMARY KEY,
-  userId INTEGER REFERENCES users(id),
-  assignedTrainerId INTEGER REFERENCES users(id),
-  packageId INTEGER REFERENCES training_packages(id),
-  sessionsRemaining INTEGER NOT NULL,
-  clientStatus VARCHAR(50) NOT NULL,
-  startDate TIMESTAMP WITH TIME ZONE,
-  endDate TIMESTAMP WITH TIME ZONE,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS meals (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  recipe TEXT,
-  ingredients JSONB,
-  macroDistribution JSONB,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS meal_plan_days (
-  id SERIAL PRIMARY KEY,
-  mealPlanId INTEGER REFERENCES meal_plans(id),
-  dayNumber INTEGER NOT NULL,
-  day VARCHAR(10) NOT NULL,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS meal_plan_slots (
-  id SERIAL PRIMARY KEY,
-  mealPlanDayId INTEGER REFERENCES meal_plan_days(id),
-  slotNumber INTEGER NOT NULL,
-  mealId INTEGER REFERENCES meals(id),
-  status VARCHAR(50) DEFAULT 'pending',
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);

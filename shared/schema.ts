@@ -8,7 +8,51 @@ import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
 // =====================
-// Meal Plan Related Tables & Schemas
+// Base schemas and validators
+// =====================
+
+// Macro distribution validator
+export const macroDistributionSchema = z.object({
+  protein: z.number().min(0).max(100),
+  carbs: z.number().min(0).max(100),
+  fats: z.number().min(0).max(100)
+}).refine(data => {
+  return data.protein + data.carbs + data.fats === 100;
+}, "Macro distribution must total 100%");
+
+// Base meal item schema for validation
+export const mealItemSchema = z.object({
+  id: z.number().optional(),
+  name: z.string(),
+  description: z.string().optional(),
+  calories: z.number().min(0),
+  protein: z.number().min(0),
+  carbs: z.number().min(0),
+  fats: z.number().min(0),
+  ingredients: z.array(z.object({
+    item: z.string(),
+    amount: z.string(),
+    unit: z.string()
+  })),
+  instructions: z.array(z.string()),
+  prepTime: z.number().min(0),
+  cookingDifficulty: z.enum(["beginner", "intermediate", "advanced"])
+});
+
+// AI meal plan generation schema
+export const aiMealPlanSchema = z.object({
+  foodPreferences: z.string().max(1000),
+  calorieTarget: z.number().min(500).max(10000),
+  mealsPerDay: z.number().min(1).max(6),
+  dietaryRestrictions: z.array(z.string()).optional(),
+  fitnessGoals: z.array(z.string()).optional(),
+  macroDistribution: macroDistributionSchema,
+  cookingSkillLevel: z.enum(["beginner", "intermediate", "advanced"]),
+  maxPrepTime: z.string(),
+});
+
+// =====================
+// Table Definitions
 // =====================
 
 // Table for individual meals
@@ -26,6 +70,8 @@ export const meals = pgTable("meals", {
   cookingDifficulty: text("cooking_difficulty", {
     enum: ["beginner", "intermediate", "advanced"]
   }).notNull(),
+  isCustomized: boolean("is_customized").default(false),
+  replacedMealId: integer("replaced_meal_id").references(() => meals.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -35,53 +81,75 @@ export const mealPlans = pgTable("meal_plans", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
-  description: text("description"),
-  status: text("status", {
-    enum: ["draft", "active", "completed", "archived"]
-  }).notNull().default("draft"),
-  startDate: timestamp("start_date"),
-  endDate: timestamp("end_date"),
+  weekType: text("week_type", {
+    enum: ["current", "upcoming"]
+  }).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
   targetCalories: integer("target_calories").notNull(),
   macroDistribution: jsonb("macro_distribution").notNull(),
   dietaryPreferences: text("dietary_preferences").array(),
   dietaryRestrictions: text("dietary_restrictions").array(),
+  status: text("status", {
+    enum: ["draft", "active", "completed", "archived"]
+  }).notNull().default("draft"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
+}, (table) => {
+  return {
+    uniqueUserWeekConstraint: uniqueIndex("unique_user_week_constraint").on(
+      table.userId,
+      table.weekType
+    ).where(sql`status = 'active'`)
+  }
 });
 
 // Table for meal plan days
 export const mealPlanDays = pgTable("meal_plan_days", {
   id: serial("id").primaryKey(),
   mealPlanId: integer("meal_plan_id").references(() => mealPlans.id).notNull(),
-  dayNumber: integer("day_number").notNull(),
-  totalCalories: integer("total_calories").notNull(),
+  dayOfWeek: text("day_of_week", {
+    enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  }).notNull(),
+  targetCalories: integer("target_calories").notNull(),
+  macroDistribution: jsonb("macro_distribution").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 }, (table) => {
   return {
-    uniqueDayConstraint: uniqueIndex("unique_day_constraint").on(table.mealPlanId, table.dayNumber)
+    uniqueDayConstraint: uniqueIndex("unique_day_constraint").on(
+      table.mealPlanId,
+      table.dayOfWeek
+    )
   }
 });
 
-// Table for meal plan slots
+// Table for meal slots within a day
 export const mealPlanSlots = pgTable("meal_plan_slots", {
   id: serial("id").primaryKey(),
   mealPlanDayId: integer("meal_plan_day_id").references(() => mealPlanDays.id).notNull(),
   mealId: integer("meal_id").references(() => meals.id).notNull(),
   slotNumber: integer("slot_number").notNull(),
+  targetCalories: integer("target_calories").notNull(),
+  macroDistribution: jsonb("macro_distribution").notNull(),
   status: text("status", {
     enum: ["draft", "confirmed", "regeneration_requested"]
   }).notNull().default("draft"),
-  isCustomized: boolean("is_customized").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 }, (table) => {
   return {
-    uniqueSlotConstraint: uniqueIndex("unique_slot_constraint").on(table.mealPlanDayId, table.slotNumber)
+    uniqueSlotConstraint: uniqueIndex("unique_slot_constraint").on(
+      table.mealPlanDayId,
+      table.slotNumber
+    )
   }
 });
 
-// Meal Plan Relations
+// =====================
+// Relations Definitions
+// =====================
+
 export const mealPlanRelations = relations(mealPlans, ({ many, one }) => ({
   user: one(users, {
     fields: [mealPlans.userId],
@@ -109,8 +177,76 @@ export const mealPlanSlotRelations = relations(mealPlanSlots, ({ one }) => ({
   })
 }));
 
+export const mealRelations = relations(meals, ({ one }) => ({
+  replacedMeal: one(meals, {
+    fields: [meals.replacedMealId],
+    references: [meals.id]
+  })
+}));
+
+// =====================
+// Insert Schema Definitions
+// =====================
+
+export const insertMealSchema = createInsertSchema(meals)
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertMealPlanSchema = createInsertSchema(mealPlans)
+  .extend({
+    targetCalories: z.number().min(500).max(10000),
+    macroDistribution: macroDistributionSchema,
+    weekType: z.enum(["current", "upcoming"]),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+  })
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertMealPlanDaySchema = createInsertSchema(mealPlanDays)
+  .extend({
+    dayOfWeek: z.enum([
+      "monday", "tuesday", "wednesday", "thursday",
+      "friday", "saturday", "sunday"
+    ]),
+    macroDistribution: macroDistributionSchema,
+    targetCalories: z.number().min(0)
+  })
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertMealPlanSlotSchema = createInsertSchema(mealPlanSlots)
+  .extend({
+    macroDistribution: macroDistributionSchema,
+    targetCalories: z.number().min(0)
+  })
+  .omit({ id: true, createdAt: true, updatedAt: true });
+
+// =====================
+// Type Exports
+// =====================
+
+export type Meal = typeof meals.$inferSelect;
+export type InsertMeal = z.infer<typeof insertMealSchema>;
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type MealPlanDay = typeof mealPlanDays.$inferSelect;
+export type InsertMealPlanDay = z.infer<typeof insertMealPlanDaySchema>;
+export type MealPlanSlot = typeof mealPlanSlots.$inferSelect;
+export type InsertMealPlanSlot = z.infer<typeof insertMealPlanSlotSchema>;
+export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
+export type MealItem = z.infer<typeof mealItemSchema>;
+
+
 // Base schemas for validation
-export const mealItemSchema = z.object({
+//This section remains unchanged from original
+
+export const macroDistributionSchema2 = z.object({
+  protein: z.number().min(0).max(100),
+  carbs: z.number().min(0).max(100),
+  fats: z.number().min(0).max(100)
+}).refine(data => {
+  return data.protein + data.carbs + data.fats === 100;
+}, "Macro distribution must total 100%");
+
+export const mealItemSchema2 = z.object({
   id: z.number().optional(),
   name: z.string(),
   description: z.string().optional(),
@@ -128,59 +264,66 @@ export const mealItemSchema = z.object({
   cookingDifficulty: z.enum(["beginner", "intermediate", "advanced"])
 });
 
+
 // AI Meal Plan Generation Schema
-export const aiMealPlanSchema = z.object({
+export const aiMealPlanSchema2 = z.object({
   foodPreferences: z.string().max(1000),
   calorieTarget: z.number().min(500).max(10000),
   mealsPerDay: z.number().min(1).max(6),
   dietaryRestrictions: z.array(z.string()).optional(),
   fitnessGoals: z.array(z.string()).optional(),
-  macroDistribution: z.object({
-    protein: z.number().min(0).max(100),
-    carbs: z.number().min(0).max(100),
-    fats: z.number().min(0).max(100),
-  }).refine(data => {
-    return data.protein + data.carbs + data.fats === 100;
-  }, "Macro distribution must total 100%"),
+  macroDistribution: macroDistributionSchema2,
   cookingSkillLevel: z.enum(["beginner", "intermediate", "advanced"]),
   maxPrepTime: z.string(),
 });
 
 // Insert schemas
-export const insertMealSchema = createInsertSchema(meals)
+export const insertMealSchema2 = createInsertSchema(meals)
   .omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertMealPlanSchema = createInsertSchema(mealPlans)
+export const insertMealPlanSchema2 = createInsertSchema(mealPlans)
   .extend({
     targetCalories: z.number().min(500).max(10000),
-    macroDistribution: z.object({
-      protein: z.number().min(0).max(100),
-      carbs: z.number().min(0).max(100),
-      fats: z.number().min(0).max(100)
-    }).refine(data => {
-      return data.protein + data.carbs + data.fats === 100;
-    }, "Macro distribution must total 100%")
+    macroDistribution: macroDistributionSchema2,
+    weekType: z.enum(["current", "upcoming"]),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
   })
   .omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertMealPlanDaySchema = createInsertSchema(mealPlanDays)
+export const insertMealPlanDaySchema2 = createInsertSchema(mealPlanDays)
+  .extend({
+    dayOfWeek: z.enum([
+      "monday", "tuesday", "wednesday", "thursday",
+      "friday", "saturday", "sunday"
+    ]),
+    macroDistribution: macroDistributionSchema2,
+    targetCalories: z.number().min(0)
+  })
   .omit({ id: true, createdAt: true, updatedAt: true });
 
-export const insertMealPlanSlotSchema = createInsertSchema(mealPlanSlots)
+export const insertMealPlanSlotSchema2 = createInsertSchema(mealPlanSlots)
+  .extend({
+    macroDistribution: macroDistributionSchema2,
+    targetCalories: z.number().min(0)
+  })
   .omit({ id: true, createdAt: true, updatedAt: true });
+
 
 // Export types
-export type Meal = typeof meals.$inferSelect;
-export type InsertMeal = z.infer<typeof insertMealSchema>;
-export type MealPlan = typeof mealPlans.$inferSelect;
-export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
-export type MealPlanDay = typeof mealPlanDays.$inferSelect;
-export type InsertMealPlanDay = z.infer<typeof insertMealPlanDaySchema>;
-export type MealPlanSlot = typeof mealPlanSlots.$inferSelect;
-export type InsertMealPlanSlot = z.infer<typeof insertMealPlanSlotSchema>;
-export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
-export type MealItem = z.infer<typeof mealItemSchema>;
+export type Meal2 = typeof meals.$inferSelect;
+export type InsertMeal2 = z.infer<typeof insertMealSchema2>;
+export type MealPlan2 = typeof mealPlans.$inferSelect;
+export type InsertMealPlan2 = z.infer<typeof insertMealPlanSchema2>;
+export type MealPlanDay2 = typeof mealPlanDays.$inferSelect;
+export type InsertMealPlanDay2 = z.infer<typeof insertMealPlanDaySchema2>;
+export type MealPlanSlot2 = typeof mealPlanSlots.$inferSelect;
+export type InsertMealPlanSlot2 = z.infer<typeof insertMealPlanSlotSchema2>;
+export type AiMealPlan2 = z.infer<typeof aiMealPlanSchema2>;
+export type MealItem2 = z.infer<typeof mealItemSchema2>;
 
+
+//This section remains unchanged from original
 
 const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -605,6 +748,7 @@ const progress = pgTable("progress", {
   }
 });
 
+// Update the strength metrics table definition
 const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
   progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
@@ -949,6 +1093,7 @@ const insertMealPlanSchema2 = createInsertSchema(mealPlans)
     dietaryRestrictions: z.array(z.string()).optional(),
     startDate: z.coerce.date().optional(),
     endDate: z.coerce.date().optional(),
+    weekType: z.enum(["current", "upcoming"])
   })
   .omit({
     createdAt: true,
@@ -1340,6 +1485,7 @@ export {
   mealPlanRelations,
   mealPlanDayRelations,
   mealPlanSlotRelations,
+  mealRelations,
 
   // Schemas
   mealItemSchema,
@@ -1351,8 +1497,6 @@ export {
   insertInvoiceSchema,
   insertMarketingCampaignSchema,
   insertMealPlanSchema2,
-  insertMemberProfileSchema,
-  insertTemporaryMealPlanSchema,
   insertMemberAssessmentSchema,
   insertMemberProgressPhotoSchema,
   insertMemberSchema,
@@ -1369,7 +1513,8 @@ export {
   insertMealPlanSchema,
   insertMealPlanDaySchema,
   insertMealPlanSlotSchema,
-  insertMemberMealPlanSchema
+  insertMemberMealPlanSchema,
+  macroDistributionSchema
 };
 
 export type {
@@ -1411,8 +1556,6 @@ export type {
   InsertInvoice,
   InsertMarketingCampaign,
   InsertMealPlan,
-  InsertMemberProfile,
-  InsertTemporaryMealPlan,
   InsertMemberAssessment,
   InsertMemberProgressPhoto,
   InsertMember,
@@ -1432,5 +1575,6 @@ export type {
   MealPlanDay,
   InsertMealPlanDay,
   MealPlanSlot,
-  InsertMealPlanSlot
+  InsertMealPlanSlot,
+  macroDistributionSchema
 };
