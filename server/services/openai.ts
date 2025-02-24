@@ -5,7 +5,6 @@ if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable is required");
 }
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -15,21 +14,18 @@ export interface ExerciseAIResponse {
   primaryMuscleGroupId: number;
   secondaryMuscleGroupIds: number[];
   difficulty: "beginner" | "intermediate" | "advanced";
+  instructions: string[];
 }
 
-// Helper function to validate OpenAI response
 function validateOpenAIResponse(content: string): ExerciseAIResponse {
   try {
-    // Log the raw content for debugging
     logInfo('Raw OpenAI response:', { content });
 
-    // Check for HTML content
     if (content.includes('<!DOCTYPE') || content.includes('<html')) {
       logError('Received HTML content instead of JSON', { content: content.substring(0, 200) });
       throw new Error('Invalid API response format');
     }
 
-    // Check for empty or malformed content
     if (!content || content.trim() === '') {
       logError('Empty content received from OpenAI');
       throw new Error('Empty response from OpenAI');
@@ -38,46 +34,56 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
     const parsed = JSON.parse(content);
     logInfo('Parsed OpenAI response:', { parsed });
 
-    // Validate required fields with specific error messages
-    if (!parsed.description) {
-      throw new Error('Missing description in response');
-    }
-    if (typeof parsed.description !== 'string') {
-      throw new Error('Description must be a string');
-    }
-    if (parsed.description.length > 100) {
-      throw new Error('Description exceeds 100 characters limit');
-    }
+    // Validate required fields
+    const requiredFields = {
+      description: { type: 'string', maxLength: 100 },
+      primaryMuscleGroupId: { type: 'number', min: 1, max: 15 },
+      secondaryMuscleGroupIds: { type: 'array', itemType: 'number', min: 1, max: 15 },
+      difficulty: { type: 'string', values: ['beginner', 'intermediate', 'advanced'] },
+      instructions: { type: 'array', itemType: 'string', minLength: 1 }
+    };
 
-    if (!parsed.primaryMuscleGroupId) {
-      throw new Error('Missing primaryMuscleGroupId in response');
-    }
-    if (typeof parsed.primaryMuscleGroupId !== 'number') {
-      throw new Error('primaryMuscleGroupId must be a number');
-    }
-    if (parsed.primaryMuscleGroupId < 1 || parsed.primaryMuscleGroupId > 15) {
-      throw new Error('primaryMuscleGroupId must be between 1 and 15');
-    }
+    for (const [field, rules] of Object.entries(requiredFields)) {
+      if (!parsed[field]) {
+        throw new Error(`Missing ${field} in response`);
+      }
 
-    if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
-      throw new Error('secondaryMuscleGroupIds must be an array');
-    }
-    if (!parsed.secondaryMuscleGroupIds.every((id: number) => 
-      typeof id === 'number' && id >= 1 && id <= 15 && id !== parsed.primaryMuscleGroupId
-    )) {
-      throw new Error('Invalid secondaryMuscleGroupIds: must be unique numbers between 1 and 15, excluding primaryMuscleGroupId');
-    }
+      if (rules.type === 'string' && typeof parsed[field] !== 'string') {
+        throw new Error(`${field} must be a string`);
+      }
 
-    if (!parsed.difficulty) {
-      throw new Error('Missing difficulty in response');
-    }
-    if (!['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
-      throw new Error('Invalid difficulty: must be beginner, intermediate, or advanced');
+      if (rules.type === 'number' && typeof parsed[field] !== 'number') {
+        throw new Error(`${field} must be a number`);
+      }
+
+      if (rules.maxLength && parsed[field].length > rules.maxLength) {
+        throw new Error(`${field} exceeds ${rules.maxLength} characters limit`);
+      }
+
+      if (rules.type === 'array') {
+        if (!Array.isArray(parsed[field])) {
+          throw new Error(`${field} must be an array`);
+        }
+        if (field === 'secondaryMuscleGroupIds') {
+          if (!parsed[field].every((id: number) => 
+            typeof id === 'number' && id >= rules.min && id <= rules.max && id !== parsed.primaryMuscleGroupId
+          )) {
+            throw new Error(`Invalid ${field}: must be unique numbers between ${rules.min} and ${rules.max}, excluding primaryMuscleGroupId`);
+          }
+        }
+        if (field === 'instructions') {
+          if (parsed[field].length < rules.minLength) {
+            throw new Error(`${field} must have at least ${rules.minLength} item`);
+          }
+          if (!parsed[field].every((item: any) => typeof item === 'string' && item.trim())) {
+            throw new Error(`${field} must contain non-empty strings`);
+          }
+        }
+      }
     }
 
     return parsed;
   } catch (error) {
-    // Enhanced error logging with more context
     logError('Failed to parse OpenAI response:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       rawContent: content,
@@ -97,7 +103,7 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
     logInfo('Generating exercise details for:', { exerciseName, timestamp: new Date().toISOString() });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Latest model as of May 13, 2024
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -106,7 +112,8 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
   "description": "Brief description under 100 chars",
   "primaryMuscleGroupId": (number 1-15),
   "secondaryMuscleGroupIds": [array of numbers 1-15],
-  "difficulty": "beginner" | "intermediate" | "advanced"
+  "difficulty": "beginner" | "intermediate" | "advanced",
+  "instructions": ["Step 1", "Step 2", "Step 3", ...]
 }
 
 Available muscle groups:
@@ -119,7 +126,8 @@ IMPORTANT:
 - Use exact field names
 - difficulty must be lowercase
 - description should be concise
-- primaryMuscleGroupId must be different from secondaryMuscleGroupIds`
+- primaryMuscleGroupId must be different from secondaryMuscleGroupIds
+- instructions should be clear, numbered steps`
         },
         {
           role: "user",
@@ -128,7 +136,7 @@ IMPORTANT:
       ],
       response_format: { type: "json_object" },
       temperature: 0.3,
-      max_tokens: 150
+      max_tokens: 500
     });
 
     logInfo('OpenAI API response received:', {
@@ -145,7 +153,6 @@ IMPORTANT:
     return validateOpenAIResponse(response.choices[0].message.content);
   } catch (error) {
     if (error instanceof Error) {
-      // Check for specific OpenAI API errors
       if (error.message.includes('API key')) {
         throw new Error('Invalid or missing API key. Please check your configuration.');
       }

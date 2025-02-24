@@ -74,24 +74,11 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Add error handling utility
-const handleAPIError = async (response: Response) => {
-  const text = await response.text();
-  let errorMessage = 'Failed to predict exercise details';
 
-  try {
-    // Try to parse as JSON first
-    const data = JSON.parse(text);
-    errorMessage = data.message || errorMessage;
-  } catch {
-    // If not JSON, clean up HTML content or use text directly
-    errorMessage = text.includes('<!DOCTYPE')
-      ? 'Server error occurred. Please try again.'
-      : text || errorMessage;
-  }
-
-  throw new Error(errorMessage);
-};
+interface AIStatus {
+  status: 'idle' | 'generating' | 'success' | 'error';
+  message: string;
+}
 
 export default function ExerciseLibrary() {
   const { user } = useAuth();
@@ -99,18 +86,18 @@ export default function ExerciseLibrary() {
   const isAdmin = user?.role === "admin";
   const isTrainer = user?.role === "trainer";
   const canEdit = isAdmin || isTrainer;
-  const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
-  const [isAIGenerating, setIsAIGenerating] = useState(false);
-  const [aiStatus, setAIStatus] = useState<{
-    status: 'idle' | 'generating' | 'success' | 'error';
-    message: string;
-  }>({ status: 'idle', message: '' });
 
+  // State management
+  const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+  const [aiStatus, setAIStatus] = useState<AIStatus>({
+    status: 'idle',
+    message: ''
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
-  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
 
+  // Form setup with enhanced validation
   const form = useForm({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -125,6 +112,7 @@ export default function ExerciseLibrary() {
     },
   });
 
+  // Optimized mutation for creating exercises
   const createExerciseMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertExerciseSchema>) => {
       const response = await apiRequest("POST", "/api/exercises", data);
@@ -142,6 +130,7 @@ export default function ExerciseLibrary() {
       queryClient.invalidateQueries({ queryKey: ["/api/exercises"] });
       setIsAddExerciseOpen(false);
       form.reset();
+      setAIStatus({ status: 'idle', message: '' });
     },
     onError: (error: Error) => {
       toast({
@@ -152,137 +141,75 @@ export default function ExerciseLibrary() {
     },
   });
 
+  // Optimized mutation for AI predictions
   const predictExerciseDetailsMutation = useMutation({
     mutationFn: async (name: string) => {
-      setIsAIGenerating(true);
-      setAIStatus({ status: 'generating', message: 'Analyzing exercise...' });
+      setAIStatus({
+        status: 'generating',
+        message: 'Analyzing exercise...'
+      });
 
-      try {
-        console.log('Initiating API calls for exercise prediction:', name);
+      const response = await fetch('/api/exercises/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exerciseName: name }),
+      });
 
-        const [descriptionResponse, instructionsResponse] = await Promise.all([
-          fetch('/api/exercises/predict-description', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ exerciseName: name }),
-          }),
-          fetch('/api/exercises/predict-instructions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ exerciseName: name }),
-          })
-        ]);
-
-        // Enhanced error handling for description response
-        if (!descriptionResponse.ok) {
-          const descError = await descriptionResponse.text();
-          console.error('Description API error:', descError);
-          let errorMessage = 'Failed to predict exercise details';
-          try {
-            const errorData = JSON.parse(descError);
-            errorMessage = errorData.message || errorMessage;
-          } catch {
-            // If not JSON, use text directly
-            errorMessage = descError || errorMessage;
-          }
-          throw new Error(errorMessage);
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to analyze exercise';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
         }
-
-        // Enhanced error handling for instructions response
-        if (!instructionsResponse.ok) {
-          const instrError = await instructionsResponse.text();
-          console.error('Instructions API error:', instrError);
-          let errorMessage = 'Failed to predict exercise instructions';
-          try {
-            const errorData = JSON.parse(instrError);
-            errorMessage = errorData.message || errorMessage;
-          } catch {
-            // If not JSON, use text directly
-            errorMessage = instrError || errorMessage;
-          }
-          throw new Error(errorMessage);
-        }
-
-        const descriptionData = await descriptionResponse.json();
-        const instructionsData = await instructionsResponse.json();
-
-        console.log('Received predictions:', { descriptionData, instructionsData });
-
-        return {
-          ...descriptionData,
-          instructions: instructionsData.instructions,
-        };
-      } catch (error) {
-        console.error('Error in exercise prediction:', error);
-        throw error;
+        throw new Error(errorMessage);
       }
+
+      return response.json();
     },
     onSuccess: (data) => {
-      console.log('Received AI predictions:', data);
+      // Update form with AI predictions
+      const fieldsToUpdate = {
+        description: data.description,
+        instructions: data.instructions,
+        difficulty: data.difficulty,
+        primaryMuscleGroupId: data.primaryMuscleGroupId,
+        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds,
+      };
 
-      try {
-        // Update form fields with AI predictions
-        if (data.description) {
-          form.setValue("description", data.description, { shouldValidate: true });
-        }
-        if (Array.isArray(data.instructions)) {
-          form.setValue("instructions", data.instructions, { shouldValidate: true });
-        }
-        if (data.difficulty && ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
-          form.setValue("difficulty", data.difficulty, { shouldValidate: true });
-        }
-        if (data.primaryMuscleGroupId >= 1 && data.primaryMuscleGroupId <= 15) {
-          form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
-        }
-        if (Array.isArray(data.secondaryMuscleGroupIds)) {
-          const validSecondaryIds = data.secondaryMuscleGroupIds.filter(
-            (id: number) => typeof id === 'number' && id >= 1 && id <= 15 && id !== data.primaryMuscleGroupId
-          );
-          form.setValue("secondaryMuscleGroupIds", validSecondaryIds, { shouldValidate: true });
-        }
+      Object.entries(fieldsToUpdate).forEach(([field, value]) => {
+        form.setValue(field as any, value, { shouldValidate: true });
+      });
 
-        form.trigger();
-        setAIStatus({ 
-          status: 'success', 
-          message: 'AI analysis complete! Exercise details have been populated.' 
-        });
-        toast({
-          title: "Success",
-          description: "Exercise details predicted successfully",
-        });
-      } catch (error) {
-        console.error('Error updating form with AI predictions:', error);
-        setAIStatus({ 
-          status: 'error', 
-          message: 'Could not update all form fields with AI predictions.' 
-        });
-        toast({
-          title: "Warning",
-          description: "Received predictions but couldn't update all form fields",
-          variant: "destructive",
-        });
-      } finally {
-        setIsAIGenerating(false);
-      }
+      setAIStatus({
+        status: 'success',
+        message: 'AI analysis complete! Exercise details have been populated.'
+      });
+
+      toast({
+        title: "Success",
+        description: "Exercise details predicted successfully",
+      });
     },
     onError: (error: Error) => {
-      console.error('AI prediction error:', error);
-      setAIStatus({ 
-        status: 'error', 
-        message: error.message || 'Failed to analyze exercise. Please try again.' 
+      setAIStatus({
+        status: 'error',
+        message: error.message
       });
+
       toast({
         title: "Error",
-        description: error.message || "Failed to analyze exercise",
+        description: error.message,
         variant: "destructive",
       });
-      setIsAIGenerating(false);
     },
   });
 
-  // Watch the exercise name field and debounce it
+  // Debounced exercise name watcher
   const exerciseName = form.watch("name");
-  const debouncedExerciseName = useDebounce(exerciseName, 1000); // 1 second delay
+  const debouncedExerciseName = useDebounce(exerciseName, 1000);
 
   useEffect(() => {
     if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
@@ -290,11 +217,13 @@ export default function ExerciseLibrary() {
     }
   }, [debouncedExerciseName]);
 
+  // Query for exercises
   const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
     enabled: !!user,
   });
 
+  // Filtered exercises logic
   const filteredExercises = useMemo(() => {
     if (!exercises) return [];
 
@@ -310,6 +239,7 @@ export default function ExerciseLibrary() {
     });
   }, [exercises, searchQuery, selectedDifficulty, selectedMuscleGroup]);
 
+  // Loading state
   if (isLoadingExercises) {
     return (
       <div className="flex h-[200px] items-center justify-center">
@@ -318,6 +248,7 @@ export default function ExerciseLibrary() {
     );
   }
 
+  // JSX rendering
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
