@@ -5,16 +5,9 @@ import { storage } from "./storage";
 import { logError, logInfo } from "./services/logger";
 import { asyncHandler } from "./middleware/async";
 import { errorHandler } from "./middleware/error";
-import { memberRoutes } from "./routes/member.routes";
-import { workoutRoutes } from "./routes/workout.routes";
+import { Router } from "express";
 import mealPlanRoutes from "./routes/meal-plans";
-import { invoiceRoutes } from "./routes/invoice.routes";
-import { paymentRoutes } from "./routes/payment.routes";
-import { marketingCampaignRoutes } from "./routes/marketingCampaign.routes";
-import { scheduleRoutes } from "./routes/schedule.routes";
-import { placeRoutes } from "./routes/place.routes";
-import { strengthMetricRoutes } from "./routes/strengthMetric.routes";
-import { generateExerciseDetails } from "./services/openai";
+import exerciseRoutes from "./routes/exercises";
 
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -34,8 +27,29 @@ const requireRole = (roles: string[]) => (req: Request, res: Response, next: Nex
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.use(errorHandler);
-  setupAuth(app);
+  // Create router instances
+  const memberRouter = Router();
+  const workoutRouter = Router();
+  const invoiceRouter = Router();
+  const paymentRouter = Router();
+  const marketingRouter = Router();
+  const scheduleRouter = Router();
+  const placeRouter = Router();
+  const strengthMetricRouter = Router();
+
+  // Register exercise routes first (already a Router instance)
+  app.use('/api', exerciseRoutes);
+
+  // Register other route handlers
+  app.use('/api/meal-plans', requireAuth, mealPlanRoutes);
+  app.use('/api', memberRouter);
+  app.use('/api', workoutRouter);
+  app.use('/api', invoiceRouter);
+  app.use('/api', paymentRouter);
+  app.use('/api', marketingRouter);
+  app.use('/api', scheduleRouter);
+  app.use('/api', placeRouter);
+  app.use('/api', strengthMetricRouter);
 
   // Health check
   app.get("/health", asyncHandler(async (req: Request, res: Response) => {
@@ -43,83 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   }));
 
-  // Exercise prediction endpoint
-  app.post("/api/exercises/predict-details", requireAuth, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const { exerciseName } = req.body;
-      if (!exerciseName) {
-        return res.status(400).json({ message: "Exercise name is required" });
-      }
-
-      const prediction = await generateExerciseDetails(exerciseName);
-      res.json(prediction);
-    } catch (error) {
-      logError("Error predicting exercise details:", error);
-      res.status(500).json({ message: "Failed to predict exercise details" });
-    }
-  }));
-
-  // Member routes
-  app.get("/api/members", requireAuth, memberRoutes.getAll);
-  app.post("/api/members", requireRole(["admin", "trainer"]), memberRoutes.create);
-  app.get("/api/members/:id", requireAuth, memberRoutes.getOne);
-  app.get("/api/members/:id/assessments", requireAuth, memberRoutes.getAssessments);
-  app.post("/api/members/:id/assessments", requireRole(["admin", "trainer"]), memberRoutes.createAssessment);
-  app.get("/api/members/:id/assessments/:assessmentId", requireAuth, memberRoutes.getAssessment);
-  app.get("/api/members/:id/progress-photos", requireAuth, memberRoutes.getProgressPhotos);
-  app.get("/api/members/:id/progress-photos/:photoId", requireAuth, memberRoutes.getProgressPhoto);
-  app.post("/api/members/:id/progress-photos", requireRole(["admin", "trainer"]), memberRoutes.createProgressPhoto);
-  app.get("/api/members/:id/meal-plans", requireAuth, memberRoutes.getMealPlans);
-  app.post("/api/members/:id/meal-plans", requireRole(["admin", "trainer"]), memberRoutes.createMealPlan);
-  app.patch("/api/members/:memberId/meal-plans/:planId", requireRole(["admin", "trainer"]), memberRoutes.updateMealPlan);
-  app.get("/api/members/:id/profile", requireAuth, memberRoutes.getProfile);
-  app.patch("/api/members/:id/profile", requireRole(["admin", "trainer"]), memberRoutes.updateProfile);
-  app.post("/api/members/:id/profile", requireRole(["admin", "trainer"]), memberRoutes.createProfile);
-  app.get("/api/members/:id/progress", requireAuth, memberRoutes.getProgress);
-  app.get("/api/members/:id/strength-metrics", requireAuth, (req, res, next) => strengthMetricRoutes.getMetrics(req, res, next));
-  app.post("/api/progress/:progressId/strength-metrics", requireRole(["admin", "trainer"]), (req, res, next) => strengthMetricRoutes.createMetric(req, res, next));
-  app.get("/api/progress/:progressId/strength-metrics", requireAuth, (req, res, next) => strengthMetricRoutes.getProgressMetrics(req, res, next));
-
-  // Meal plan routes
-  app.use("/api/meal-plans", requireAuth, mealPlanRoutes);
-
-  // Workout routes
-  app.get("/api/workout-plans", requireAuth, workoutRoutes.getPlans);
-  app.post("/api/workout-plans", requireRole(["admin", "trainer"]), workoutRoutes.createPlan);
-  app.patch("/api/workout-plans/:id/completion", requireRole(["admin", "trainer"]), workoutRoutes.updatePlanCompletion);
-  app.get("/api/workout-plans/member/:memberId", requireAuth, workoutRoutes.getPlansByMember);
-  app.get("/api/workout-logs/plan/:planId", requireAuth, workoutRoutes.getLogsByPlan);
-  app.get("/api/workout-logs/member/:memberId", requireAuth, workoutRoutes.getLogsByMember);
-  app.post("/api/workout-logs", requireAuth, workoutRoutes.createLog);
-
-
-  //Invoices Routes
-  app.get("/api/invoices", requireRole(["admin"]), invoiceRoutes.getAll);
-  app.get("/api/invoices/:id", requireRole(["admin"]), invoiceRoutes.getOne);
-  app.post("/api/invoices", requireRole(["admin"]), invoiceRoutes.create);
-
-
-  //Payments Routes
-  app.post("/api/payments", requireRole(["admin"]), paymentRoutes.create);
-  app.get("/api/payments", requireRole(["admin"]), paymentRoutes.getAll);
-
-
-  //Marketing Campaign Routes
-  app.get("/api/marketing-campaigns", requireRole(["admin"]), marketingCampaignRoutes.getAll);
-  app.get("/api/marketing-campaigns/:id", requireRole(["admin"]), marketingCampaignRoutes.getOne);
-  app.post("/api/marketing-campaigns", requireRole(["admin"]), marketingCampaignRoutes.create);
-
-
-  //Schedule Management Routes
-  app.get("/api/schedules", requireAuth, scheduleRoutes.getAll);
-  app.post("/api/schedules", requireAuth, scheduleRoutes.create);
-
-
-  //Place Search Routes
-  app.get("/api/places/search", requireAuth, placeRoutes.search);
-  app.get("/api/places/:placeId/details", requireAuth, placeRoutes.getDetails);
-
-  // Authentication Routes
+  // Logout route
   app.post("/api/logout", (req, res, next) => {
     if (req.session) {
       req.session.destroy((err) => {
@@ -141,6 +79,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendStatus(200);
     }
   });
+
+  // Error handler should be last
+  app.use(errorHandler);
 
   const httpServer = createServer(app);
   return httpServer;

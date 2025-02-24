@@ -28,6 +28,7 @@ const handleApiError = (error: unknown, context: string) => {
   }
 
   if (error instanceof Error) {
+    // Check for specific OpenAI API errors
     if (error.message.includes('API key')) {
       return { status: 401, message: 'Authentication failed with AI service' };
     }
@@ -54,23 +55,32 @@ router.post('/api/exercises/predict-description', async (req, res) => {
     // Set JSON content type
     res.setHeader('Content-Type', 'application/json');
 
+    // Log incoming request
     logInfo('Received predict-description request:', { 
       body: req.body,
+      headers: req.headers,
       timestamp: new Date().toISOString()
     });
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
+
+    // Verify OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
     const result = await generateExerciseDetails(exerciseName);
 
+    // Log successful response
     logInfo('Generated exercise details:', { 
       result,
       timestamp: new Date().toISOString()
     });
 
-    res.json(result);
+    return res.json(result);
   } catch (error) {
     const { status, message } = handleApiError(error, 'predict-description');
-    res.status(status).json({ message });
+    return res.status(status).json({ message });
   }
 });
 
@@ -80,12 +90,19 @@ router.post('/api/exercises/predict-instructions', async (req, res) => {
     // Set JSON content type
     res.setHeader('Content-Type', 'application/json');
 
+    // Log incoming request
     logInfo('Received predict-instructions request:', { 
       body: req.body,
+      headers: req.headers,
       timestamp: new Date().toISOString()
     });
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
+
+    // Verify OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // Latest model as of May 13, 2024
@@ -113,8 +130,11 @@ IMPORTANT:
       max_tokens: 250
     });
 
+    // Log raw response
     logInfo('Raw instructions response:', { 
       content: response.choices[0].message.content,
+      status: response.choices[0].finish_reason,
+      model: response.model,
       timestamp: new Date().toISOString()
     });
 
@@ -133,6 +153,8 @@ IMPORTANT:
       }
 
       result = JSON.parse(content);
+
+      // Log parsed response
       logInfo('Parsed instructions:', { 
         result,
         timestamp: new Date().toISOString()
@@ -164,10 +186,10 @@ IMPORTANT:
       .map((instruction: string) => instruction.trim())
       .filter(Boolean);
 
-    res.json({ instructions });
+    return res.json({ instructions });
   } catch (error) {
     const { status, message } = handleApiError(error, 'predict-instructions');
-    res.status(status).json({ message });
+    return res.status(status).json({ message });
   }
 });
 

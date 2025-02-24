@@ -25,6 +25,7 @@ app.use(express.json({
     try {
       JSON.parse(buf.toString());
     } catch (e) {
+      res.status(400).json({ message: 'Invalid JSON payload' });
       throw new Error('Invalid JSON');
     }
   }
@@ -38,12 +39,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Set default content type for API routes
+app.use('/api', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+});
+
 // Security middleware
-app.use(rateLimiter);
 app.use(securityHeaders);
 
-// Route-specific rate limiting
+// Route-specific rate limiting - but exclude AI routes from standard limits
 app.use('/api', (req, res, next) => {
+  // Skip rate limiting for AI endpoints
+  if (req.path.includes('/api/exercises/predict')) {
+    return next();
+  }
   const routeLimiter = getRouteLimiter(req.path);
   routeLimiter(req, res, next);
 });
@@ -72,51 +82,37 @@ app.use(
   })
 );
 
-// Global error handler
-app.use(errorHandler);
-
-let server: any;
-
+// Initialize the server
 async function startServer() {
   try {
-    // Initialize database with retry mechanism
-    await startupManager.initPhase('database', async () => {
-      await ensureDatabaseInitialized();
-    });
+    // Initialize database
+    await ensureDatabaseInitialized();
 
-    // Register cleanup for database
-    startupManager.registerCleanup('database', async () => {
-      await pool.end();
-    });
+    // Register routes and get the HTTP server
+    const server = await registerRoutes(app);
 
-    // Register routes with retry mechanism
-    await startupManager.initPhase('routes', async () => {
-      server = await registerRoutes(app);
-    });
-
-    // Setup Vite in development (non-critical)
+    // Setup Vite in development
     if (process.env.NODE_ENV !== "production" && process.env.DISABLE_VITE !== 'true') {
-      await startupManager.initPhase('vite', async () => {
-        await setupVite(app, server);
-      });
+      await setupVite(app, server);
     }
 
-    // Start listening only after critical phases are complete
+    // Global error handler - must be after routes
+    app.use(errorHandler);
+
+    // Start listening
     const port = Number(process.env.PORT) || 5000;
     server.listen(port, '0.0.0.0', () => {
       logInfo(`Server listening on port ${port}`, {
         port,
-        env: process.env.NODE_ENV || 'development',
-        startupPhases: startupManager.getStartupSummary()
+        env: process.env.NODE_ENV || 'development'
       });
     });
 
     // Handle server errors
     server.on("error", (error: Error) => {
-      logError("Server error occurred", { 
+      logError("Server error occurred", {
         error: error.message,
-        stack: error.stack,
-        startupPhases: startupManager.getStartupSummary()
+        stack: error.stack
       });
       process.exit(1);
     });
@@ -146,19 +142,20 @@ async function startServer() {
         process.exit(0);
       }
     });
-
+    return server;
   } catch (error) {
-    logError("Failed to start server", { 
+    logError("Failed to start server", {
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      startupPhases: startupManager.getStartupSummary()
+      stack: error instanceof Error ? error.stack : undefined
     });
-    process.exit(1);
+    throw error;
   }
 }
 
 // Start the server
 startServer().catch((error) => {
-  console.error("Unhandled error during server startup:", error);
+  logError("Unhandled error during server startup:", error);
   process.exit(1);
 });
+
+export default app;

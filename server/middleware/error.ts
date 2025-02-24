@@ -56,6 +56,11 @@ export const errorHandler = (
     body: req.body
   });
 
+  // Always set JSON content type for API routes
+  if (req.path.startsWith('/api')) {
+    res.setHeader('Content-Type', 'application/json');
+  }
+
   // Prepare the error response
   const errorResponse = {
     message: err.message || "Internal Server Error",
@@ -86,5 +91,6 @@ export const errorHandler = (
     errorResponse.message = "Internal Server Error";
   }
 
+  // Always return JSON for API routes
   res.status(errorResponse.status).json(errorResponse);
 };
