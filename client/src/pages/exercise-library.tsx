@@ -1,5 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
+import debounce from "lodash/debounce";
 import {
   Card,
   CardContent,
@@ -83,7 +85,7 @@ export default function ExerciseLibrary() {
   // AI Analysis mutation
   const analyzeExerciseMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/exercises/analyze", { name });
+      const res = await apiRequest("POST", "/api/exercises/analyze", { exerciseName: name });
       if (!res.ok) {
         const error = await res.text();
         throw new Error(error);
@@ -112,6 +114,22 @@ export default function ExerciseLibrary() {
       });
     },
   });
+
+  // Debounced analysis function
+  const debouncedAnalyze = useCallback(
+    debounce((name: string) => {
+      if (name.length >= 3) {
+        analyzeExerciseMutation.mutate(name);
+      }
+    }, 1000), // Wait 1 second after the user stops typing
+    []
+  );
+
+  // Handle exercise name input
+  const handleExerciseNameChange = (name: string) => {
+    form.setValue("name", name);
+    debouncedAnalyze(name);
+  };
 
   // Create exercise mutation
   const createExerciseMutation = useMutation({
@@ -147,13 +165,6 @@ export default function ExerciseLibrary() {
     enabled: !!user,
   });
 
-  // Handle exercise name input
-  const handleExerciseNameChange = async (name: string) => {
-    form.setValue("name", name);
-    if (name.length >= 3) {
-      analyzeExerciseMutation.mutate(name);
-    }
-  };
 
   // Filtered exercises logic
   const filteredExercises = exercises.filter((exercise: Exercise) => {
