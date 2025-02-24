@@ -7,6 +7,11 @@ if (!process.env.OPENAI_API_KEY) {
 
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  // Ensure we're sending the correct headers
+  defaultHeaders: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
 });
 
 export interface ExerciseAIResponse {
@@ -42,7 +47,6 @@ Available muscle groups:
 
 STRICT REQUIREMENTS: 
 - Return ONLY the JSON object, no additional text
-- Use exact field names as shown
 - Description must be under 100 characters
 - Instructions must be 1-10 clear, concise steps
 - Each instruction step must be under 20 words
@@ -50,7 +54,7 @@ STRICT REQUIREMENTS:
 - primaryMuscleGroupId must be a single number 1-15
 - secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`;
 
-    // Log the request we're about to make
+    // Log the request details
     logInfo('OpenAI API request:', {
       model: "gpt-4o",
       exerciseName,
@@ -74,10 +78,11 @@ STRICT REQUIREMENTS:
       max_tokens: 500
     });
 
-    // Log the complete raw response for debugging
-    logInfo('Raw OpenAI response object:', {
+    // Log the raw response
+    logInfo('Raw OpenAI response:', {
       status: response.choices[0].finish_reason,
       model: response.model,
+      content: response.choices[0].message.content,
       timestamp: new Date().toISOString()
     });
 
@@ -86,40 +91,17 @@ STRICT REQUIREMENTS:
     }
 
     let content = response.choices[0].message.content.trim();
-    logInfo('Raw response content:', { content });
 
     try {
       const parsed = JSON.parse(content);
 
-      // Validate required fields
-      if (!parsed.description || typeof parsed.description !== 'string') {
-        throw new Error('Missing or invalid description');
-      }
-
-      if (!Number.isInteger(parsed.primaryMuscleGroupId) || 
-          parsed.primaryMuscleGroupId < 1 || 
-          parsed.primaryMuscleGroupId > 15) {
-        throw new Error('Invalid primaryMuscleGroupId');
-      }
-
-      if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
-        throw new Error('secondaryMuscleGroupIds must be an array');
-      }
-
-      if (!['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
-        throw new Error('Invalid difficulty level');
-      }
-
-      if (!Array.isArray(parsed.instructions) || parsed.instructions.length === 0) {
-        throw new Error('Instructions must be a non-empty array');
-      }
-
-      // Format and validate the response
+      // Validate and format the response
       const formatted: ExerciseAIResponse = {
-        description: parsed.description.slice(0, 100).trim(),
-        primaryMuscleGroupId: parsed.primaryMuscleGroupId,
-        secondaryMuscleGroupIds: parsed.secondaryMuscleGroupIds
-          .filter((id: number) => 
+        description: parsed.description?.slice(0, 100).trim() || '',
+        primaryMuscleGroupId: Number(parsed.primaryMuscleGroupId),
+        secondaryMuscleGroupIds: (parsed.secondaryMuscleGroupIds || [])
+          .map(Number)
+          .filter(id => 
             Number.isInteger(id) && 
             id >= 1 && 
             id <= 15 && 
@@ -127,14 +109,28 @@ STRICT REQUIREMENTS:
           )
           .slice(0, 5),
         difficulty: parsed.difficulty as "beginner" | "intermediate" | "advanced",
-        instructions: parsed.instructions
-          .filter((instruction: string) => typeof instruction === 'string' && instruction.trim())
-          .map((instruction: string) => {
-            const words = instruction.split(/\s+/);
+        instructions: (parsed.instructions || [])
+          .filter((step: string) => typeof step === 'string' && step.trim())
+          .map((step: string) => {
+            const words = step.split(/\s+/);
             return words.slice(0, 20).join(' ');
           })
           .slice(0, 10)
       };
+
+      // Final validation
+      if (!formatted.description) throw new Error('Missing description');
+      if (!Number.isInteger(formatted.primaryMuscleGroupId) || 
+          formatted.primaryMuscleGroupId < 1 || 
+          formatted.primaryMuscleGroupId > 15) {
+        throw new Error('Invalid primaryMuscleGroupId');
+      }
+      if (!['beginner', 'intermediate', 'advanced'].includes(formatted.difficulty)) {
+        throw new Error('Invalid difficulty level');
+      }
+      if (!formatted.instructions.length) {
+        throw new Error('Instructions cannot be empty');
+      }
 
       logInfo('Formatted exercise details:', { formatted });
       return formatted;
