@@ -57,6 +57,17 @@ const MUSCLE_GROUPS = [
   { id: 15, name: "Traps" }
 ];
 
+type FormData = {
+  name: string;
+  description: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  primaryMuscleGroupId: number;
+  secondaryMuscleGroupIds: number[];
+  instructions: string[];
+  tips: string[];
+  equipment: string[];
+};
+
 export default function ExerciseLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -68,7 +79,7 @@ export default function ExerciseLibrary() {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
   // Form setup
-  const form = useForm({
+  const form = useForm<FormData>({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
       name: "",
@@ -133,7 +144,7 @@ export default function ExerciseLibrary() {
 
   // Create exercise mutation
   const createExerciseMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: FormData) => {
       const res = await apiRequest("POST", "/api/exercises", data);
       if (!res.ok) {
         const error = await res.json();
@@ -164,7 +175,6 @@ export default function ExerciseLibrary() {
     queryKey: ["/api/exercises"],
     enabled: !!user,
   });
-
 
   // Filtered exercises logic
   const filteredExercises = exercises.filter((exercise: Exercise) => {
@@ -317,7 +327,7 @@ export default function ExerciseLibrary() {
                                 onCheckedChange={(checked) => {
                                   const newValue = checked
                                     ? [...field.value, group.id]
-                                    : field.value.filter((id: number) => id !== group.id);
+                                    : field.value.filter((id) => id !== group.id);
                                   field.onChange(newValue);
                                 }}
                                 disabled={group.id === form.getValues("primaryMuscleGroupId")}

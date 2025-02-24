@@ -140,7 +140,7 @@ router.post('/api/exercises/predict-instructions', async (req, res) => {
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Latest model as of May 13, 2024
+      model: "gpt-4o", 
       messages: [
         {
           role: "system",
