@@ -17,80 +17,6 @@ export interface ExerciseAIResponse {
   instructions: string[];
 }
 
-function validateOpenAIResponse(content: string): ExerciseAIResponse {
-  try {
-    logInfo('Raw OpenAI response:', { content });
-
-    if (!content || content.trim() === '') {
-      throw new Error('Empty response from OpenAI');
-    }
-
-    // Check for HTML content
-    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
-      throw new Error('Invalid API response format: received HTML instead of JSON');
-    }
-
-    const parsed = JSON.parse(content);
-    logInfo('Parsed OpenAI response:', { parsed });
-
-    // Validate and format description
-    if (!parsed.description || typeof parsed.description !== 'string') {
-      throw new Error('Missing or invalid description');
-    }
-    parsed.description = parsed.description.slice(0, 100).trim();
-
-    // Validate primary muscle group
-    if (!Number.isInteger(parsed.primaryMuscleGroupId) || 
-        parsed.primaryMuscleGroupId < 1 || 
-        parsed.primaryMuscleGroupId > 15) {
-      throw new Error('Invalid primaryMuscleGroupId: must be between 1 and 15');
-    }
-
-    // Validate and format secondary muscle groups
-    if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
-      throw new Error('secondaryMuscleGroupIds must be an array');
-    }
-    parsed.secondaryMuscleGroupIds = parsed.secondaryMuscleGroupIds
-      .filter((id: number) => 
-        Number.isInteger(id) && 
-        id >= 1 && 
-        id <= 15 && 
-        id !== parsed.primaryMuscleGroupId
-      )
-      .slice(0, 5); // Limit to 5 secondary muscle groups
-
-    // Validate difficulty
-    if (!parsed.difficulty || !['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
-      throw new Error('Invalid difficulty: must be beginner, intermediate, or advanced');
-    }
-
-    // Validate and format instructions
-    if (!Array.isArray(parsed.instructions)) {
-      throw new Error('instructions must be an array');
-    }
-    parsed.instructions = parsed.instructions
-      .filter((instruction: string) => typeof instruction === 'string' && instruction.trim())
-      .map((instruction: string) => {
-        const words = instruction.split(/\s+/);
-        return words.slice(0, 20).join(' '); // Limit to 20 words per instruction
-      })
-      .slice(0, 10); // Limit to 10 instructions
-
-    if (parsed.instructions.length === 0) {
-      throw new Error('At least one instruction is required');
-    }
-
-    return parsed;
-  } catch (error) {
-    logError('Failed to parse OpenAI response:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      rawContent: content,
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    throw new Error('Failed to process AI response: ' + (error instanceof Error ? error.message : 'Unknown error'));
-  }
-}
-
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
@@ -143,23 +69,77 @@ STRICT REQUIREMENTS:
       throw new Error('Empty response from OpenAI');
     }
 
-    const validatedResponse = validateOpenAIResponse(response.choices[0].message.content);
-    logInfo('Validated response:', { validatedResponse });
-    return validatedResponse;
+    let content = response.choices[0].message.content.trim();
 
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        throw new Error('Invalid or missing API key. Please check your configuration.');
-      }
-      if (error.message.includes('rate limit')) {
-        throw new Error('Rate limit exceeded. Please try again in a few moments.');
-      }
-      if (error.message.includes('timeout')) {
-        throw new Error('Request timed out. Please try again.');
-      }
+    // Log raw response for debugging
+    logInfo('Raw OpenAI response:', { content });
+
+    // Validate response format
+    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+      logError('Received HTML instead of JSON:', { content });
+      throw new Error('Invalid API response format: received HTML instead of JSON');
     }
 
+    try {
+      const parsed = JSON.parse(content);
+
+      // Validate required fields
+      if (!parsed.description || typeof parsed.description !== 'string') {
+        throw new Error('Missing or invalid description');
+      }
+
+      if (!Number.isInteger(parsed.primaryMuscleGroupId) || 
+          parsed.primaryMuscleGroupId < 1 || 
+          parsed.primaryMuscleGroupId > 15) {
+        throw new Error('Invalid primaryMuscleGroupId');
+      }
+
+      if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
+        throw new Error('secondaryMuscleGroupIds must be an array');
+      }
+
+      if (!['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
+        throw new Error('Invalid difficulty level');
+      }
+
+      if (!Array.isArray(parsed.instructions) || parsed.instructions.length === 0) {
+        throw new Error('Instructions must be a non-empty array');
+      }
+
+      // Format and validate the response
+      const formatted: ExerciseAIResponse = {
+        description: parsed.description.slice(0, 100).trim(),
+        primaryMuscleGroupId: parsed.primaryMuscleGroupId,
+        secondaryMuscleGroupIds: parsed.secondaryMuscleGroupIds
+          .filter((id: number) => 
+            Number.isInteger(id) && 
+            id >= 1 && 
+            id <= 15 && 
+            id !== parsed.primaryMuscleGroupId
+          )
+          .slice(0, 5),
+        difficulty: parsed.difficulty,
+        instructions: parsed.instructions
+          .filter((instruction: string) => typeof instruction === 'string' && instruction.trim())
+          .map((instruction: string) => {
+            const words = instruction.split(/\s+/);
+            return words.slice(0, 20).join(' ');
+          })
+          .slice(0, 10)
+      };
+
+      logInfo('Formatted exercise details:', { formatted });
+      return formatted;
+
+    } catch (parseError) {
+      logError('Failed to parse OpenAI response:', { 
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        content
+      });
+      throw new Error('Failed to parse AI response: ' + (parseError instanceof Error ? parseError.message : 'Invalid response format'));
+    }
+
+  } catch (error) {
     logError('Error in generateExerciseDetails:', {
       error: error instanceof Error ? error.message : String(error),
       exerciseName
