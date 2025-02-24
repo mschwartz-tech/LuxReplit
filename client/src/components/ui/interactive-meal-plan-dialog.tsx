@@ -7,29 +7,34 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { MealPlanView } from "@/components/ui/meal-plan-view";
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from '@tanstack/react-query';
 import type { MealItem } from '@shared/schema';
 
 interface InteractiveMealPlanDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   initialMeals: MealItem[];
-  onConfirm: (meals: MealItem[]) => void;
-  mealPlanRequest: any; // Use the actual type from your schema
+  mealPlanRequest: any;
+  onConfirm: (memberId: number, dates: { startDate: string; endDate?: string; meals:MealItem[] }) => void;
+  isRegeneratingMeal: boolean;
 }
 
 export function InteractiveMealPlanDialog({
-  isOpen,
-  onClose,
+  open,
+  onOpenChange,
   initialMeals,
+  mealPlanRequest,
   onConfirm,
-  mealPlanRequest
+  isRegeneratingMeal
 }: InteractiveMealPlanDialogProps) {
   const [meals, setMeals] = useState<MealItem[]>(initialMeals);
+  const [selectedMember, setSelectedMember] = useState<number | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const { toast } = useToast();
 
   const regenerateMeal = useMutation({
@@ -46,13 +51,13 @@ export function InteractiveMealPlanDialog({
           macroDistribution: mealPlanRequest.macroDistribution
         }),
       });
-      
+
       if (!response.ok) throw new Error('Failed to regenerate meal');
       return response.json();
     },
     onSuccess: (newMeal, { meal }) => {
-      setMeals(currentMeals => 
-        currentMeals.map(m => 
+      setMeals(currentMeals =>
+        currentMeals.map(m =>
           (m.dayNumber === meal.dayNumber && m.mealNumber === meal.mealNumber) ? newMeal : m
         )
       );
@@ -74,31 +79,91 @@ export function InteractiveMealPlanDialog({
     regenerateMeal.mutate({ meal, dayNumber: meal.dayNumber, mealNumber: meal.mealNumber });
   };
 
+  const handleConfirm = () => {
+    if (!selectedMember || !startDate) return;
+
+    onConfirm(selectedMember, {
+      startDate,
+      endDate: endDate || undefined,
+      meals: meals
+    });
+  };
+
+  // Fetch members list
+  const { data: members = [] } = useQuery({
+    queryKey: ['/api/members'],
+    queryFn: async () => {
+      const response = await fetch('/api/members');
+      if (!response.ok) throw new Error('Failed to fetch members');
+      return response.json();
+    }
+  });
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Customize Your Meal Plan</DialogTitle>
+          <DialogTitle>Review and Customize Meal Plan</DialogTitle>
           <DialogDescription>
-            Review your meal plan and regenerate any meals you'd like to change
+            Review your generated meal plan, regenerate any meals you'd like to change, and assign it to a member.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto p-4">
-          <MealPlanView 
+        <div className="space-y-6">
+          {/* Meal Plan View with regeneration buttons */}
+          <MealPlanView
             meals={meals}
             onRegenerateMeal={handleRegenerateMeal}
             isRegenerating={regenerateMeal.isPending}
           />
-        </div>
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => onConfirm(meals)}>
-            Confirm Meal Plan
-          </Button>
+          {/* Assignment Form */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="text-lg font-semibold">Assign Meal Plan</h3>
+
+            <div className="space-y-4">
+              <Select onValueChange={(value) => setSelectedMember(Number(value))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((member: any) => (
+                    <SelectItem key={member.id} value={member.id.toString()}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Date (Optional)</label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleConfirm}
+                disabled={!selectedMember || !startDate}
+              >
+                Confirm and Assign Meal Plan
+              </Button>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

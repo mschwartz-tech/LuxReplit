@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { InteractiveMealPlanDialog } from "@/components/ui/interactive-meal-plan-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -115,6 +116,8 @@ export default function MealPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [generatedMealPlan, setGeneratedMealPlan] = useState(null);
+  const [isRegeneratingMeal, setIsRegeneratingMeal] = useState(false);
 
   // Form initialization
   const aiForm = useForm({
@@ -167,12 +170,12 @@ export default function MealPlansPage() {
       return response.json();
     },
     onSuccess: (data) => {
-      setIsAiDialogOpen(false);
+      setGeneratedMealPlan(data.mealPlan);
+      setIsAiDialogOpen(true);
       toast({
         title: 'Success',
         description: 'AI meal plan generated successfully',
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
     },
     onError: (error) => {
       toast({
@@ -180,6 +183,47 @@ export default function MealPlansPage() {
         description: 'Failed to generate AI meal plan',
         variant: 'destructive',
       });
+    },
+  });
+
+  // Regenerate single meal mutation
+  const regenerateMeal = useMutation({
+    mutationFn: async ({ meal, preferences }: { meal: any; preferences: any }) => {
+      const response = await fetch('/api/meal-plans/regenerate-meal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          foodPreferences: preferences.foodPreferences,
+          calorieTarget: meal.calories,
+          mealType: meal.meal,
+          dayNumber: meal.dayNumber,
+          mealNumber: meal.mealNumber,
+          macroDistribution: preferences.macroDistribution,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to regenerate meal');
+      return response.json();
+    },
+    onSuccess: (newMeal) => {
+      if (generatedMealPlan) {
+        const updatedMeals = generatedMealPlan.meals.map(m =>
+          (m.dayNumber === newMeal.dayNumber && m.mealNumber === newMeal.mealNumber) ? newMeal : m
+        );
+        setGeneratedMealPlan({ ...generatedMealPlan, meals: updatedMeals });
+      }
+      toast({
+        title: 'Success',
+        description: 'Meal regenerated successfully',
+      });
+      setIsRegeneratingMeal(false);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to regenerate meal',
+        variant: 'destructive',
+      });
+      setIsRegeneratingMeal(false);
     },
   });
 
@@ -451,6 +495,54 @@ export default function MealPlansPage() {
               </Form>
             </CardContent>
           </Card>
+
+          {/* Add Interactive Meal Plan Dialog */}
+          <InteractiveMealPlanDialog
+            open={isAiDialogOpen}
+            onOpenChange={setIsAiDialogOpen}
+            mealPlan={generatedMealPlan}
+            onRegenerateMeal={(meal) => {
+              setIsRegeneratingMeal(true);
+              regenerateMeal.mutate({
+                meal,
+                preferences: aiForm.getValues(),
+              });
+            }}
+            onConfirm={async (memberId, dates) => {
+              if (!generatedMealPlan) return;
+
+              try {
+                const response = await fetch('/api/meal-plans/confirm', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    mealPlanId: generatedMealPlan.id,
+                    memberId,
+                    startDate: dates.startDate,
+                    endDate: dates.endDate,
+                  }),
+                });
+
+                if (!response.ok) throw new Error('Failed to confirm meal plan');
+
+                queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
+                setIsAiDialogOpen(false);
+                setGeneratedMealPlan(null);
+
+                toast({
+                  title: 'Success',
+                  description: 'Meal plan confirmed and assigned successfully',
+                });
+              } catch (error) {
+                toast({
+                  title: 'Error',
+                  description: 'Failed to confirm meal plan',
+                  variant: 'destructive',
+                });
+              }
+            }}
+            isRegeneratingMeal={isRegeneratingMeal}
+          />
 
           {/* Assign Meal Plan Card */}
           <Card className="flex-1">
