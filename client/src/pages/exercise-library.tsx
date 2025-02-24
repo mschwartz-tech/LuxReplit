@@ -132,50 +132,64 @@ export default function ExerciseLibrary() {
   const predictExerciseDetailsMutation = useMutation({
     mutationFn: async (name: string) => {
       setIsAIThinking(true);
-      const response = await fetch('/api/exercises/predict-details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ exerciseName: name }),
-      });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        try {
-          const parsedError = JSON.parse(errorData);
-          throw new Error(parsedError.message || 'Failed to predict exercise details');
-        } catch {
-          throw new Error(errorData || 'Failed to predict exercise details');
-        }
+      // Make both API calls in parallel
+      const [descriptionResponse, instructionsResponse] = await Promise.all([
+        fetch('/api/exercises/predict-description', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ exerciseName: name }),
+        }),
+        fetch('/api/exercises/predict-instructions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ exerciseName: name }),
+        })
+      ]);
+
+      if (!descriptionResponse.ok) {
+        const errorData = await descriptionResponse.text();
+        throw new Error(errorData || 'Failed to predict exercise description');
       }
 
-      return response.json();
+      if (!instructionsResponse.ok) {
+        const errorData = await instructionsResponse.text();
+        throw new Error(errorData || 'Failed to predict exercise instructions');
+      }
+
+      const descriptionData = await descriptionResponse.json();
+      const instructionsData = await instructionsResponse.json();
+
+      return {
+        ...descriptionData,
+        instructions: instructionsData.instructions,
+      };
     },
     onSuccess: (data) => {
       console.log('Received AI predictions:', data);
 
       try {
-        // Update form with AI predictions
+        // Update description if available
         if (typeof data.description === 'string') {
           form.setValue("description", data.description, { shouldValidate: true });
         }
 
-        // Handle instructions array
+        // Update instructions if available
         if (Array.isArray(data.instructions)) {
-          // Clean up the instructions by removing any existing numbering
-          const cleanInstructions = data.instructions.map(instruction => 
-            instruction.replace(/^\d+\.\s*/, '')
-          );
-          form.setValue("instructions", cleanInstructions, { shouldValidate: true });
+          form.setValue("instructions", data.instructions, { shouldValidate: true });
         }
 
+        // Update difficulty if valid
         if (typeof data.difficulty === 'string' &&
             ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
           form.setValue("difficulty", data.difficulty, { shouldValidate: true });
         }
 
-        // Update muscle groups
+        // Update muscle groups if valid
         if (typeof data.primaryMuscleGroupId === 'number' &&
             data.primaryMuscleGroupId >= 1 && 
             data.primaryMuscleGroupId <= 15) {
