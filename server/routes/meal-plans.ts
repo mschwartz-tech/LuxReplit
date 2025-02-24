@@ -4,38 +4,12 @@ import { generateMealPlan, generateSingleMeal } from '../services/openai-meal-se
 import { insertMealPlanSchema, mealItemSchema } from '@shared/schema';
 import { z } from 'zod';
 import { logMealPlanError, logMealPlanInfo, logMealPlanValidation } from '../services/meal-plan-logger';
+import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
 
-// Schema for validating AI meal plan generation request
-const generateMealPlanSchema = z.object({
-  foodPreferences: z.string().max(1000),
-  calorieTarget: z.number().min(500).max(10000),
-  mealsPerDay: z.number().min(1).max(6),
-  dietaryRestrictions: z.array(z.string()).optional(),
-  fitnessGoals: z.array(z.string()).optional(),
-  macroDistribution: z.object({
-    protein: z.number().min(0).max(100),
-    carbs: z.number().min(0).max(100),
-    fats: z.number().min(0).max(100)
-  }).refine(data => {
-    return data.protein + data.carbs + data.fats === 100;
-  }, "Macro distribution must total 100%")
-});
-
-// Schema for validating single meal regeneration request
-const regenerateMealSchema = z.object({
-  foodPreferences: z.string().max(1000),
-  calorieTarget: z.number().min(50).max(2000),
-  mealType: z.string(),
-  dayNumber: z.number().min(1).max(7),
-  mealNumber: z.number().min(1).max(6),
-  macroDistribution: z.object({
-    protein: z.number().min(0).max(100),
-    carbs: z.number().min(0).max(100),
-    fats: z.number().min(0).max(100)
-  })
-});
+// Apply authentication middleware to all routes
+router.use(isAuthenticated);
 
 // Get all meal plans
 router.get('/', async (req, res) => {
