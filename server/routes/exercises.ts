@@ -24,12 +24,30 @@ router.post('/api/exercises/predict-details', async (req, res) => {
 1. A concise 50-word description of the exercise
 2. Step-by-step instructions (numbered steps, each step should be clear and concise)
 3. Difficulty level (beginner/intermediate/advanced)
+4. Primary muscle group ID (1-15) and secondary muscle group IDs based on this mapping:
+   1: Quadriceps
+   2: Hamstrings
+   3: Calves
+   4: Chest
+   5: Back
+   6: Shoulders
+   7: Biceps
+   8: Triceps
+   9: Forearms
+   10: Abs
+   11: Obliques
+   12: Lower Back
+   13: Glutes
+   14: Hip Flexors
+   15: Traps
 
 Output format must be JSON with exactly these fields:
 {
   "description": "string (50 words max)",
   "instructions": "string[] (numbered steps)",
-  "difficulty": "beginner" | "intermediate" | "advanced"
+  "difficulty": "beginner" | "intermediate" | "advanced",
+  "primaryMuscleGroupId": number (1-15),
+  "secondaryMuscleGroupIds": number[] (1-15)
 }`
         },
         {
@@ -43,7 +61,8 @@ Output format must be JSON with exactly these fields:
     const result = JSON.parse(response.choices[0].message.content);
 
     // Validate and sanitize the response
-    if (!result.description || !result.instructions || !result.difficulty) {
+    if (!result.description || !result.instructions || !result.difficulty || 
+        !result.primaryMuscleGroupId || !result.secondaryMuscleGroupIds) {
       throw new Error('Invalid AI response format');
     }
 
@@ -51,6 +70,16 @@ Output format must be JSON with exactly these fields:
     const instructions = Array.isArray(result.instructions) ? 
       result.instructions : 
       [result.instructions];
+
+    // Validate muscle group IDs
+    const primaryMuscleGroupId = Number(result.primaryMuscleGroupId);
+    if (primaryMuscleGroupId < 1 || primaryMuscleGroupId > 15) {
+      throw new Error('Invalid primary muscle group ID');
+    }
+
+    const secondaryMuscleGroupIds = result.secondaryMuscleGroupIds
+      .map(Number)
+      .filter(id => id >= 1 && id <= 15 && id !== primaryMuscleGroupId);
 
     // Validate difficulty
     const difficulty = ['beginner', 'intermediate', 'advanced'].includes(result.difficulty) 
@@ -60,7 +89,9 @@ Output format must be JSON with exactly these fields:
     res.json({
       description: result.description,
       instructions,
-      difficulty
+      difficulty,
+      primaryMuscleGroupId,
+      secondaryMuscleGroupIds
     });
   } catch (error) {
     console.error('Error predicting exercise details:', error);

@@ -156,7 +156,7 @@ export default function ExerciseLibrary() {
       console.log('Received AI predictions:', data);
 
       try {
-        // Update form with AI predictions with type checks
+        // Update form with AI predictions
         if (typeof data.description === 'string') {
           form.setValue("description", data.description, { shouldValidate: true });
         }
@@ -168,6 +168,20 @@ export default function ExerciseLibrary() {
         if (typeof data.difficulty === 'string' &&
             ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
           form.setValue("difficulty", data.difficulty, { shouldValidate: true });
+        }
+
+        // Update muscle groups
+        if (typeof data.primaryMuscleGroupId === 'number' &&
+            data.primaryMuscleGroupId >= 1 && 
+            data.primaryMuscleGroupId <= 15) {
+          form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
+        }
+
+        if (Array.isArray(data.secondaryMuscleGroupIds)) {
+          const validSecondaryIds = data.secondaryMuscleGroupIds.filter(
+            (id: number) => typeof id === 'number' && id >= 1 && id <= 15 && id !== data.primaryMuscleGroupId
+          );
+          form.setValue("secondaryMuscleGroupIds", validSecondaryIds, { shouldValidate: true });
         }
 
         // Force form to update
