@@ -20,24 +20,42 @@ router.post('/api/exercises/predict-details', async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are a professional fitness expert. Provide a concise exercise description and instructions. Keep the total response within 300 characters. Focus on proper form and execution. Do not mention muscle groups."
+          content: `You are a professional fitness expert. For the given exercise name, provide a detailed response in JSON format with:
+1. A clear, concise description including proper form instructions (max 300 characters)
+2. Difficulty level (beginner/intermediate/advanced)
+
+Output format must be JSON with exactly these fields:
+{
+  "description": "string (max 300 chars)",
+  "difficulty": "beginner" | "intermediate" | "advanced"
+}`
         },
         {
           role: "user",
-          content: `Generate a description and instructions for: ${exerciseName}`
+          content: `Generate exercise details for: ${exerciseName}`
         }
       ],
       response_format: { type: "json_object" },
     });
 
     const result = JSON.parse(response.choices[0].message.content);
-    
+
+    // Validate and sanitize the response
+    if (!result.description || !result.difficulty) {
+      throw new Error('Invalid AI response format');
+    }
+
     // Ensure description length is within limits
-    const description = result.description?.substring(0, 300) || '';
+    const description = result.description.substring(0, 300);
+
+    // Validate difficulty
+    const difficulty = ['beginner', 'intermediate', 'advanced'].includes(result.difficulty) 
+      ? result.difficulty 
+      : 'beginner';
 
     res.json({
       description,
-      difficulty: result.difficulty || 'beginner'
+      difficulty
     });
   } catch (error) {
     console.error('Error predicting exercise details:', error);
