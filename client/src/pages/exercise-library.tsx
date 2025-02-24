@@ -149,25 +149,31 @@ export default function ExerciseLibrary() {
         message: 'Analyzing exercise...'
       });
 
-      const response = await fetch('/api/exercises/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exerciseName: name }),
-      });
+      try {
+        const response = await fetch('/api/exercises/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exerciseName: name }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to analyze exercise';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage = 'Failed to analyze exercise';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            errorMessage = errorText || errorMessage;
+          }
+          throw new Error(errorMessage);
         }
-        throw new Error(errorMessage);
-      }
 
-      return response.json();
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error in exercise prediction:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       // Update form with AI predictions

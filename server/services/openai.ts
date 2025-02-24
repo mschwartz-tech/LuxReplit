@@ -56,7 +56,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
         throw new Error(`${field} must be a number`);
       }
 
-      if (rules.maxLength && parsed[field].length > rules.maxLength) {
+      if ('maxLength' in rules && rules.maxLength && parsed[field].length > rules.maxLength) {
         throw new Error(`${field} exceeds ${rules.maxLength} characters limit`);
       }
 
@@ -66,13 +66,13 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
         }
         if (field === 'secondaryMuscleGroupIds') {
           if (!parsed[field].every((id: number) => 
-            typeof id === 'number' && id >= rules.min && id <= rules.max && id !== parsed.primaryMuscleGroupId
+            typeof id === 'number' && id >= 1 && id <= 15 && id !== parsed.primaryMuscleGroupId
           )) {
-            throw new Error(`Invalid ${field}: must be unique numbers between ${rules.min} and ${rules.max}, excluding primaryMuscleGroupId`);
+            throw new Error(`Invalid ${field}: must be unique numbers between 1 and 15, excluding primaryMuscleGroupId`);
           }
         }
         if (field === 'instructions') {
-          if (parsed[field].length < rules.minLength) {
+          if ('minLength' in rules && rules.minLength && parsed[field].length < rules.minLength) {
             throw new Error(`${field} must have at least ${rules.minLength} item`);
           }
           if (!parsed[field].every((item: any) => typeof item === 'string' && item.trim())) {
@@ -103,7 +103,7 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
     logInfo('Generating exercise details for:', { exerciseName, timestamp: new Date().toISOString() });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4", // Using standard GPT-4 model
       messages: [
         {
           role: "system",
