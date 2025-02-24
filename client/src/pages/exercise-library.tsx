@@ -74,6 +74,25 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// Add error handling utility
+const handleAPIError = async (response: Response) => {
+  const text = await response.text();
+  let errorMessage = 'Failed to predict exercise details';
+
+  try {
+    // Try to parse as JSON first
+    const data = JSON.parse(text);
+    errorMessage = data.message || errorMessage;
+  } catch {
+    // If not JSON, clean up HTML content or use text directly
+    errorMessage = text.includes('<!DOCTYPE')
+      ? 'Server error occurred. Please try again.'
+      : text || errorMessage;
+  }
+
+  throw new Error(errorMessage);
+};
+
 export default function ExerciseLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -133,41 +152,45 @@ export default function ExerciseLibrary() {
     mutationFn: async (name: string) => {
       setIsAIThinking(true);
 
-      // Make both API calls in parallel
-      const [descriptionResponse, instructionsResponse] = await Promise.all([
-        fetch('/api/exercises/predict-description', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ exerciseName: name }),
-        }),
-        fetch('/api/exercises/predict-instructions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ exerciseName: name }),
-        })
-      ]);
+      try {
+        // Make both API calls in parallel
+        const [descriptionResponse, instructionsResponse] = await Promise.all([
+          fetch('/api/exercises/predict-description', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ exerciseName: name }),
+          }),
+          fetch('/api/exercises/predict-instructions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ exerciseName: name }),
+          })
+        ]);
 
-      if (!descriptionResponse.ok) {
-        const errorData = await descriptionResponse.text();
-        throw new Error(errorData || 'Failed to predict exercise description');
+        // Handle response errors
+        if (!descriptionResponse.ok) {
+          await handleAPIError(descriptionResponse);
+        }
+
+        if (!instructionsResponse.ok) {
+          await handleAPIError(instructionsResponse);
+        }
+
+        const descriptionData = await descriptionResponse.json();
+        const instructionsData = await instructionsResponse.json();
+
+        return {
+          ...descriptionData,
+          instructions: instructionsData.instructions,
+        };
+      } catch (error) {
+        console.error('Error in exercise prediction:', error);
+        throw error;
       }
-
-      if (!instructionsResponse.ok) {
-        const errorData = await instructionsResponse.text();
-        throw new Error(errorData || 'Failed to predict exercise instructions');
-      }
-
-      const descriptionData = await descriptionResponse.json();
-      const instructionsData = await instructionsResponse.json();
-
-      return {
-        ...descriptionData,
-        instructions: instructionsData.instructions,
-      };
     },
     onSuccess: (data) => {
       console.log('Received AI predictions:', data);
@@ -191,7 +214,7 @@ export default function ExerciseLibrary() {
 
         // Update muscle groups if valid
         if (typeof data.primaryMuscleGroupId === 'number' &&
-            data.primaryMuscleGroupId >= 1 && 
+            data.primaryMuscleGroupId >= 1 &&
             data.primaryMuscleGroupId <= 15) {
           form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
         }
