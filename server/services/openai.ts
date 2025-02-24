@@ -25,6 +25,11 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
       throw new Error('Empty response from OpenAI');
     }
 
+    // Check for HTML content
+    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+      throw new Error('Invalid API response format: received HTML instead of JSON');
+    }
+
     const parsed = JSON.parse(content);
     logInfo('Parsed OpenAI response:', { parsed });
 
