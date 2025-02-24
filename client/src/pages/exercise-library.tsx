@@ -57,6 +57,7 @@ const MUSCLE_GROUPS = [
   { id: 15, name: "Traps" }
 ];
 
+// Update the FormData interface to match the schema
 interface FormData {
   name: string;
   description: string;
@@ -64,8 +65,8 @@ interface FormData {
   primaryMuscleGroupId: number;
   secondaryMuscleGroupIds: number[];
   instructions: string[];
-  tips: string[];
-  equipment: string[];
+  tips: string[];  // Make tips required
+  equipment: string[];  // Make equipment required
 }
 
 interface AIAnalysisResponse {
@@ -85,7 +86,7 @@ export default function ExerciseLibrary() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
-  // Initialize form with empty values
+  // Initialize form with empty arrays for required fields
   const form = useForm<FormData>({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -95,22 +96,30 @@ export default function ExerciseLibrary() {
       primaryMuscleGroupId: 1,
       secondaryMuscleGroupIds: [],
       instructions: [],
-      tips: [],
-      equipment: [],
+      tips: [],  // Initialize with empty array
+      equipment: [], // Initialize with empty array
     }
   });
 
-  // Create exercise mutation
   const createExerciseMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const res = await apiRequest("POST", "/api/exercises", {
         ...data,
         secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(id => Number(id)),
-        primaryMuscleGroupId: Number(data.primaryMuscleGroupId)
+        primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
+        tips: data.tips || [], // Ensure tips is always an array
+        equipment: data.equipment || [], // Ensure equipment is always an array
       });
+
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create exercise");
+        try {
+          const error = await res.json();
+          throw new Error(error.message || "Failed to create exercise");
+        } catch (e) {
+          // If response is not JSON, get text content
+          const text = await res.text();
+          throw new Error(text || "Failed to create exercise");
+        }
       }
       return res.json();
     },
@@ -132,7 +141,6 @@ export default function ExerciseLibrary() {
     },
   });
 
-  // Debounced analysis function
   const debouncedAnalyze = useCallback(
     debounce(async (exerciseName: string) => {
       if (exerciseName.trim().length < 3) return;
@@ -177,7 +185,6 @@ export default function ExerciseLibrary() {
     []
   );
 
-  // Handle name input changes
   const handleExerciseNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     form.setValue("name", name, { shouldValidate: true });
@@ -187,7 +194,6 @@ export default function ExerciseLibrary() {
     }
   };
 
-  // Form submission handler
   const onSubmit = async (data: FormData) => {
     try {
       // First validate the form data
@@ -218,13 +224,11 @@ export default function ExerciseLibrary() {
     }
   };
 
-  // Query for exercises
   const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
     enabled: !!user,
   });
 
-  // Filter exercises based on search and filters
   const filteredExercises = exercises.filter((exercise: Exercise) => {
     const matchesSearch = exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -405,6 +409,58 @@ export default function ExerciseLibrary() {
                                   const newInstructions = [...field.value];
                                   newInstructions[index] = e.target.value;
                                   field.onChange(newInstructions);
+                                }}
+                                disabled={isAnalyzing}
+                              />
+                            ))}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="tips"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tips</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            {field.value.map((tip: string, index: number) => (
+                              <Input
+                                key={index}
+                                value={tip}
+                                onChange={(e) => {
+                                  const newTips = [...field.value];
+                                  newTips[index] = e.target.value;
+                                  field.onChange(newTips);
+                                }}
+                                disabled={isAnalyzing}
+                              />
+                            ))}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="equipment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Equipment</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            {field.value.map((equipmentItem: string, index: number) => (
+                              <Input
+                                key={index}
+                                value={equipmentItem}
+                                onChange={(e) => {
+                                  const newEquipment = [...field.value];
+                                  newEquipment[index] = e.target.value;
+                                  field.onChange(newEquipment);
                                 }}
                                 disabled={isAnalyzing}
                               />
