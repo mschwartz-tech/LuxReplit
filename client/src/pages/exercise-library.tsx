@@ -158,6 +158,8 @@ export default function ExerciseLibrary() {
       setAIStatus({ status: 'generating', message: 'Analyzing exercise...' });
 
       try {
+        console.log('Initiating API calls for exercise prediction:', name);
+
         const [descriptionResponse, instructionsResponse] = await Promise.all([
           fetch('/api/exercises/predict-description', {
             method: 'POST',
@@ -171,11 +173,40 @@ export default function ExerciseLibrary() {
           })
         ]);
 
-        if (!descriptionResponse.ok) await handleAPIError(descriptionResponse);
-        if (!instructionsResponse.ok) await handleAPIError(instructionsResponse);
+        // Enhanced error handling for description response
+        if (!descriptionResponse.ok) {
+          const descError = await descriptionResponse.text();
+          console.error('Description API error:', descError);
+          let errorMessage = 'Failed to predict exercise details';
+          try {
+            const errorData = JSON.parse(descError);
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            // If not JSON, use text directly
+            errorMessage = descError || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
+
+        // Enhanced error handling for instructions response
+        if (!instructionsResponse.ok) {
+          const instrError = await instructionsResponse.text();
+          console.error('Instructions API error:', instrError);
+          let errorMessage = 'Failed to predict exercise instructions';
+          try {
+            const errorData = JSON.parse(instrError);
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            // If not JSON, use text directly
+            errorMessage = instrError || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
 
         const descriptionData = await descriptionResponse.json();
         const instructionsData = await instructionsResponse.json();
+
+        console.log('Received predictions:', { descriptionData, instructionsData });
 
         return {
           ...descriptionData,
@@ -238,11 +269,11 @@ export default function ExerciseLibrary() {
       console.error('AI prediction error:', error);
       setAIStatus({ 
         status: 'error', 
-        message: 'Failed to analyze exercise. Please try again.' 
+        message: error.message || 'Failed to analyze exercise. Please try again.' 
       });
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to analyze exercise",
         variant: "destructive",
       });
       setIsAIGenerating(false);
