@@ -24,7 +24,14 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
 
     // Check for HTML content
     if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+      logError('Received HTML content instead of JSON', { content: content.substring(0, 200) });
       throw new Error('Received HTML instead of JSON response');
+    }
+
+    // Check for empty or malformed content
+    if (!content || content.trim() === '') {
+      logError('Empty content received from OpenAI');
+      throw new Error('Empty response from OpenAI');
     }
 
     const parsed = JSON.parse(content);
@@ -60,12 +67,15 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
   try {
     logInfo('Generating exercise details for:', { exerciseName });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-0125-preview",
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with this format:
+    // Try to make the API call with error handling
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: "gpt-4-0125-preview",
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with this format:
 {
   "description": "Brief description under 100 chars",
   "primaryMuscleGroupId": (number 1-15),
@@ -83,20 +93,29 @@ IMPORTANT:
 - Use exact field names (primaryMuscleGroupId not primaryMuscleGroupID)
 - difficulty must be lowercase without "level" suffix
 - description should be mobile-friendly and concise`
-        },
-        {
-          role: "user",
-          content: `Analyze this exercise: ${exerciseName}`
-        }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-      max_tokens: 150
-    });
+          },
+          {
+            role: "user",
+            content: `Analyze this exercise: ${exerciseName}`
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 150
+      });
+    } catch (apiError) {
+      logError('OpenAI API call failed:', {
+        error: apiError instanceof Error ? apiError.message : String(apiError),
+        exerciseName,
+        apiKey: process.env.OPENAI_API_KEY ? 'Present' : 'Missing'
+      });
+      throw new Error('Failed to communicate with OpenAI API. Please try again.');
+    }
 
     logInfo('OpenAI API response received:', {
       status: response.choices[0].finish_reason,
-      model: response.model
+      model: response.model,
+      usage: response.usage
     });
 
     if (!response.choices[0].message.content) {

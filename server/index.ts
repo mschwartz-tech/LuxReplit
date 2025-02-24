@@ -5,7 +5,7 @@ import { logError, logInfo } from "./services/logger";
 import { registerRoutes } from "./routes";
 import { ensureDatabaseInitialized, pool } from "./db";
 import { setupVite } from "./vite";
-import { rateLimiter, securityHeaders, wafMiddleware } from "./middleware";
+import { rateLimiter, securityHeaders } from "./middleware";
 import { apiLimiter, authenticatedLimiter, getRouteLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
 import { errorHandler } from "./middleware/error";
@@ -41,7 +41,6 @@ app.use(cors({
 // Security middleware
 app.use(rateLimiter);
 app.use(securityHeaders);
-app.use(wafMiddleware);
 
 // Route-specific rate limiting
 app.use('/api', (req, res, next) => {
@@ -76,9 +75,9 @@ app.use(
 // Global error handler
 app.use(errorHandler);
 
-async function startServer() {
-  let server;
+let server: any;
 
+async function startServer() {
   try {
     // Initialize database with retry mechanism
     await startupManager.initPhase('database', async () => {
@@ -98,13 +97,13 @@ async function startServer() {
     // Setup Vite in development (non-critical)
     if (process.env.NODE_ENV !== "production" && process.env.DISABLE_VITE !== 'true') {
       await startupManager.initPhase('vite', async () => {
-        await setupVite(app, server!);
+        await setupVite(app, server);
       });
     }
 
     // Start listening only after critical phases are complete
     const port = Number(process.env.PORT) || 5000;
-    server!.listen(port, '0.0.0.0', () => {
+    server.listen(port, '0.0.0.0', () => {
       logInfo(`Server listening on port ${port}`, {
         port,
         env: process.env.NODE_ENV || 'development',
@@ -113,10 +112,10 @@ async function startServer() {
     });
 
     // Handle server errors
-    server!.on("error", (error) => {
+    server.on("error", (error: Error) => {
       logError("Server error occurred", { 
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
+        error: error.message,
+        stack: error.stack,
         startupPhases: startupManager.getStartupSummary()
       });
       process.exit(1);

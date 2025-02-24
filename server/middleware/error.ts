@@ -40,67 +40,50 @@ export class BusinessLogicError extends Error {
 }
 
 export const errorHandler = (
-  err: any,
+  err: Error,
   req: Request,
   res: Response,
   _next: NextFunction
 ) => {
-  const errorResponse = {
-    message: err.message || "Internal Server Error",
-    status: err.status || err.statusCode || 500,
-    details: undefined as any,
-    path: req.path,
-    timestamp: new Date().toISOString(),
-    requestId: req.headers['x-request-id'] || undefined,
-    code: undefined as string | undefined
-  };
-
-  // Handle different error types
-  if (err instanceof ZodError) {
-    const validationError = fromZodError(err);
-    errorResponse.status = 400;
-    errorResponse.message = "Validation Error";
-    errorResponse.details = validationError.details;
-    errorResponse.code = 'VALIDATION_ERROR';
-  } else if (err instanceof ValidationError) {
-    errorResponse.status = 400;
-    errorResponse.details = err.details;
-    errorResponse.code = 'VALIDATION_ERROR';
-  } else if (err instanceof AuthorizationError) {
-    errorResponse.status = 403;
-    errorResponse.code = 'AUTHORIZATION_ERROR';
-  } else if (err instanceof NotFoundError) {
-    errorResponse.status = 404;
-    errorResponse.code = 'NOT_FOUND';
-  } else if (err instanceof ConflictError) {
-    errorResponse.status = 409;
-    errorResponse.code = 'CONFLICT';
-  } else if (err instanceof BusinessLogicError) {
-    errorResponse.status = 422;
-    errorResponse.code = 'BUSINESS_LOGIC_ERROR';
-  }
-
-  // Enhanced error logging
+  // Log the error with full details
   logError(err.message || "Internal Server Error", {
     path: req.path,
     method: req.method,
     userId: (req.user as any)?.id,
-    statusCode: errorResponse.status,
-    errorCode: errorResponse.code,
-    details: errorResponse.details,
-    requestId: errorResponse.requestId,
     stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
     headers: req.headers,
     query: req.query,
     body: req.body
   });
 
-  // Only include error details in development
-  if (process.env.NODE_ENV === "production") {
-    delete errorResponse.details;
-    if (errorResponse.status === 500) {
-      errorResponse.message = "Internal Server Error";
-    }
+  // Prepare the error response
+  const errorResponse = {
+    message: err.message || "Internal Server Error",
+    status: 500,
+    path: req.path,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Handle different error types
+  if (err instanceof ZodError) {
+    const validationError = fromZodError(err);
+    errorResponse.status = 400;
+    errorResponse.message = validationError.message;
+  } else if (err instanceof ValidationError) {
+    errorResponse.status = 400;
+  } else if (err instanceof AuthorizationError) {
+    errorResponse.status = 403;
+  } else if (err instanceof NotFoundError) {
+    errorResponse.status = 404;
+  } else if (err instanceof ConflictError) {
+    errorResponse.status = 409;
+  } else if (err instanceof BusinessLogicError) {
+    errorResponse.status = 422;
+  }
+
+  // Hide internal error details in production
+  if (process.env.NODE_ENV === "production" && errorResponse.status === 500) {
+    errorResponse.message = "Internal Server Error";
   }
 
   res.status(errorResponse.status).json(errorResponse);
