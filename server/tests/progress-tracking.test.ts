@@ -58,8 +58,7 @@ describe('Progress Tracking System', () => {
         primaryMuscleGroupId: testMuscleGroup.id,
         secondaryMuscleGroupIds: [],
         instructions: ['Step 1', 'Step 2'],
-        tips: ['Tip 1'],
-        equipment: ['Dumbbell'],
+        videoUrl: 'https://example.com/video',
         createdAt: new Date()
       }).returning();
 

@@ -65,8 +65,7 @@ interface FormData {
   primaryMuscleGroupId: number;
   secondaryMuscleGroupIds: number[];
   instructions: string[];
-  tips: string[];  // Make tips required
-  equipment: string[];  // Make equipment required
+  videoUrl?: string;
 }
 
 interface AIAnalysisResponse {
@@ -86,7 +85,7 @@ export default function ExerciseLibrary() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
-  // Initialize form with empty arrays for required fields
+  // Update form initialization
   const form = useForm<FormData>({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -96,8 +95,7 @@ export default function ExerciseLibrary() {
       primaryMuscleGroupId: 1,
       secondaryMuscleGroupIds: [],
       instructions: [],
-      tips: [],  // Initialize with empty array
-      equipment: [], // Initialize with empty array
+      videoUrl: ""
     }
   });
 
@@ -107,8 +105,6 @@ export default function ExerciseLibrary() {
         ...data,
         secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(id => Number(id)),
         primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
-        tips: data.tips || [], // Ensure tips is always an array
-        equipment: data.equipment || [], // Ensure equipment is always an array
       });
 
       if (!res.ok) {
@@ -421,51 +417,12 @@ export default function ExerciseLibrary() {
                   />
                   <FormField
                     control={form.control}
-                    name="tips"
+                    name="videoUrl"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tips</FormLabel>
+                        <FormLabel>Video URL (Optional)</FormLabel>
                         <FormControl>
-                          <div className="space-y-2">
-                            {field.value.map((tip: string, index: number) => (
-                              <Input
-                                key={index}
-                                value={tip}
-                                onChange={(e) => {
-                                  const newTips = [...field.value];
-                                  newTips[index] = e.target.value;
-                                  field.onChange(newTips);
-                                }}
-                                disabled={isAnalyzing}
-                              />
-                            ))}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="equipment"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Equipment</FormLabel>
-                        <FormControl>
-                          <div className="space-y-2">
-                            {field.value.map((equipmentItem: string, index: number) => (
-                              <Input
-                                key={index}
-                                value={equipmentItem}
-                                onChange={(e) => {
-                                  const newEquipment = [...field.value];
-                                  newEquipment[index] = e.target.value;
-                                  field.onChange(newEquipment);
-                                }}
-                                disabled={isAnalyzing}
-                              />
-                            ))}
-                          </div>
+                          <Input {...field} placeholder="https://..." disabled={isAnalyzing} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

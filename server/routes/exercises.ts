@@ -46,10 +46,8 @@ const handleApiError = (error: unknown, context: string) => {
   };
 };
 
-// Move to a non-intercepted path
 router.post('/exercise-ai/analyze', async (req, res) => {
   try {
-    // Log request details
     logInfo('Exercise analysis request:', {
       headers: req.headers,
       body: req.body,
@@ -58,7 +56,6 @@ router.post('/exercise-ai/analyze', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // Set strict headers
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -73,7 +70,6 @@ router.post('/exercise-ai/analyze', async (req, res) => {
 
     const result = await generateExerciseDetails(exerciseName);
 
-    // Log successful response
     logInfo('Exercise analysis success:', { 
       result,
       timestamp: new Date().toISOString()
@@ -97,7 +93,6 @@ router.post('/exercise-ai/analyze', async (req, res) => {
   }
 });
 
-// Debug endpoint for troubleshooting OpenAI responses
 router.post('/api/debug/openai', async (req, res) => {
   try {
     logInfo('Debug endpoint request:', {
@@ -108,13 +103,11 @@ router.post('/api/debug/openai', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // Force JSON content type and no caching
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
-    // Log the OpenAI API call attempt
     logInfo('Initiating OpenAI API call:', {
       exerciseName,
       timestamp: new Date().toISOString()
@@ -122,7 +115,6 @@ router.post('/api/debug/openai', async (req, res) => {
 
     const rawResponse = await generateExerciseDetails(exerciseName);
 
-    // Log the raw response for debugging
     logInfo('Raw OpenAI API response:', {
       response: rawResponse,
       timestamp: new Date().toISOString()

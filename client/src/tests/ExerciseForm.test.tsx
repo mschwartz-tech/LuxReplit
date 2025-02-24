@@ -19,7 +19,8 @@ const mockAIResponse = {
     "Stand with feet shoulder-width apart",
     "Lower your body by bending knees",
     "Return to starting position"
-  ]
+  ],
+  videoUrl: "https://example.com/video"
 };
 
 describe('Exercise Form', () => {
