@@ -15,7 +15,7 @@ router.post('/api/exercises/predict-details', async (req, res) => {
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4",
       messages: [
         {
           role: "system",
@@ -40,13 +40,18 @@ router.post('/api/exercises/predict-details', async (req, res) => {
    14: Hip Flexors
    15: Traps
 
-Output format must be JSON with exactly these fields:
+Example response format:
 {
-  "description": "string (50 words max)",
-  "instructions": ["1. First step", "2. Second step", ...],
-  "difficulty": "beginner" | "intermediate" | "advanced",
-  "primaryMuscleGroupId": number (1-15),
-  "secondaryMuscleGroupIds": number[] (1-15)
+  "description": "A compound leg exercise that targets multiple muscle groups while improving balance and coordination.",
+  "instructions": [
+    "1. Stand with feet hip-width apart",
+    "2. Step forward with right leg, lowering your body until both knees form 90-degree angles",
+    "3. Push through front heel to return to starting position",
+    "4. Alternate legs with each rep"
+  ],
+  "difficulty": "intermediate",
+  "primaryMuscleGroupId": 1,
+  "secondaryMuscleGroupIds": [2, 13]
 }`
         },
         {
@@ -70,7 +75,7 @@ Output format must be JSON with exactly these fields:
       throw new Error('Invalid AI response format');
     }
 
-    // Ensure instructions is an array
+    // Ensure instructions is an array and each instruction starts with a number
     const instructions = Array.isArray(result.instructions) ? result.instructions : [result.instructions];
 
     // Validate muscle group IDs
