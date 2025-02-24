@@ -3,7 +3,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { logError, logInfo } from "./services/logger";
 import { registerRoutes } from "./routes";
-import { ensureDatabaseInitialized, pool } from "./db";
+import { ensureDatabaseInitialized } from "./db";
 import { setupVite } from "./vite";
 import { securityHeaders } from "./middleware";
 import { apiLimiter, authenticatedLimiter, getRouteLimiter } from "./middleware/rate-limit";
@@ -37,18 +37,19 @@ app.use(cors({
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Custom-Route']
 }));
 
-// API routes should be handled before any other middleware
+// API route handler - must be before Vite middleware
 app.use('/api', (req, res, next) => {
+  // Always set JSON response type for API routes
   res.type('application/json');
-  // Ensure Vite doesn't intercept API requests
+  // Add custom header to identify API routes
   res.setHeader('X-Custom-Route', 'api');
   next();
 });
 
-// Session middleware setup with improved error handling
+// Session middleware setup
 app.use(
   session({
     store: new pgSession({
@@ -74,20 +75,33 @@ app.use(
 // Setup authentication after session middleware
 setupAuth(app);
 
-// Register routes before Vite middleware
 const startServer = async () => {
   try {
     await ensureDatabaseInitialized();
+
+    // Register API routes first
     const server = await registerRoutes(app);
 
-    // Apply Vite middleware last to prevent it from intercepting API routes
+    // Apply security headers for non-API routes
+    app.use((req, res, next) => {
+      if (!req.path.startsWith('/api')) {
+        securityHeaders(req, res, next);
+      } else {
+        next();
+      }
+    });
+
+    // Handle Vite middleware last, after all API routes
     if (process.env.NODE_ENV !== "production" && process.env.DISABLE_VITE !== 'true') {
+      // Custom middleware to ensure API routes don't reach Vite
       app.use((req, res, next) => {
-        if (req.path.startsWith('/api')) {
+        // Check both path and custom header
+        if (req.path.startsWith('/api') || req.headers['x-custom-route'] === 'api') {
           return next('route');
         }
         next();
       });
+
       await setupVite(app, server);
     }
 

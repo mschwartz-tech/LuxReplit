@@ -2,8 +2,26 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok && res.status !== 404) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const contentType = res.headers.get('content-type');
+    // Check if response is HTML instead of JSON
+    if (contentType?.includes('text/html')) {
+      throw new Error('Received HTML response instead of JSON. This may indicate a routing issue.');
+    }
+
+    try {
+      const text = await res.text();
+      // Try to parse as JSON first
+      try {
+        const json = JSON.parse(text);
+        throw new Error(`${res.status}: ${json.message || text}`);
+      } catch {
+        // If not JSON, use text directly
+        throw new Error(`${res.status}: ${text}`);
+      }
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      throw new Error(`${res.status}: ${res.statusText}`);
+    }
   }
 }
 
@@ -14,7 +32,11 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...data ? { "Content-Type": "application/json" } : {},
+      // Add custom header to prevent Vite from intercepting
+      "X-Custom-Route": "api"
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -31,6 +53,10 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
+      headers: {
+        "Accept": "application/json",
+        "X-Custom-Route": "api"
+      }
     });
 
     if ((unauthorizedBehavior === "returnNull" && res.status === 401) || res.status === 404) {
