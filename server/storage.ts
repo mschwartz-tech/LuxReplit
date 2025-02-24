@@ -40,10 +40,7 @@ import {
   TrainingPackage,
   InsertTrainingPackage,
   TrainingClient,
-  InsertTrainingClient,
-  temporaryMealPlans,
-  InsertTemporaryMealPlan,
-  TemporaryMealPlan
+  InsertTrainingClient
 } from "@shared/schema";
 import session from "express-session";
 import {
@@ -67,8 +64,7 @@ import {
   trainingPackages,
   trainingClients,
   mealPlans,
-  memberMealPlans,
-  temporaryMealPlans,
+  memberMealPlans
 } from "@shared/schema";
 import { eq, sql, desc, and } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
@@ -255,13 +251,6 @@ export interface IStorage {
   ): Promise<TrainingClient>;
   searchPlaces(query: string): Promise<any[]>;
   getPlaceDetails(placeId: string): Promise<any | null>;
-
-  // Temporary meal plan operations
-  createTemporaryMealPlan(data: InsertTemporaryMealPlan): Promise<TemporaryMealPlan>;
-  getTemporaryMealPlan(userId: number): Promise<TemporaryMealPlan | null>;
-  updateTemporaryMealPlan(userId: number, data: Partial<InsertTemporaryMealPlan>): Promise<TemporaryMealPlan>;
-  regenerateMeal(userId: number, dayNumber: number, mealNumber: number): Promise<TemporaryMealPlan>;
-  confirmMeal(userId: number, dayNumber: number, mealNumber: number): Promise<TemporaryMealPlan>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1750,120 +1739,8 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createTemporaryMealPlan(data: InsertTemporaryMealPlan): Promise<TemporaryMealPlan> {
-    try {
-      const [newPlan] = await db
-        .insert(temporaryMealPlans)
-        .values(data)
-        .returning();
+  // Removed temporary meal plan methods
 
-      logFeatureProgress(
-        'mealPlanning',
-        'temporaryStorage',
-        '✓',
-        { operation: 'create', entityType: 'temporaryMealPlan' }
-      );
-
-      return newPlan;
-    } catch (error) {
-      logError('Error creating temporary meal plan:', {
-        error,
-        category: 'mealPlanning',
-        feature: 'temporaryStorage'
-      });
-      throw error;
-    }
-  }
-
-  async getTemporaryMealPlan(userId: number): Promise<TemporaryMealPlan | null> {
-    try {
-      const [plan] = await db
-        .select()
-        .from(temporaryMealPlans)
-        .where(and(
-          eq(temporaryMealPlans.userId, userId),
-          sql`${temporaryMealPlans.expiresAt} > NOW()`
-        ));
-
-      return plan || null;
-    } catch (error) {
-      console.error("Error getting temporary meal plan:", error);
-      return null;
-    }
-  }
-
-  async updateTemporaryMealPlan(
-    userId: number,
-    data: Partial<InsertTemporaryMealPlan>
-  ): Promise<TemporaryMealPlan> {
-    try {
-      const [updatedPlan] = await db
-        .update(temporaryMealPlans)
-        .set(data)
-        .where(eq(temporaryMealPlans.userId, userId))
-        .returning();
-
-      return updatedPlan;
-    } catch (error) {
-      console.error("Error updating temporary meal plan:", error);
-      throw error;
-    }
-  }
-
-  async regenerateMeal(
-    userId: number,
-    dayNumber: number,
-    mealNumber: number
-  ): Promise<TemporaryMealPlan> {
-    try {
-      // Get current plan
-      const currentPlan = await this.getTemporaryMealPlan(userId);
-      if (!currentPlan) throw new Error("No temporary meal plan found");
-
-      // Update the specific meal's status
-      const updatedMeals = currentPlan.meals.map(meal => {
-        if (meal.dayNumber === dayNumber && meal.mealNumber === mealNumber) {
-          return { ...meal, status: "draft" };
-        }
-        return meal;
-      });
-
-      // Update the plan
-      return await this.updateTemporaryMealPlan(userId, { 
-        meals: updatedMeals,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // Extend expiration by 24 hours
-      });
-    } catch (error) {
-      console.error("Error regenerating meal:", error);
-      throw error;
-    }
-  }
-
-  async confirmMeal(
-    userId: number,
-    dayNumber: number,
-    mealNumber: number
-  ): Promise<TemporaryMealPlan> {
-    try {
-      // Get current plan
-      const currentPlan = await this.getTemporaryMealPlan(userId);
-      if (!currentPlan) throw new Error("No temporary meal plan found");
-
-      // Update the specific meal's status
-      const updatedMeals = currentPlan.meals.map(meal => {
-        if (meal.dayNumber === dayNumber && meal.mealNumber === mealNumber) {
-          return { ...meal, status: "confirmed" };
-        }
-        return meal;
-      });
-
-      // Update the plan
-      return await this.updateTemporaryMealPlan(userId, { meals: updatedMeals });
-    } catch (error) {
-      console.error("Error confirming meal:", error);
-      throw error;
-    }
-  }
 }
 
 export const storage = new DatabaseStorage();
@@ -2091,13 +1968,6 @@ CREATE TABLE IF NOT EXISTS training_clients (
   endDate TIMESTAMP WITH TIME ZONE,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS temporary_meal_plans (
-  id SERIAL PRIMARY KEY,
-  userId INTEGER REFERENCES users(id),
-  meals JSONB,
-  expiresAt TIMESTAMP WITH TIME ZONE
 );
 `;
 
