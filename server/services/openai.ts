@@ -7,10 +7,6 @@ if (!process.env.OPENAI_API_KEY) {
 
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  defaultHeaders: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
 });
 
 export interface ExerciseAIResponse {
@@ -27,17 +23,17 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
       throw new Error('Exercise name must be at least 3 characters long');
     }
 
-    const systemPrompt = `As a professional fitness trainer, analyze the exercise and provide information in a strict JSON format.
-The response must be valid JSON with these exact fields:
+    const systemPrompt = `You are a professional fitness trainer. Your task is to analyze exercises and provide detailed information.
+RESPOND ONLY WITH A JSON OBJECT IN THIS EXACT FORMAT (no additional text or explanations):
 {
   "description": "Brief description under 100 chars",
-  "primaryMuscleGroupId": (number 1-15),
-  "secondaryMuscleGroupIds": [up to 5 different numbers 1-15, excluding primary],
-  "difficulty": "beginner" | "intermediate" | "advanced",
-  "instructions": ["Step 1", "Step 2", ..., "Step 10"] (1-10 steps)
+  "primaryMuscleGroupId": number between 1-15,
+  "secondaryMuscleGroupIds": array of up to 5 different numbers 1-15 (excluding primary),
+  "difficulty": "beginner" OR "intermediate" OR "advanced",
+  "instructions": array of strings (1-10 steps)
 }
 
-Muscle groups:
+Available muscle groups by ID:
 1. Quadriceps  2. Hamstrings  3. Calves  4. Chest  5. Back
 6. Shoulders   7. Biceps      8. Triceps  9. Forearms  10. Abs
 11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps`;
@@ -53,10 +49,9 @@ Muscle groups:
         },
         {
           role: "user",
-          content: `Analyze this exercise and respond only with the JSON object: ${exerciseName}`
+          content: `Analyze this exercise and respond with ONLY the JSON object (no additional text): ${exerciseName}`
         }
       ],
-      response_format: { type: "json_object" },
       temperature: 0.3,
       max_tokens: 500
     });
@@ -68,7 +63,17 @@ Muscle groups:
     const content = response.choices[0].message.content.trim();
 
     try {
-      const parsed = JSON.parse(content);
+      // Find the first occurrence of '{' and the last occurrence of '}'
+      const startIdx = content.indexOf('{');
+      const endIdx = content.lastIndexOf('}');
+
+      if (startIdx === -1 || endIdx === -1) {
+        throw new Error('Invalid JSON format in response');
+      }
+
+      // Extract only the JSON part
+      const jsonStr = content.substring(startIdx, endIdx + 1);
+      const parsed = JSON.parse(jsonStr);
 
       // Format and validate the response
       const formatted: ExerciseAIResponse = {
