@@ -80,13 +80,14 @@ export default function ExerciseLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // State management
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
-  // Form setup
+  // Form setup with validation schema
   const form = useForm<FormData>({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -104,6 +105,10 @@ export default function ExerciseLibrary() {
   // AI Analysis mutation with better error handling
   const analyzeExerciseMutation = useMutation({
     mutationFn: async (exerciseName: string): Promise<AIAnalysisResponse> => {
+      if (!exerciseName || exerciseName.length < 3) {
+        throw new Error('Exercise name must be at least 3 characters');
+      }
+
       const res = await apiRequest("POST", "/api/exercises/analyze", { exerciseName });
       if (!res.ok) {
         const errorText = await res.text();
@@ -132,6 +137,7 @@ export default function ExerciseLibrary() {
         title: "AI analysis complete",
         description: "Exercise details have been generated",
       });
+      setIsAnalyzing(false);
     },
     onError: (error: Error) => {
       toast({
@@ -139,23 +145,27 @@ export default function ExerciseLibrary() {
         description: error.message,
         variant: "destructive",
       });
+      setIsAnalyzing(false);
     },
   });
 
   // Debounced analysis function
   const debouncedAnalyze = useCallback(
     debounce((name: string) => {
-      if (name.length >= 3) {
+      if (name.length >= 3 && !isAnalyzing) {
+        setIsAnalyzing(true);
         analyzeExerciseMutation.mutate(name);
       }
     }, 1000), // Wait 1 second after the user stops typing
-    []
+    [isAnalyzing]
   );
 
-  // Handle exercise name input
+  // Handle exercise name input with validation
   const handleExerciseNameChange = (name: string) => {
     form.setValue("name", name);
-    debouncedAnalyze(name);
+    if (!isAnalyzing) {
+      debouncedAnalyze(name);
+    }
   };
 
   // Create exercise mutation
@@ -213,7 +223,6 @@ export default function ExerciseLibrary() {
     );
   }
 
-  // JSX rendering
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
@@ -258,6 +267,7 @@ export default function ExerciseLibrary() {
                             {...field}
                             placeholder="e.g. Barbell Back Squat"
                             onChange={(e) => handleExerciseNameChange(e.target.value)}
+                            disabled={isAnalyzing}
                           />
                         </FormControl>
                         <FormMessage />
@@ -271,7 +281,7 @@ export default function ExerciseLibrary() {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} disabled={isAnalyzing} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -286,6 +296,7 @@ export default function ExerciseLibrary() {
                         <Select
                           value={field.value}
                           onValueChange={field.onChange}
+                          disabled={isAnalyzing}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -311,6 +322,7 @@ export default function ExerciseLibrary() {
                         <Select
                           value={field.value.toString()}
                           onValueChange={(value) => field.onChange(parseInt(value))}
+                          disabled={isAnalyzing}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -346,7 +358,7 @@ export default function ExerciseLibrary() {
                                     : field.value.filter((id) => id !== group.id);
                                   field.onChange(newValue);
                                 }}
-                                disabled={group.id === form.getValues("primaryMuscleGroupId")}
+                                disabled={group.id === form.getValues("primaryMuscleGroupId") || isAnalyzing}
                               />
                               <label className="text-sm">{group.name}</label>
                             </div>
@@ -373,6 +385,7 @@ export default function ExerciseLibrary() {
                                   newInstructions[index] = e.target.value;
                                   field.onChange(newInstructions);
                                 }}
+                                disabled={isAnalyzing}
                               />
                             ))}
                           </div>
@@ -383,10 +396,13 @@ export default function ExerciseLibrary() {
                   />
                   <Button
                     type="submit"
-                    disabled={createExerciseMutation.isPending || analyzeExerciseMutation.isPending}
+                    disabled={createExerciseMutation.isPending || isAnalyzing}
                   >
-                    {createExerciseMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    {createExerciseMutation.isPending || isAnalyzing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {isAnalyzing ? "Analyzing..." : "Creating..."}
+                      </>
                     ) : (
                       "Create Exercise"
                     )}
