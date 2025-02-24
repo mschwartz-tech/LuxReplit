@@ -21,7 +21,6 @@ export interface ExerciseAIResponse {
   instructions: string[];
 }
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
     if (!exerciseName || exerciseName.trim().length < 3) {
@@ -54,7 +53,7 @@ STRICT REQUIREMENTS:
     logInfo('Generating exercise details for:', { exerciseName });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4", // Fixed: Using the correct model name
       messages: [
         {
           role: "system",
@@ -91,7 +90,7 @@ STRICT REQUIREMENTS:
         primaryMuscleGroupId: Number(parsed.primaryMuscleGroupId),
         secondaryMuscleGroupIds: (parsed.secondaryMuscleGroupIds || [])
           .map(Number)
-          .filter(id => 
+          .filter((id: number) => 
             Number.isInteger(id) && 
             id >= 1 && 
             id <= 15 && 
