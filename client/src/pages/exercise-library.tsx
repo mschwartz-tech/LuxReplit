@@ -36,6 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
+import * as z from 'zod';
 
 // Muscle groups definition remains unchanged
 const MUSCLE_GROUPS = [
@@ -189,13 +190,31 @@ export default function ExerciseLibrary() {
   // Form submission handler
   const onSubmit = async (data: FormData) => {
     try {
-      await createExerciseMutation.mutateAsync({
+      // First validate the form data
+      const validatedData = await insertExerciseSchema.parseAsync({
         ...data,
         primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
         secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(id => Number(id))
       });
+
+      await createExerciseMutation.mutateAsync(validatedData);
     } catch (error) {
       console.error('Form submission error:', error);
+      if (error instanceof z.ZodError) {
+        error.errors.forEach((err) => {
+          if (err.path) {
+            form.setError(err.path[0] as any, {
+              message: err.message,
+            });
+          }
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to create exercise",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -403,7 +422,7 @@ export default function ExerciseLibrary() {
                     {createExerciseMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
+                        Creating...
                       </>
                     ) : (
                       "Save Exercise"
