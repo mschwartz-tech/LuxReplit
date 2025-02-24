@@ -70,7 +70,7 @@ For instructions, provide 3-6 clear, numbered steps that explain how to perform 
     }
 
     // Ensure instructions is an array
-    const instructions = Array.isArray(result.instructions) ? result.instructions : result.instructions.split('\n');
+    const instructions = Array.isArray(result.instructions) ? result.instructions : [result.instructions];
 
     // Validate muscle group IDs
     const primaryMuscleGroupId = Number(result.primaryMuscleGroupId);
