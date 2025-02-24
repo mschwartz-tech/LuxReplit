@@ -18,6 +18,19 @@ interface MealPlanGenerationRequest {
   maxPrepTime: string;
 }
 
+interface SingleMealGenerationRequest {
+  foodPreferences: string;
+  calorieTarget: number;
+  mealType: string; // "Breakfast" | "Lunch" | "Dinner" | "Snack"
+  dayNumber: number;
+  mealNumber: number;
+  macroDistribution: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
+}
+
 interface Ingredient {
   item: string;
   amount: string;
@@ -35,6 +48,83 @@ interface MealDetails {
   fats: number;
   dayNumber: number;
   mealNumber: number;
+}
+
+export async function generateSingleMeal(request: SingleMealGenerationRequest): Promise<MealDetails> {
+  const prompt = `As a professional nutritionist, create a single ${request.mealType} meal following these requirements:
+
+KEY REQUIREMENTS:
+- Food preferences: ${request.foodPreferences}
+- Calorie target for this meal: ${request.calorieTarget} calories
+- Macro split: Protein ${request.macroDistribution.protein}%, Carbs ${request.macroDistribution.carbs}%, Fats ${request.macroDistribution.fats}%
+
+REQUIRED OUTPUT FORMAT:
+Provide a meal with:
+1. Meal name and description
+2. Detailed ingredients list with precise measurements
+3. Step-by-step cooking instructions
+4. Complete nutritional information
+
+Structure your response as a JSON with this format:
+{
+  "meal": "${request.mealType}",
+  "food": "string (dish name and description)",
+  "ingredients": [{"item": "string", "amount": "string", "unit": "string"}],
+  "instructions": ["string"],
+  "calories": number,
+  "protein": number,
+  "carbs": number,
+  "fats": number,
+  "dayNumber": ${request.dayNumber},
+  "mealNumber": ${request.mealNumber}
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional nutritionist and meal planning expert. Provide precise, accurate meal plans with exact nutritional values, detailed ingredients, and clear cooking instructions."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+
+    if (!response.choices[0].message.content) {
+      logError('Empty response from OpenAI', { response });
+      throw new Error("No content in OpenAI response");
+    }
+
+    console.log('Raw OpenAI response for single meal:', response.choices[0].message.content);
+
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content);
+    } catch (error) {
+      logError('Failed to parse OpenAI response:', { error, content: response.choices[0].message.content });
+      throw new Error("Invalid JSON response from OpenAI");
+    }
+
+    // Validate meal structure
+    if (!result.meal || !result.food || !Array.isArray(result.ingredients) || 
+        !Array.isArray(result.instructions) || typeof result.calories !== 'number' || 
+        typeof result.protein !== 'number' || typeof result.carbs !== 'number' || 
+        typeof result.fats !== 'number') {
+      logError('Invalid meal structure:', { result });
+      throw new Error("Invalid meal data structure");
+    }
+
+    return result as MealDetails;
+  } catch (error) {
+    logError('Error generating single meal:', { error, request });
+    throw new Error(error instanceof Error ? error.message : "Failed to generate meal");
+  }
 }
 
 export async function generateMealPlan(request: MealPlanGenerationRequest): Promise<MealDetails[]> {

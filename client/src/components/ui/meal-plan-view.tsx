@@ -7,16 +7,24 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 import { Badge } from '@/components/ui/badge';
+import { RefreshCw, Loader2 } from 'lucide-react';
 import type { MealItem } from '@shared/schema';
 
 interface MealPlanViewProps {
   meals: MealItem[];
   initialView?: 'single' | 'daily' | 'weekly';
+  onRegenerateMeal?: (meal: MealItem) => void;
+  isRegenerating?: boolean;
 }
 
-export function MealPlanView({ meals, initialView = 'daily' }: MealPlanViewProps) {
+export function MealPlanView({ 
+  meals, 
+  initialView = 'daily',
+  onRegenerateMeal,
+  isRegenerating = false 
+}: MealPlanViewProps) {
   const [view, setView] = useState(initialView);
 
   // Group meals by day
@@ -32,11 +40,27 @@ export function MealPlanView({ meals, initialView = 'daily' }: MealPlanViewProps
       <CardHeader>
         <CardTitle className="text-lg flex justify-between items-center">
           <span>{meal.meal}</span>
-          <div className="flex gap-2 text-sm">
-            <Badge variant="outline">{meal.calories} cal</Badge>
-            <Badge variant="outline">P: {meal.protein}g</Badge>
-            <Badge variant="outline">C: {meal.carbs}g</Badge>
-            <Badge variant="outline">F: {meal.fats}g</Badge>
+          <div className="flex items-center gap-4">
+            <div className="flex gap-2 text-sm">
+              <Badge variant="outline">{meal.calories} cal</Badge>
+              <Badge variant="outline">P: {meal.protein}g</Badge>
+              <Badge variant="outline">C: {meal.carbs}g</Badge>
+              <Badge variant="outline">F: {meal.fats}g</Badge>
+            </div>
+            {onRegenerateMeal && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRegenerateMeal(meal)}
+                disabled={isRegenerating}
+              >
+                {isRegenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            )}
           </div>
         </CardTitle>
       </CardHeader>
@@ -80,7 +104,7 @@ export function MealPlanView({ meals, initialView = 'daily' }: MealPlanViewProps
 
   return (
     <div className="w-full">
-      <Tabs value={view} onValueChange={setView}>
+      <Tabs value={view} onValueChange={(value: 'single' | 'daily' | 'weekly') => setView(value)}>
         <TabsList>
           <TabsTrigger value="single">Single Meal</TabsTrigger>
           <TabsTrigger value="daily">Daily View</TabsTrigger>
@@ -108,8 +132,24 @@ export function MealPlanView({ meals, initialView = 'daily' }: MealPlanViewProps
                 </CardHeader>
                 <CardContent className="pt-4">
                   {dayMeals.map(meal => (
-                    <div key={meal.mealNumber} className="mb-2">
-                      <div className="font-medium">{meal.meal}</div>
+                    <div key={meal.mealNumber} className="mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="font-medium">{meal.meal}</div>
+                        {onRegenerateMeal && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onRegenerateMeal(meal)}
+                            disabled={isRegenerating}
+                          >
+                            {isRegenerating ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground">{meal.food}</div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {meal.calories} cal | P:{meal.protein}g C:{meal.carbs}g F:{meal.fats}g
