@@ -43,10 +43,6 @@ import {
   InsertTrainingClient,
   Meal,
   InsertMeal,
-  MealPlanDay,
-  InsertMealPlanDay,
-  MealPlanSlot,
-  InsertMealPlanSlot,
 } from "@shared/schema";
 import session from "express-session";
 import {
@@ -72,10 +68,8 @@ import {
   mealPlans,
   memberMealPlans,
   meals,
-  mealPlanDays,
-  mealPlanSlots,
 } from "@shared/schema";
-import { eq, sql, desc, and } from "drizzle-orm";
+import { eq, sql, desc, and, between } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 import { logFeatureProgress } from './services/logger';
@@ -187,23 +181,27 @@ export interface IStorage {
   getMealPlans(): Promise<MealPlan[]>;
   getMealPlan(id: number): Promise<MealPlan | null>;
   createMealPlan(data: InsertMealPlan): Promise<MealPlan>;
-  updateMealPlan(
-    id: number,
-    data: Partial<InsertMealPlan>
-  ): Promise<MealPlan>;
+  updateMealPlan(id: number, data: Partial<InsertMealPlan>): Promise<MealPlan>;
   deleteMealPlan(id: number): Promise<void>;
 
-  // Member Meal Plan operations
-  getMemberMealPlans(memberId: number): Promise<MemberMealPlan[]>;
-  getMemberMealPlan(id: number): Promise<MemberMealPlan | null>;
-  createMemberMealPlan(
-    data: InsertMemberMealPlan
-  ): Promise<MemberMealPlan>;
-  updateMemberMealPlan(
-    id: number,
-    data: Partial<InsertMemberMealPlan>
-  ): Promise<MemberMealPlan>;
-  deleteMemberMealPlan(id: number): Promise<void>;
+  // Meal operations
+  createMeal(meal: InsertMeal): Promise<Meal>;
+  getMeal(id: number): Promise<Meal | undefined>;
+  getMealsByPlan(planId: number): Promise<Meal[]>;
+  getMealsByWeekAndDay(planId: number, weekNumber: number, dayNumber: number): Promise<Meal[]>;
+  regenerateMeal(
+    planId: number,
+    mealId: number,
+    newMealData: InsertMeal
+  ): Promise<Meal>;
+  getMealsByPlanAndWeek(planId: number, weekNumber: number): Promise<Meal[]>;
+  getDailyMealStats(planId: number, weekNumber: number, dayNumber: number): Promise<{
+    totalCalories: number;
+    totalProtein: number;
+    totalCarbs: number;
+    totalFats: number;
+  }>;
+
 
   // Progress tracking methods
   getMemberProgress(memberId: number): Promise<Progress[]>;
@@ -260,66 +258,6 @@ export interface IStorage {
   ): Promise<TrainingClient>;
   searchPlaces(query: string): Promise<any[]>;
   getPlaceDetails(placeId: string): Promise<any | null>;
-
-  // Meal operations
-  createMeal(meal: InsertMeal): Promise<Meal>;
-  getMeal(id: number): Promise<Meal | undefined>;
-  getMealsByPlan(planId: number): Promise<Meal[]>;
-
-  // Meal plan operations
-  createMealPlan(plan: InsertMealPlan): Promise<MealPlan>;
-  getMealPlan(id: number): Promise<MealPlan | undefined>;
-  getMealPlansByUser(userId: number): Promise<MealPlan[]>;
-  updateMealPlanStatus(id: number, status: string): Promise<MealPlan>;
-
-  // Day operations
-  createMealPlanDay(day: InsertMealPlanDay): Promise<MealPlanDay>;
-  getMealPlanDay(id: number): Promise<MealPlanDay | undefined>;
-  getMealPlanDays(planId: number): Promise<MealPlanDay[]>;
-
-  // Slot operations
-  createMealPlanSlot(slot: InsertMealPlanSlot): Promise<MealPlanSlot>;
-  getMealPlanSlot(id: number): Promise<MealPlanSlot | undefined>;
-  getMealPlanSlots(dayId: number): Promise<MealPlanSlot[]>;
-  updateMealPlanSlot(id: number, updates: Partial<InsertMealPlanSlot>): Promise<MealPlanSlot>;
-  requestSlotRegeneration(id: number): Promise<MealPlanSlot>;
-  confirmSlot(id: number): Promise<MealPlanSlot>;
-
-  // Meal Plan Week Management
-  getCurrentWeekPlan(userId: number): Promise<MealPlan | null>;
-  getUpcomingWeekPlan(userId: number): Promise<MealPlan | null>;
-  transitionToNextWeek(userId: number): Promise<void>;
-
-  // Meal operations with macro constraints
-  regenerateMeal(
-    slotId: number,
-    constraints: {
-      targetCalories: number;
-      macroDistribution: {
-        protein: number;
-        carbs: number;
-        fats: number;
-      };
-    }
-  ): Promise<Meal>;
-
-  // Day operations
-  getDayMeals(dayId: number): Promise<Meal[]>;
-  updateDayMacros(
-    dayId: number,
-    macros: {
-      targetCalories: number;
-      macroDistribution: {
-        protein: number;
-        carbs: number;
-        fats: number;
-      };
-    }
-  ): Promise<MealPlanDay>;
-
-  // Slot operations
-  confirmMealSlot(slotId: number): Promise<MealPlanSlot>;
-  requestSlotRegeneration(slotId: number): Promise<MealPlanSlot>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1809,413 +1747,172 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Removed temporary meal plan methods
+  // Meal Implementation
   async createMeal(meal: InsertMeal): Promise<Meal> {
     try {
-      const [newMeal] = await db.insert(meals).values(meal).returning();
+      const [newMeal] = await db
+        .insert(meals)
+        .values(meal)
+        .returning();
+      logFeatureProgress(
+        'mealPlanning',
+        'crudOperations',
+        '✓',
+        { operation: 'create', entityType: 'meal' }
+      );
       return newMeal;
     } catch (error) {
-      logError('Error creating meal:', { error });
+      logError('Error creating meal:', {
+        error,
+        category: 'mealPlanning',
+        feature: 'crudOperations'
+      });
       throw error;
     }
   }
 
   async getMeal(id: number): Promise<Meal | undefined> {
     try {
-      const [meal] = await db.select().from(meals).where(eq(meals.id, id));
+      const [meal] = await db
+        .select()
+        .from(meals)
+        .where(eq(meals.id, id));
       return meal;
     } catch (error) {
-      logError('Error getting meal:', { error });
+      console.error("Error getting meal:", error);
       return undefined;
     }
   }
 
   async getMealsByPlan(planId: number): Promise<Meal[]> {
     try {
-      const result = await db
-        .select({
-          meal: meals,
-          slot: mealPlanSlots,
-          day: mealPlanDays
-        })
+      return await db
+        .select()
         .from(meals)
-        .innerJoin(mealPlanSlots, eq(meals.id, mealPlanSlots.mealId))
-        .innerJoin(mealPlanDays, eq(mealPlanSlots.mealPlanDayId, mealPlanDays.id))
-        .where(eq(mealPlanDays.mealPlanId, planId));
-
-      return result.map(r => r.meal);
+        .where(eq(meals.mealPlanId, planId))
+        .orderBy(meals.weekNumber, meals.dayNumber, meals.mealNumber);
     } catch (error) {
-      logError('Error getting meals by plan:', { error });
+      console.error("Error getting meals by plan:", error);
       return [];
     }
   }
 
-  async createMealPlan(plan: InsertMealPlan): Promise<MealPlan> {
-    try {
-      const [newPlan] = await db.insert(mealPlans).values(plan).returning();
-      return newPlan;
-    } catch (error) {
-      logError('Error creating meal plan:', { error });
-      throw error;
-    }
-  }
-
-  async getMealPlan(id: number): Promise<MealPlan | undefined> {
-    try {
-      const [plan] = await db.select().from(mealPlans).where(eq(mealPlans.id, id));
-      return plan;
-    } catch (error) {
-      logError('Error getting meal plan:', { error });
-      return undefined;
-    }
-  }
-
-  async getMealPlansByUser(userId: number): Promise<MealPlan[]> {
+  async getMealsByWeekAndDay(
+    planId: number,
+    weekNumber: number,
+    dayNumber: number
+  ): Promise<Meal[]> {
     try {
       return await db
         .select()
-        .from(mealPlans)
-        .where(eq(mealPlans.userId, userId))
-        .orderBy(desc(mealPlans.createdAt));
-    } catch (error) {
-      logError('Error getting user meal plans:', { error });
-      return [];
-    }
-  }
-
-  async updateMealPlanStatus(id: number, status: string): Promise<MealPlan> {
-    try {
-      const [updated] = await db
-        .update(mealPlans)
-        .set({ status, updatedAt: new Date() })
-        .where(eq(mealPlans.id, id))
-        .returning();
-      return updated;
-    } catch (error) {
-      logError('Error updating meal plan status:', { error });
-      throw error;
-    }
-  }
-
-  async createMealPlanDay(day: InsertMealPlanDay): Promise<MealPlanDay> {
-    try {
-      const [newDay] = await db.insert(mealPlanDays).values(day).returning();
-      return newDay;
-    } catch (error) {
-      logError('Error creating meal plan day:', { error });
-      throw error;
-    }
-  }
-
-  async getMealPlanDay(id: number): Promise<MealPlanDay | undefined> {
-    try {
-      const [day] = await db.select().from(mealPlanDays).where(eq(mealPlanDays.id, id));
-      return day;
-    } catch (error) {
-      logError('Error getting meal plan day:', { error });
-      return undefined;
-    }
-  }
-
-  async getMealPlanDays(planId: number): Promise<MealPlanDay[]> {
-    try {
-      return await db
-        .select()
-        .from(mealPlanDays)
-        .where(eq(mealPlanDays.mealPlanId, planId))
-        .orderBy(mealPlanDays.dayNumber);
-    } catch (error) {
-      logError('Error getting meal plan days:', { error });
-      return [];
-    }
-  }
-
-  async createMealPlanSlot(slot: InsertMealPlanSlot): Promise<MealPlanSlot> {
-    try {
-      const [newSlot] = await db.insert(mealPlanSlots).values(slot).returning();
-      return newSlot;
-    } catch (error) {
-      logError('Error creating meal plan slot:', { error });
-      throw error;
-    }
-  }
-
-  async getMealPlanSlot(id: number): Promise<MealPlanSlot | undefined> {
-    try {
-      const [slot] = await db.select().from(mealPlanSlots).where(eq(mealPlanSlots.id, id));
-      return slot;
-    } catch (error) {
-      logError('Error getting meal plan slot:', { error });
-      return undefined;
-    }
-  }
-
-  async getMealPlanSlots(dayId: number): Promise<MealPlanSlot[]> {
-    try {
-      return await db
-        .select()
-        .from(mealPlanSlots)
-        .where(eq(mealPlanSlots.mealPlanDayId, dayId))
-        .orderBy(mealPlanSlots.slotNumber);
-    } catch (error) {
-      logError('Error getting meal plan slots:', { error });
-      return [];
-    }
-  }
-
-  async updateMealPlanSlot(id: number, updates: Partial<InsertMealPlanSlot>): Promise<MealPlanSlot> {
-    try {
-      const [updated] = await db
-        .update(mealPlanSlots)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(mealPlanSlots.id, id))
-        .returning();
-      return updated;
-    } catch (error) {
-      logError('Error updating meal plan slot:', { error });
-      throw error;
-    }
-  }
-
-  async requestSlotRegeneration(id: number): Promise<MealPlanSlot> {
-    try {
-      const [updated] = await db
-        .update(mealPlanSlots)
-        .set({
-          status: 'regeneration_requested',
-          updatedAt: new Date()
-        })
-        .where(eq(mealPlanSlots.id, id))
-        .returning();
-      return updated;
-    } catch (error) {
-      logError('Error requesting slot regeneration:', { error });
-      throw error;
-    }
-  }
-
-  async confirmSlot(id: number): Promise<MealPlanSlot> {
-    try {
-      const [updated] = await db
-        .update(mealPlanSlots)
-        .set({
-          status: 'confirmed',
-          updatedAt: new Date()
-        })
-        .where(eq(mealPlanSlots.id, id))
-        .returning();
-      return updated;
-    } catch (error) {
-      logError('Error confirming slot:', { error });
-      throw error;
-    }
-  }
-  async getCurrentWeekPlan(userId: number): Promise<MealPlan | null> {
-    try {
-      const [plan] = await db
-        .select()
-        .from(mealPlans)
+        .from(meals)
         .where(
           and(
-            eq(mealPlans.userId, userId),
-            eq(mealPlans.weekType, "current"),
-            eq(mealPlans.status, "active")
+            eq(meals.mealPlanId, planId),
+            eq(meals.weekNumber, weekNumber),
+            eq(meals.dayNumber, dayNumber)
           )
-        );
-      return plan || null;
+        )
+        .orderBy(meals.mealNumber);
     } catch (error) {
-      logError('Error getting current week plan:', { error });
-      return null;
+      console.error("Error getting meals by week and day:", error);
+      return [];
     }
   }
 
-  async getUpcomingWeekPlan(userId: number): Promise<MealPlan | null> {
+  async getMealsByPlanAndWeek(
+    planId: number,
+    weekNumber: number
+  ): Promise<Meal[]> {
     try {
-      const [plan] = await db
+      return await db
         .select()
-        .from(mealPlans)
+        .from(meals)
         .where(
           and(
-            eq(mealPlans.userId, userId),
-            eq(mealPlans.weekType, "upcoming"),
-            eq(mealPlans.status, "active")
+            eq(meals.mealPlanId, planId),
+            eq(meals.weekNumber, weekNumber)
           )
-        );
-      return plan || null;
+        )
+        .orderBy(meals.dayNumber, meals.mealNumber);
     } catch (error) {
-      logError('Error getting upcoming week plan:', { error });
-      return null;
-    }
-  }
-
-  async transitionToNextWeek(userId: number): Promise<void> {
-    try {
-      // Start transaction
-      await db.transaction(async (tx) => {
-        // Archive current week
-        await tx
-          .update(mealPlans)
-          .set({
-            status: "archived",
-            updatedAt: new Date()
-          })
-          .where(
-            and(
-              eq(mealPlans.userId, userId),
-              eq(mealPlans.weekType, "current"),
-              eq(mealPlans.status, "active")
-            )
-          );
-
-        // Transition upcoming to current
-        await tx
-          .update(mealPlans)
-          .set({
-            weekType: "current",
-            updatedAt: new Date()
-          })
-          .where(
-            and(
-              eq(mealPlans.userId, userId),
-              eq(mealPlans.weekType, "upcoming"),
-              eq(mealPlans.status, "active")
-            )
-          );
-      });
-    } catch (error) {
-      logError('Error transitioning to next week:', { error });
-      throw error;
+      console.error("Error getting meals by plan and week:", error);
+      return [];
     }
   }
 
   async regenerateMeal(
-    slotId: number,
-    constraints: {
-      targetCalories: number,
-      macroDistribution: {
-        protein: number,
-        carbs: number,
-        fats: number
-      }
-    }
+    planId: number,
+    mealId: number,
+    newMealData: InsertMeal
   ): Promise<Meal> {
     try {
-      // Get current meal to track replacement
-      const [currentSlot] = await db
-        .select()
-        .from(mealPlanSlots)
-        .where(eq(mealPlanSlots.id, slotId));
-
-      if (!currentSlot) {
-        throw new Error("Meal slot not found");
-      }
-
-      // Generate new meal with AI (implementation in separate service)
-      const newMeal = await this.createMeal({
-        // ... meal generation logic with constraints ...
-        replacedMealId: currentSlot.mealId
-      } as InsertMeal);
-
-      // Update slot with new meal
+      // First, update the old meal to track it's being replaced
       await db
-        .update(mealPlanSlots)
-        .set({
-          mealId: newMeal.id,
-          status: "draft",
-          updatedAt: new Date()
+        .update(meals)
+        .set({ isCustomized: true })
+        .where(eq(meals.id, mealId));
+
+      // Then create the new meal with a reference to the old one
+      const [newMeal] = await db
+        .insert(meals)
+        .values({
+          ...newMealData,
+          mealPlanId: planId,
+          replacementForId: mealId,
+          isCustomized: true
         })
-        .where(eq(mealPlanSlots.id, slotId));
+        .returning();
 
       return newMeal;
     } catch (error) {
-      logError('Error regenerating meal:', { error });
+      console.error("Error regenerating meal:", error);
       throw error;
     }
   }
 
-  async getDayMeals(dayId: number): Promise<Meal[]> {
+  async getDailyMealStats(
+    planId: number,
+    weekNumber: number,
+    dayNumber: number
+  ): Promise<{
+    totalCalories: number;
+    totalProtein: number;
+    totalCarbs: number;
+    totalFats: number;
+  }> {
     try {
       const result = await db
         .select({
-          meal: meals
+          totalCalories: sql`SUM(calories)::integer`,
+          totalProtein: sql`SUM(protein)::numeric`,
+          totalCarbs: sql`SUM(carbs)::numeric`,
+          totalFats: sql`SUM(fats)::numeric`
         })
         .from(meals)
-        .innerJoin(
-          mealPlanSlots,
-          eq(meals.id, mealPlanSlots.mealId)
-        )
-        .where(eq(mealPlanSlots.mealPlanDayId, dayId))
-        .orderBy(mealPlanSlots.slotNumber);
+        .where(
+          and(
+            eq(meals.mealPlanId, planId),
+            eq(meals.weekNumber, weekNumber),
+            eq(meals.dayNumber, dayNumber)
+          )
+        );
 
-      return result.map(r => r.meal);
+      const stats = result[0];
+      return {
+        totalCalories: stats.totalCalories || 0,
+        totalProtein: Number(stats.totalProtein) || 0,
+        totalCarbs: Number(stats.totalCarbs) || 0,
+        totalFats: Number(stats.totalFats) || 0
+      };
     } catch (error) {
-      logError('Error getting day meals:', { error });
-      return [];
-    }
-  }
-
-  async updateDayMacros(
-    dayId: number,
-    macros: {
-      targetCalories: number,
-      macroDistribution: {
-        protein: number,
-        carbs: number,
-        fats: number
-      }
-    }
-  ): Promise<MealPlanDay> {
-    try {
-      const [updated] = await db
-        .update(mealPlanDays)
-        .set({
-          targetCalories: macros.targetCalories,
-          macroDistribution: macros.macroDistribution,
-          updatedAt: new Date()
-        })
-        .where(eq(mealPlanDays.id, dayId))
-        .returning();
-
-      return updated;
-    } catch (error) {
-      logError('Error updating day macros:', { error });
-      throw error;
-    }
-  }
-
-  async confirmMealSlot(slotId: number): Promise<MealPlanSlot> {
-    try {
-      const [updated] = await db
-        .update(mealPlanSlots)
-        .set({
-          status: "confirmed",
-          updatedAt: new Date()
-        })
-        .where(eq(mealPlanSlots.id, slotId))
-        .returning();
-
-      return updated;
-    } catch (error) {
-      logError('Error confirming meal slot:', { error });
-      throw error;
-    }
-  }
-
-  async requestSlotRegeneration(slotId: number): Promise<MealPlanSlot> {
-    try {
-      const [updated] = await db
-        .update(mealPlanSlots)
-        .set({
-          status: "regeneration_requested",
-          updatedAt: new Date()
-        })
-        .where(eq(mealPlanSlots.id, slotId))
-        .returning();
-
-      return updated;
-    } catch (error) {
-      logError('Error requesting slot regeneration:', { error });
-      throw error;
+      console.error("Error getting daily meal stats:", error);
+      return {
+        totalCalories: 0,
+        totalProtein: 0,
+        totalCarbs: 0,
+        totalFats: 0
+      };
     }
   }
 }
@@ -2456,28 +2153,12 @@ CREATE TABLE IF NOT EXISTS meals (
   recipe TEXT,
   ingredients JSONB,
   macroDistribution JSONB,
-  replacedMealId INTEGER,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS meal_plan_days (
-  id SERIAL PRIMARY KEY,
   mealPlanId INTEGER REFERENCES meal_plans(id),
+  weekNumber INTEGER NOT NULL,
   dayNumber INTEGER NOT NULL,
-  day VARCHAR(10) NOT NULL,
-  targetCalories INTEGER,
-  macroDistribution JSONB,
-  createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS meal_plan_slots (
-  id SERIAL PRIMARY KEY,
-  mealPlanDayId INTEGER REFERENCES meal_plan_days(id),
-  slotNumber INTEGER NOT NULL,
-  mealId INTEGER REFERENCES meals(id),
-  status VARCHAR(50) DEFAULT 'pending',
+  mealNumber INTEGER NOT NULL,
+  replacementForId INTEGER,
+  isCustomized BOOLEAN DEFAULT FALSE,
   createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

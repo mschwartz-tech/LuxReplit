@@ -37,14 +37,27 @@ router.post('/generate', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized. Only trainers and admins can generate meal plans.' });
     }
 
-    const meals = await generateMealPlan(validation.data);
+    const { planDuration = 14, ...planParams } = validation.data;
+    const meals = await generateMealPlan({ ...planParams, planDuration });
+
+    // Calculate start and end dates
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + planDuration);
 
     const newPlan = await storage.createMealPlan({
-      trainerId: (req.user as any).id,
-      name: `Meal Plan - ${new Date().toLocaleDateString()}`,
-      meals,
+      userId: (req.user as any).id,
+      name: `${planDuration}-Day Meal Plan - ${startDate.toLocaleDateString()}`,
+      targetCalories: planParams.calorieTarget,
+      macroDistribution: planParams.macroDistribution,
+      startDate,
+      endDate,
       status: 'draft',
-      ...validation.data
+      meals: meals.map((meal, index) => ({
+        ...meal,
+        weekNumber: Math.floor(index / 7) + 1,
+        dayNumber: (index % 7) + 1,
+      }))
     });
 
     res.json({ mealPlan: newPlan });
@@ -55,18 +68,12 @@ router.post('/generate', async (req, res) => {
 });
 
 const regenerateMealSchema = z.object({
+  mealPlanId: z.number(),
+  weekNumber: z.number().min(1).max(2),
+  dayNumber: z.number().min(1).max(7),
+  mealNumber: z.number().min(1).max(6),
   foodPreferences: z.string().max(1000),
-  calorieTarget: z.number().min(500).max(10000),
-  mealType: z.string(),
-  dayNumber: z.number().min(1),
-  mealNumber: z.number().min(1),
-  macroDistribution: z.object({
-    protein: z.number().min(0).max(100),
-    carbs: z.number().min(0).max(100),
-    fats: z.number().min(0).max(100),
-  }).refine(data => {
-    return data.protein + data.carbs + data.fats === 100;
-  }, "Macro distribution must total 100%"),
+  dietaryRestrictions: z.array(z.string()).optional(),
 });
 
 router.post('/regenerate-meal', async (req, res) => {
@@ -86,8 +93,49 @@ router.post('/regenerate-meal', async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized. Only trainers and admins can regenerate meals.' });
     }
 
-    const meal = await generateSingleMeal(validation.data);
-    res.json(meal);
+    // Get the meal plan and all meals for the specified day
+    const mealPlan = await storage.getMealPlan(validation.data.mealPlanId);
+    const dayMeals = await storage.getDayMeals(
+      validation.data.mealPlanId,
+      validation.data.weekNumber,
+      validation.data.dayNumber
+    );
+
+    // Calculate remaining calories and macros for the day
+    const mealToRegenerate = dayMeals.find(m => m.mealNumber === validation.data.mealNumber);
+    const otherMeals = dayMeals.filter(m => m.mealNumber !== validation.data.mealNumber);
+
+    const dailyTotals = otherMeals.reduce((acc, meal) => ({
+      calories: acc.calories + meal.calories,
+      protein: acc.protein + meal.protein,
+      carbs: acc.carbs + meal.carbs,
+      fats: acc.fats + meal.fats
+    }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+
+    // Generate new meal with remaining daily targets
+    const newMeal = await generateSingleMeal({
+      targetCalories: mealPlan.targetCalories - dailyTotals.calories,
+      macroDistribution: {
+        protein: mealPlan.macroDistribution.protein,
+        carbs: mealPlan.macroDistribution.carbs,
+        fats: mealPlan.macroDistribution.fats
+      },
+      mealNumber: validation.data.mealNumber,
+      weekNumber: validation.data.weekNumber,
+      dayNumber: validation.data.dayNumber,
+      foodPreferences: validation.data.foodPreferences,
+      dietaryRestrictions: validation.data.dietaryRestrictions
+    });
+
+    // Store the new meal with a reference to the replaced meal
+    const updatedMeal = await storage.createMeal({
+      ...newMeal,
+      isCustomized: true,
+      replacementForId: mealToRegenerate?.id,
+      mealPlanId: validation.data.mealPlanId
+    });
+
+    res.json(updatedMeal);
   } catch (error) {
     logMealPlanError('Error regenerating meal', error);
     res.status(500).json({ error: 'Failed to regenerate meal' });
