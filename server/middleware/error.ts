@@ -11,10 +11,17 @@ export class ValidationError extends Error {
   }
 }
 
-export class AuthorizationError extends Error {
-  constructor(message: string = 'Unauthorized') {
+export class AuthenticationError extends Error {
+  constructor(message: string = 'Authentication failed') {
     super(message);
-    this.name = 'AuthorizationError';
+    this.name = 'AuthenticationError';
+  }
+}
+
+export class SessionError extends Error {
+  constructor(message: string = 'Session error occurred') {
+    super(message);
+    this.name = 'SessionError';
   }
 }
 
@@ -76,8 +83,10 @@ export const errorHandler = (
     errorResponse.message = validationError.message;
   } else if (err instanceof ValidationError) {
     errorResponse.status = 400;
-  } else if (err instanceof AuthorizationError) {
-    errorResponse.status = 403;
+  } else if (err instanceof AuthenticationError) {
+    errorResponse.status = 401;
+  } else if (err instanceof SessionError) {
+    errorResponse.status = 401;
   } else if (err instanceof NotFoundError) {
     errorResponse.status = 404;
   } else if (err instanceof ConflictError) {

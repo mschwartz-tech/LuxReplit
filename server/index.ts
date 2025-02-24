@@ -5,12 +5,13 @@ import { logError, logInfo } from "./services/logger";
 import { registerRoutes } from "./routes";
 import { ensureDatabaseInitialized, pool } from "./db";
 import { setupVite } from "./vite";
-import { rateLimiter, securityHeaders } from "./middleware";
+import { securityHeaders } from "./middleware";
 import { apiLimiter, authenticatedLimiter, getRouteLimiter } from "./middleware/rate-limit";
 import { cacheMiddleware } from "./middleware/cache";
 import { errorHandler } from "./middleware/error";
 import { startupManager } from "./services/startup-manager";
 import cors from "cors";
+import { setupAuth } from "./auth";
 
 const app = express();
 const pgSession = connectPgSimple(session);
@@ -39,7 +40,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Set default content type for API routes
+// Set JSON content type for all API routes early in the middleware chain
 app.use('/api', (req, res, next) => {
   res.setHeader('Content-Type', 'application/json');
   next();
@@ -48,20 +49,7 @@ app.use('/api', (req, res, next) => {
 // Security middleware
 app.use(securityHeaders);
 
-// Route-specific rate limiting - but exclude AI routes from standard limits
-app.use('/api', (req, res, next) => {
-  // Skip rate limiting for AI endpoints
-  if (req.path.includes('/api/exercises/predict')) {
-    return next();
-  }
-  const routeLimiter = getRouteLimiter(req.path);
-  routeLimiter(req, res, next);
-});
-
-app.use('/api/protected', authenticatedLimiter);
-app.use(cacheMiddleware);
-
-// Session middleware setup
+// Session middleware setup with improved error handling
 app.use(
   session({
     store: new pgSession({
@@ -69,6 +57,7 @@ app.use(
         connectionString: process.env.DATABASE_URL,
       },
       createTableIfMissing: true,
+      errorLog: (err) => logError('Session store error:', err)
     }),
     secret: process.env.SESSION_SECRET || "dev_secret",
     resave: false,
@@ -79,8 +68,24 @@ app.use(
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000,
     },
+    name: 'sid' // Changed from connect.sid for better security
   })
 );
+
+// Setup authentication after session middleware
+setupAuth(app);
+
+// Route-specific rate limiting - but exclude AI routes from standard limits
+app.use('/api', (req, res, next) => {
+  if (req.path.includes('/api/exercises/predict')) {
+    return next();
+  }
+  const routeLimiter = getRouteLimiter(req.path);
+  routeLimiter(req, res, next);
+});
+
+app.use('/api/protected', authenticatedLimiter);
+app.use(cacheMiddleware);
 
 // Initialize the server
 async function startServer() {
@@ -97,7 +102,25 @@ async function startServer() {
     }
 
     // Global error handler - must be after routes
-    app.use(errorHandler);
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      // Ensure JSON responses for API routes
+      if (req.path.startsWith('/api')) {
+        res.setHeader('Content-Type', 'application/json');
+
+        // Handle passport-specific errors
+        if (err.name === 'AuthenticationError') {
+          return res.status(401).json({ message: err.message || 'Authentication failed' });
+        }
+
+        // Handle session errors
+        if (err.name === 'SessionError') {
+          return res.status(500).json({ message: 'Session error occurred' });
+        }
+      }
+
+      // Pass to main error handler
+      errorHandler(err, req, res, next);
+    });
 
     // Start listening
     const port = Number(process.env.PORT) || 5000;
@@ -152,7 +175,6 @@ async function startServer() {
   }
 }
 
-// Start the server
 startServer().catch((error) => {
   logError("Unhandled error during server startup:", error);
   process.exit(1);
