@@ -403,10 +403,10 @@ export default function ExerciseLibrary() {
                     {createExerciseMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
+                        Saving...
                       </>
                     ) : (
-                      "Create Exercise"
+                      "Save Exercise"
                     )}
                   </Button>
                 </form>
