@@ -56,6 +56,7 @@ Muscle groups:
           content: `Analyze this exercise and respond only with the JSON object: ${exerciseName}`
         }
       ],
+      response_format: { type: "json_object" },
       temperature: 0.3,
       max_tokens: 500
     });
