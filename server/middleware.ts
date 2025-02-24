@@ -19,7 +19,6 @@ const securityHeadersConfig = {
     'X-XSS-Protection': '1; mode=block',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   },
   csp: `
     default-src 'self';
@@ -27,7 +26,7 @@ const securityHeadersConfig = {
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     font-src 'self' data:;
-    connect-src 'self' *;
+    connect-src 'self' https://api.openai.com *;
     worker-src 'self' blob:;
     frame-ancestors 'self';
     form-action 'self';
@@ -36,6 +35,11 @@ const securityHeadersConfig = {
 
 // Security headers middleware
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
+  // Skip security headers for API routes
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+
   Object.entries(securityHeadersConfig.basic).forEach(([header, value]) => {
     res.setHeader(header, value);
   });

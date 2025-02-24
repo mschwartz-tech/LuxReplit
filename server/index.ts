@@ -42,11 +42,11 @@ app.use(cors({
 
 // Set JSON content type for all API routes early in the middleware chain
 app.use('/api', (req, res, next) => {
-  res.setHeader('Content-Type', 'application/json');
+  res.type('application/json');
   next();
 });
 
-// Security middleware
+// Apply security headers middleware after content type is set
 app.use(securityHeaders);
 
 // Session middleware setup with improved error handling
@@ -68,61 +68,36 @@ app.use(
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000,
     },
-    name: 'sid' // Changed from connect.sid for better security
+    name: 'sid'
   })
 );
 
 // Setup authentication after session middleware
 setupAuth(app);
 
-// Route-specific rate limiting - but exclude AI routes from standard limits
+// API routes should be excluded from standard rate limiting
 app.use('/api', (req, res, next) => {
-  if (req.path.includes('/api/exercises/predict')) {
+  // Skip rate limiting for OpenAI routes
+  if (req.path.includes('/api/exercises/analyze')) {
     return next();
   }
   const routeLimiter = getRouteLimiter(req.path);
   routeLimiter(req, res, next);
 });
 
-app.use('/api/protected', authenticatedLimiter);
-app.use(cacheMiddleware);
+// Error handler should be last
+app.use(errorHandler);
 
 // Initialize the server
 async function startServer() {
   try {
-    // Initialize database
     await ensureDatabaseInitialized();
-
-    // Register routes and get the HTTP server
     const server = await registerRoutes(app);
 
-    // Setup Vite in development
     if (process.env.NODE_ENV !== "production" && process.env.DISABLE_VITE !== 'true') {
       await setupVite(app, server);
     }
 
-    // Global error handler - must be after routes
-    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      // Ensure JSON responses for API routes
-      if (req.path.startsWith('/api')) {
-        res.setHeader('Content-Type', 'application/json');
-
-        // Handle passport-specific errors
-        if (err.name === 'AuthenticationError') {
-          return res.status(401).json({ message: err.message || 'Authentication failed' });
-        }
-
-        // Handle session errors
-        if (err.name === 'SessionError') {
-          return res.status(500).json({ message: 'Session error occurred' });
-        }
-      }
-
-      // Pass to main error handler
-      errorHandler(err, req, res, next);
-    });
-
-    // Start listening
     const port = Number(process.env.PORT) || 5000;
     server.listen(port, '0.0.0.0', () => {
       logInfo(`Server listening on port ${port}`, {
@@ -140,31 +115,6 @@ async function startServer() {
       process.exit(1);
     });
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-      logInfo("Received SIGTERM signal, initiating graceful shutdown");
-      if (server) {
-        server.close(async () => {
-          try {
-            // Run cleanup handlers
-            for (const phase of ['vite', 'routes', 'database'] as const) {
-              if (startupManager.isPhaseComplete(phase)) {
-                await Promise.all((startupManager as any).cleanupHandlers.get(phase)?.map((h: () => Promise<void>) => h()) || []);
-              }
-            }
-            logInfo("Server closed successfully");
-          } catch (error) {
-            logError("Error during cleanup", {
-              error: error instanceof Error ? error.message : String(error)
-            });
-          } finally {
-            process.exit(0);
-          }
-        });
-      } else {
-        process.exit(0);
-      }
-    });
     return server;
   } catch (error) {
     logError("Failed to start server", {
