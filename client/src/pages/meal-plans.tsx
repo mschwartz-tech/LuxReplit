@@ -24,89 +24,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MealPlanView } from "@/components/ui/meal-plan-view";
 import { Textarea } from "@/components/ui/textarea";
 
-// Types
-interface Member {
-  id: number;
-  name: string;
-}
-
-interface Meal {
-  meal: string;
-  food: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-}
-
-interface MealPlan {
-  id: number;
-  name: string;
-  description: string;
-  meals: Meal[];
-  trainerId: number;
-  createdAt: string;
-}
-
-// Constants
-const dietaryRestrictionOptions = [
-  { value: 'gluten_free', label: 'Gluten-Free' },
-  { value: 'dairy_free', label: 'Dairy-Free' },
-  { value: 'nut_free', label: 'Nut-Free' },
-  { value: 'shellfish_free', label: 'Shellfish-Free' },
-  { value: 'soy_free', label: 'Soy-Free' },
-  { value: 'egg_free', label: 'Egg-Free' },
-];
-
-const cookingSkillLevels = [
-  { label: 'Beginner', value: 'beginner' },
-  { label: 'Intermediate', value: 'intermediate' },
-  { label: 'Advanced', value: 'advanced' },
-];
-
-const mealPrepTimeOptions = [
-  { label: '15 minutes or less', value: '15_min' },
-  { label: '15-30 minutes', value: '30_min' },
-  { label: '30-60 minutes', value: '60_min' },
-  { label: '60+ minutes', value: 'over_60_min' },
-];
-
-const dietaryOptions = [
-  { label: 'Vegetarian', value: 'vegetarian' },
-  { label: 'Vegan', value: 'vegan' },
-  { label: 'Keto', value: 'keto' },
-  { label: 'Paleo', value: 'paleo' },
-  { label: 'Mediterranean', value: 'mediterranean' },
-];
-
-const fitnessGoalOptions = [
-  { label: 'Weight Loss', value: 'weight_loss' },
-  { label: 'Muscle Gain', value: 'muscle_gain' },
-  { label: 'Maintenance', value: 'maintenance' },
-  { label: 'Athletic Performance', value: 'athletic_performance' },
-];
-
-// Validation Schemas
-const aiMealPlanSchema = z.object({
-  foodPreferences: z.string().max(100),
-  calorieTarget: z.number().min(500).max(10000),
-  mealsPerDay: z.number().min(1).max(6),
-  daysInPlan: z.number().min(1).max(30),
-  dietaryRestrictions: z.array(z.string()).optional(),
-  fitnessGoals: z.array(z.string()).optional(),
-  macroDistribution: z.object({
-    protein: z.number().min(0).max(100),
-    carbs: z.number().min(0).max(100),
-    fats: z.number().min(0).max(100),
-  }).refine(data => {
-    const total = data.protein + data.carbs + data.fats;
-    return total === 100;
-  }, "Macro distribution must total 100%"),
-  cookingSkillLevel: z.string(),
-  maxPrepTime: z.string(),
-});
-
-
+// Define all your hooks at the top level
 export default function MealPlansPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -139,8 +57,12 @@ export default function MealPlansPage() {
     },
   });
 
-  // React Query hooks
-  const { data: mealPlans = [], isLoading: isLoadingPlans, error: plansError } = useQuery({
+  // Query hooks - always called in the same order
+  const { 
+    data: mealPlans = [], 
+    isLoading: isLoadingPlans, 
+    error: plansError 
+  } = useQuery({
     queryKey: ['/api/meal-plans'],
     queryFn: async () => {
       const response = await fetch('/api/meal-plans');
@@ -152,7 +74,11 @@ export default function MealPlansPage() {
     }
   });
 
-  const { data: members = [], isLoading: isLoadingMembers, error: membersError } = useQuery({
+  const { 
+    data: members = [], 
+    isLoading: isLoadingMembers, 
+    error: membersError 
+  } = useQuery({
     queryKey: ['/api/members'],
     queryFn: async () => {
       const response = await fetch('/api/members');
@@ -164,38 +90,7 @@ export default function MealPlansPage() {
     }
   });
 
-  // Show error states
-  if (plansError) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-red-600">Error loading meal plans</h2>
-          <p className="text-sm text-gray-600">{(plansError as Error).message}</p>
-        </div>
-      </div>
-    );
-  }
-  if (membersError) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-red-600">Error loading members</h2>
-          <p className="text-sm text-gray-600">{(membersError as Error).message}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Loading state
-  if (isLoadingPlans || isLoadingMembers) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    );
-  }
-
-  // Generate meal plan mutation
+  // Mutation hooks - always called in the same order
   const generateMealPlan = useMutation({
     mutationFn: async (data: z.infer<typeof aiMealPlanSchema>) => {
       const response = await fetch('/api/meal-plans/generate', {
@@ -223,7 +118,6 @@ export default function MealPlansPage() {
     },
   });
 
-  // Regenerate single meal mutation
   const regenerateMeal = useMutation({
     mutationFn: async ({ meal, preferences }: { meal: any; preferences: any }) => {
       const response = await fetch('/api/meal-plans/regenerate-meal', {
@@ -264,7 +158,6 @@ export default function MealPlansPage() {
     },
   });
 
-  // Add assignMealPlan mutation after generateMealPlan mutation
   const assignMealPlan = useMutation({
     mutationFn: async () => {
       if (!selectedMember || !selectedPlan || !startDate) {
@@ -305,7 +198,39 @@ export default function MealPlansPage() {
     },
   });
 
-  // Main render
+  // Show error states
+  if (plansError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-red-600">Error loading meal plans</h2>
+          <p className="text-sm text-gray-600">{(plansError as Error).message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (membersError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-red-600">Error loading members</h2>
+          <p className="text-sm text-gray-600">{(membersError as Error).message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (isLoadingPlans || isLoadingMembers) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Rest of your component remains the same...
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Meal Plans</h1>
@@ -524,7 +449,7 @@ export default function MealPlansPage() {
             </CardContent>
           </Card>
 
-          {/* Add Interactive Meal Plan Dialog */}
+          {/* Interactive Meal Plan Dialog */}
           <InteractiveMealPlanDialog
             open={isAiDialogOpen}
             onOpenChange={setIsAiDialogOpen}
@@ -654,3 +579,85 @@ export default function MealPlansPage() {
     </div>
   );
 }
+
+// Types
+interface Member {
+  id: number;
+  name: string;
+}
+
+interface Meal {
+  meal: string;
+  food: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+interface MealPlan {
+  id: number;
+  name: string;
+  description: string;
+  meals: Meal[];
+  trainerId: number;
+  createdAt: string;
+}
+
+// Constants
+const dietaryRestrictionOptions = [
+  { value: 'gluten_free', label: 'Gluten-Free' },
+  { value: 'dairy_free', label: 'Dairy-Free' },
+  { value: 'nut_free', label: 'Nut-Free' },
+  { value: 'shellfish_free', label: 'Shellfish-Free' },
+  { value: 'soy_free', label: 'Soy-Free' },
+  { value: 'egg_free', label: 'Egg-Free' },
+];
+
+const cookingSkillLevels = [
+  { label: 'Beginner', value: 'beginner' },
+  { label: 'Intermediate', value: 'intermediate' },
+  { label: 'Advanced', value: 'advanced' },
+];
+
+const mealPrepTimeOptions = [
+  { label: '15 minutes or less', value: '15_min' },
+  { label: '15-30 minutes', value: '30_min' },
+  { label: '30-60 minutes', value: '60_min' },
+  { label: '60+ minutes', value: 'over_60_min' },
+];
+
+const dietaryOptions = [
+  { label: 'Vegetarian', value: 'vegetarian' },
+  { label: 'Vegan', value: 'vegan' },
+  { label: 'Keto', value: 'keto' },
+  { label: 'Paleo', value: 'paleo' },
+  { label: 'Mediterranean', value: 'mediterranean' },
+];
+
+const fitnessGoalOptions = [
+  { label: 'Weight Loss', value: 'weight_loss' },
+  { label: 'Muscle Gain', value: 'muscle_gain' },
+  { label: 'Maintenance', value: 'maintenance' },
+  { label: 'Athletic Performance', value: 'athletic_performance' },
+];
+
+// Validation Schemas
+const aiMealPlanSchema = z.object({
+  foodPreferences: z.string().max(100),
+  calorieTarget: z.number().min(500).max(10000),
+  mealsPerDay: z.number().min(1).max(6),
+  daysInPlan: z.number().min(1).max(30),
+  dietaryRestrictions: z.array(z.string()).optional(),
+  fitnessGoals: z.array(z.string()).optional(),
+  macroDistribution: z.object({
+    protein: z.number().min(0).max(100),
+    carbs: z.number().min(0).max(100),
+    fats: z.number().min(0).max(100),
+  }).refine(data => {
+    const total = data.protein + data.carbs + data.fats;
+    return total === 100;
+  }, "Macro distribution must total 100%"),
+  cookingSkillLevel: z.string(),
+  maxPrepTime: z.string(),
+});
