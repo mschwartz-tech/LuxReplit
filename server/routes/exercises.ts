@@ -22,7 +22,7 @@ router.post('/api/exercises/predict-details', async (req, res) => {
           role: "system",
           content: `You are a professional fitness expert. For the given exercise name, provide a detailed response in JSON format with:
 1. A concise 50-word description of the exercise
-2. Step-by-step instructions (numbered steps, each step should be clear and concise)
+2. Step-by-step instructions (3-6 numbered steps, each step should be clear and concise)
 3. Difficulty level (beginner/intermediate/advanced)
 4. Primary muscle group ID (1-15) and secondary muscle group IDs based on this mapping:
    1: Quadriceps
@@ -49,8 +49,6 @@ Output format must be JSON with exactly these fields:
   "primaryMuscleGroupId": number (1-15),
   "secondaryMuscleGroupIds": number[] (1-15)
 }
-
-For instructions, provide 3-6 clear, numbered steps that explain how to perform the exercise correctly. Each step should be precise and focus on proper form.
 
 Example response for "Push-up":
 {
@@ -101,13 +99,16 @@ Example response for "Push-up":
       ? result.difficulty 
       : 'beginner';
 
-    res.json({
+    const response_data = {
       description: result.description,
       instructions,
       difficulty,
       primaryMuscleGroupId,
       secondaryMuscleGroupIds
-    });
+    };
+
+    console.log('Sending response:', response_data);
+    res.json(response_data);
   } catch (error) {
     console.error('Error predicting exercise details:', error);
     res.status(500).json({ 
