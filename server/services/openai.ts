@@ -26,7 +26,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
     // Check for HTML content
     if (content.includes('<!DOCTYPE') || content.includes('<html')) {
       logError('Received HTML content instead of JSON', { content: content.substring(0, 200) });
-      throw new Error('Received HTML instead of JSON response');
+      throw new Error('Invalid API response format');
     }
 
     // Check for empty or malformed content
@@ -62,7 +62,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
     if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
       throw new Error('secondaryMuscleGroupIds must be an array');
     }
-    if (!parsed.secondaryMuscleGroupIds.every(id => 
+    if (!parsed.secondaryMuscleGroupIds.every((id: number) => 
       typeof id === 'number' && id >= 1 && id <= 15 && id !== parsed.primaryMuscleGroupId
     )) {
       throw new Error('Invalid secondaryMuscleGroupIds: must be unique numbers between 1 and 15, excluding primaryMuscleGroupId');
@@ -84,12 +84,16 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString()
     });
-    throw error;
+    throw new Error('Failed to process AI response: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
+    if (!exerciseName || exerciseName.trim().length < 3) {
+      throw new Error('Exercise name must be at least 3 characters long');
+    }
+
     logInfo('Generating exercise details for:', { exerciseName, timestamp: new Date().toISOString() });
 
     const response = await openai.chat.completions.create({

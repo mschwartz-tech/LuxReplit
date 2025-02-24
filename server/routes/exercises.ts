@@ -12,8 +12,6 @@ const predictExerciseSchema = z.object({
 
 // Helper function to handle API errors
 const handleApiError = (error: unknown, context: string) => {
-  console.error(`Error in ${context}:`, error);
-
   // Log detailed error information
   logError(`${context} error:`, {
     error: error instanceof Error ? error.message : String(error),
@@ -39,8 +37,8 @@ const handleApiError = (error: unknown, context: string) => {
     if (error.message.includes('timeout')) {
       return { status: 504, message: 'Request timed out. Please try again' };
     }
-    if (error.message.includes('Failed to parse OpenAI response')) {
-      return { status: 500, message: 'Invalid response format from AI service. Please try again.' };
+    if (error.message.includes('Invalid API response format')) {
+      return { status: 502, message: 'Received invalid response from AI service' };
     }
   }
 
@@ -53,6 +51,9 @@ const handleApiError = (error: unknown, context: string) => {
 // Endpoint for predicting exercise description
 router.post('/api/exercises/predict-description', async (req, res) => {
   try {
+    // Set JSON content type
+    res.setHeader('Content-Type', 'application/json');
+
     logInfo('Received predict-description request:', { 
       body: req.body,
       timestamp: new Date().toISOString()
@@ -76,6 +77,9 @@ router.post('/api/exercises/predict-description', async (req, res) => {
 // Endpoint for predicting exercise instructions
 router.post('/api/exercises/predict-instructions', async (req, res) => {
   try {
+    // Set JSON content type
+    res.setHeader('Content-Type', 'application/json');
+
     logInfo('Received predict-instructions request:', { 
       body: req.body,
       timestamp: new Date().toISOString()
@@ -125,7 +129,7 @@ IMPORTANT:
 
       // Check for HTML content
       if (content.includes('<!DOCTYPE') || content.includes('<html')) {
-        throw new Error('Received HTML instead of JSON response');
+        throw new Error('Invalid API response format');
       }
 
       result = JSON.parse(content);
@@ -142,7 +146,7 @@ IMPORTANT:
         result.instructions = result.instructions.slice(0, 10);
       }
 
-      if (!result.instructions.every(instruction => 
+      if (!result.instructions.every((instruction: string) => 
         typeof instruction === 'string' && instruction.trim().length > 0
       )) {
         throw new Error('Invalid instructions format: all instructions must be non-empty strings');
@@ -153,7 +157,7 @@ IMPORTANT:
         content: response.choices[0].message.content,
         timestamp: new Date().toISOString()
       });
-      throw new Error('Invalid response format from AI service');
+      throw new Error('Failed to process AI response: ' + (parseError instanceof Error ? parseError.message : 'Unknown error'));
     }
 
     const instructions = result.instructions
