@@ -4,7 +4,13 @@ import { z } from 'zod';
 
 const router = Router();
 
-const openai = new OpenAI();
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('OPENAI_API_KEY environment variable is not set');
+}
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 const predictExerciseSchema = z.object({
   exerciseName: z.string().min(3),
