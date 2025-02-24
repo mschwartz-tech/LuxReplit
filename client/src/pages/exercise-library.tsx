@@ -196,21 +196,19 @@ export default function ExerciseLibrary() {
             ).slice(0, 5) : []
         };
 
-        // Update form fields with validated data
+        // Only update fields with valid data
         Object.entries(fieldsToUpdate).forEach(([field, value]) => {
-          if (value !== undefined) {
-            form.setValue(field as any, value, { shouldValidate: true });
+          if (value !== undefined && value !== '') {
+            form.setValue(field as any, value, { 
+              shouldValidate: true,
+              shouldDirty: true 
+            });
           }
         });
 
         setAIStatus({
           status: 'success',
-          message: 'Exercise details have been populated! Review and adjust if needed.'
-        });
-
-        toast({
-          title: "Success",
-          description: "Exercise details generated successfully",
+          message: 'Exercise details populated! Review and adjust if needed.'
         });
       } catch (error) {
         console.error('Error updating form:', error);
@@ -218,23 +216,12 @@ export default function ExerciseLibrary() {
           status: 'error',
           message: 'Error updating form with AI predictions'
         });
-        toast({
-          title: "Warning",
-          description: "Some fields could not be updated. Please check the form.",
-          variant: "destructive",
-        });
       }
     },
     onError: (error: Error) => {
       setAIStatus({
         status: 'error',
         message: error.message || 'Failed to analyze exercise'
-      });
-
-      toast({
-        title: "Error",
-        description: error.message || "Failed to analyze exercise",
-        variant: "destructive",
       });
     }
   });
@@ -244,10 +231,34 @@ export default function ExerciseLibrary() {
   const debouncedExerciseName = useDebounce(exerciseName, 1000);
 
   useEffect(() => {
-    if (debouncedExerciseName && debouncedExerciseName.length >= 3 && !form.formState.errors.name) {
-      predictExerciseDetailsMutation.mutate(debouncedExerciseName);
+    if (debouncedExerciseName && debouncedExerciseName.length >= 3) {
+      // Only proceed if there are no name field errors
+      const nameError = form.formState.errors.name;
+      if (!nameError) {
+        predictExerciseDetailsMutation.mutate(debouncedExerciseName);
+      }
+    } else {
+      // Reset AI status when input is cleared or too short
+      setAIStatus({
+        status: 'idle',
+        message: debouncedExerciseName ? 'Type at least 3 characters for AI suggestions' : ''
+      });
     }
   }, [debouncedExerciseName]);
+
+  // Add name field validation feedback
+  const getAIStatusMessage = () => {
+    if (exerciseName.length === 0) {
+      return '';
+    }
+    if (exerciseName.length < 3) {
+      return 'Type at least 3 characters for AI suggestions';
+    }
+    if (exerciseName !== debouncedExerciseName) {
+      return 'Waiting for you to finish typing...';
+    }
+    return aiStatus.message;
+  };
 
   // Query for exercises
   const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
@@ -329,16 +340,14 @@ export default function ExerciseLibrary() {
                             <FormControl>
                               <Input placeholder="e.g. Barbell Back Squat" {...field} />
                             </FormControl>
-                            {aiStatus.status !== 'idle' && (
-                              <div className={`text-sm mt-2 flex items-center gap-2 ${
-                                aiStatus.status === 'generating' ? 'text-yellow-600' :
+                            <div className={`text-sm mt-2 flex items-center gap-2 ${
+                              aiStatus.status === 'generating' ? 'text-yellow-600' :
                                 aiStatus.status === 'success' ? 'text-green-600' :
-                                aiStatus.status === 'error' ? 'text-red-600' : ''
-                              }`}>
-                                {aiStatus.status === 'generating' && <Loader2 className="h-4 w-4 animate-spin" />}
-                                {aiStatus.message}
-                              </div>
-                            )}
+                                aiStatus.status === 'error' ? 'text-red-600' : 'text-muted-foreground'
+                            }`}>
+                              {aiStatus.status === 'generating' && <Loader2 className="h-4 w-4 animate-spin" />}
+                              {getAIStatusMessage()}
+                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
