@@ -140,23 +140,60 @@ export default function MealPlansPage() {
   });
 
   // React Query hooks
-  const { data: mealPlans = [], isLoading: isLoadingPlans } = useQuery({
+  const { data: mealPlans = [], isLoading: isLoadingPlans, error: plansError } = useQuery({
     queryKey: ['/api/meal-plans'],
     queryFn: async () => {
       const response = await fetch('/api/meal-plans');
-      if (!response.ok) throw new Error('Failed to fetch meal plans');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch meal plans');
+      }
       return response.json();
     }
   });
 
-  const { data: members = [], isLoading: isLoadingMembers } = useQuery({
+  const { data: members = [], isLoading: isLoadingMembers, error: membersError } = useQuery({
     queryKey: ['/api/members'],
     queryFn: async () => {
       const response = await fetch('/api/members');
-      if (!response.ok) throw new Error('Failed to fetch members');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch members');
+      }
       return response.json();
     }
   });
+
+  // Show error states
+  if (plansError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-red-600">Error loading meal plans</h2>
+          <p className="text-sm text-gray-600">{(plansError as Error).message}</p>
+        </div>
+      </div>
+    );
+  }
+  if (membersError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-red-600">Error loading members</h2>
+          <p className="text-sm text-gray-600">{(membersError as Error).message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (isLoadingPlans || isLoadingMembers) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   // Generate meal plan mutation
   const generateMealPlan = useMutation({
@@ -267,15 +304,6 @@ export default function MealPlansPage() {
       });
     },
   });
-
-  // Loading state
-  if (isLoadingPlans || isLoadingMembers) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    );
-  }
 
   // Main render
   return (
