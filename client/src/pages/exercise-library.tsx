@@ -100,7 +100,11 @@ export default function ExerciseLibrary() {
   const isTrainer = user?.role === "trainer";
   const canEdit = isAdmin || isTrainer;
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
-  const [isAIThinking, setIsAIThinking] = useState(false);
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
+  const [aiStatus, setAIStatus] = useState<{
+    status: 'idle' | 'generating' | 'success' | 'error';
+    message: string;
+  }>({ status: 'idle', message: '' });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
@@ -150,35 +154,25 @@ export default function ExerciseLibrary() {
 
   const predictExerciseDetailsMutation = useMutation({
     mutationFn: async (name: string) => {
-      setIsAIThinking(true);
+      setIsAIGenerating(true);
+      setAIStatus({ status: 'generating', message: 'Analyzing exercise...' });
 
       try {
-        // Make both API calls in parallel
         const [descriptionResponse, instructionsResponse] = await Promise.all([
           fetch('/api/exercises/predict-description', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ exerciseName: name }),
           }),
           fetch('/api/exercises/predict-instructions', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ exerciseName: name }),
           })
         ]);
 
-        // Handle response errors
-        if (!descriptionResponse.ok) {
-          await handleAPIError(descriptionResponse);
-        }
-
-        if (!instructionsResponse.ok) {
-          await handleAPIError(instructionsResponse);
-        }
+        if (!descriptionResponse.ok) await handleAPIError(descriptionResponse);
+        if (!instructionsResponse.ok) await handleAPIError(instructionsResponse);
 
         const descriptionData = await descriptionResponse.json();
         const instructionsData = await instructionsResponse.json();
@@ -196,29 +190,19 @@ export default function ExerciseLibrary() {
       console.log('Received AI predictions:', data);
 
       try {
-        // Update description if available
-        if (typeof data.description === 'string') {
+        // Update form fields with AI predictions
+        if (data.description) {
           form.setValue("description", data.description, { shouldValidate: true });
         }
-
-        // Update instructions if available
         if (Array.isArray(data.instructions)) {
           form.setValue("instructions", data.instructions, { shouldValidate: true });
         }
-
-        // Update difficulty if valid
-        if (typeof data.difficulty === 'string' &&
-            ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
+        if (data.difficulty && ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
           form.setValue("difficulty", data.difficulty, { shouldValidate: true });
         }
-
-        // Update muscle groups if valid
-        if (typeof data.primaryMuscleGroupId === 'number' &&
-            data.primaryMuscleGroupId >= 1 &&
-            data.primaryMuscleGroupId <= 15) {
+        if (data.primaryMuscleGroupId >= 1 && data.primaryMuscleGroupId <= 15) {
           form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
         }
-
         if (Array.isArray(data.secondaryMuscleGroupIds)) {
           const validSecondaryIds = data.secondaryMuscleGroupIds.filter(
             (id: number) => typeof id === 'number' && id >= 1 && id <= 15 && id !== data.primaryMuscleGroupId
@@ -226,32 +210,42 @@ export default function ExerciseLibrary() {
           form.setValue("secondaryMuscleGroupIds", validSecondaryIds, { shouldValidate: true });
         }
 
-        // Force form to update
         form.trigger();
-
+        setAIStatus({ 
+          status: 'success', 
+          message: 'AI analysis complete! Exercise details have been populated.' 
+        });
         toast({
           title: "Success",
           description: "Exercise details predicted successfully",
         });
       } catch (error) {
         console.error('Error updating form with AI predictions:', error);
+        setAIStatus({ 
+          status: 'error', 
+          message: 'Could not update all form fields with AI predictions.' 
+        });
         toast({
           title: "Warning",
           description: "Received predictions but couldn't update all form fields",
           variant: "destructive",
         });
       } finally {
-        setIsAIThinking(false);
+        setIsAIGenerating(false);
       }
     },
     onError: (error: Error) => {
       console.error('AI prediction error:', error);
+      setAIStatus({ 
+        status: 'error', 
+        message: 'Failed to analyze exercise. Please try again.' 
+      });
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive",
       });
-      setIsAIThinking(false);
+      setIsAIGenerating(false);
     },
   });
 
@@ -317,169 +311,213 @@ export default function ExerciseLibrary() {
                 Add Exercise
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Exercise</DialogTitle>
                 <DialogDescription>
-                  Create a new exercise. The muscle groups will be automatically predicted based on the exercise name.
+                  Create a new exercise with AI-powered analysis. Enter the exercise name and our AI will help predict the details.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => createExerciseMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Exercise Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. Barbell Back Squat" {...field} />
-                        </FormControl>
-                        {isAIThinking && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            SentravisionAI is thinking...
-                          </p>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Brief description of the exercise..."
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="instructions"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Instructions</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Step-by-step instructions for performing the exercise..."
-                            value={Array.isArray(field.value) ? field.value.map((step, i) => `${i + 1}. ${step.replace(/^\d+\.\s*/, '')}`).join('\n') : ''}
-                            onChange={(e) => {
-                              const steps = e.target.value
-                                .split('\n')
-                                .map(step => step.trim())
-                                .filter(Boolean)
-                                .map(step => step.replace(/^\d+\.\s*/, '')); // Remove existing numbers
-                              field.onChange(steps);
-                            }}
-                            className="min-h-[150px]"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="grid gap-4">
-                    <FormField
-                      control={form.control}
-                      name="difficulty"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Difficulty</FormLabel>
-                          <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
-                          >
+                <form onSubmit={form.handleSubmit((data) => createExerciseMutation.mutate(data))} className="space-y-6">
+                  {/* Basic Information Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Basic Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Exercise Name</FormLabel>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select difficulty" />
-                              </SelectTrigger>
+                              <Input placeholder="e.g. Barbell Back Squat" {...field} />
                             </FormControl>
-                            <SelectContent>
-                              <SelectItem value="beginner">Beginner</SelectItem>
-                              <SelectItem value="intermediate">Intermediate</SelectItem>
-                              <SelectItem value="advanced">Advanced</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="primaryMuscleGroupId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Primary Muscle Group</FormLabel>
-                          <Select
-                            value={field.value ? field.value.toString() : undefined}
-                            onValueChange={(value) => field.onChange(parseInt(value))}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select primary muscle group" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {MUSCLE_GROUPS.map((group) => (
-                                <SelectItem key={group.id} value={group.id.toString()}>
-                                  {group.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="secondaryMuscleGroupIds"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Secondary Muscle Groups</FormLabel>
-                          <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg">
-                            {MUSCLE_GROUPS.map((group) => (
-                              <div key={group.id} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`muscle-${group.id}`}
-                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                  checked={field.value.includes(group.id)}
-                                  onChange={(e) => {
-                                    const value = group.id;
-                                    if (e.target.checked) {
-                                      field.onChange([...field.value, value]);
-                                    } else {
-                                      field.onChange(field.value.filter((id: number) => id !== value));
-                                    }
-                                  }}
-                                  disabled={group.id === form.getValues("primaryMuscleGroupId")}
-                                />
-                                <label
-                                  htmlFor={`muscle-${group.id}`}
-                                  className={`text-sm ${
-                                    group.id === form.getValues("primaryMuscleGroupId")
-                                      ? "text-gray-400"
-                                      : "text-gray-700"
-                                  }`}
-                                >
-                                  {group.name}
-                                </label>
+                            {aiStatus.status !== 'idle' && (
+                              <div className={`text-sm mt-2 flex items-center gap-2 ${
+                                aiStatus.status === 'generating' ? 'text-yellow-600' :
+                                aiStatus.status === 'success' ? 'text-green-600' :
+                                aiStatus.status === 'error' ? 'text-red-600' : ''
+                              }`}>
+                                {aiStatus.status === 'generating' && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {aiStatus.message}
                               </div>
-                            ))}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Brief description of the exercise..."
+                                className="resize-none"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Instructions Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Exercise Instructions</CardTitle>
+                      <CardDescription>
+                        Step-by-step guide for performing the exercise safely and effectively
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <FormField
+                        control={form.control}
+                        name="instructions"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Enter each instruction on a new line..."
+                                value={Array.isArray(field.value) ? field.value.map((step, i) => `${i + 1}. ${step}`).join('\n') : ''}
+                                onChange={(e) => {
+                                  const steps = e.target.value
+                                    .split('\n')
+                                    .map(step => step.trim())
+                                    .filter(Boolean)
+                                    .map(step => step.replace(/^\d+\.\s*/, ''));
+                                  field.onChange(steps);
+                                }}
+                                className="min-h-[200px] font-mono text-sm"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {/* Exercise Details Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Exercise Details</CardTitle>
+                      <CardDescription>
+                        Specify the difficulty and targeted muscle groups
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="difficulty"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Difficulty Level</FormLabel>
+                            <Select
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select difficulty" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="beginner">Beginner</SelectItem>
+                                <SelectItem value="intermediate">Intermediate</SelectItem>
+                                <SelectItem value="advanced">Advanced</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="primaryMuscleGroupId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Primary Muscle Group</FormLabel>
+                              <Select
+                                value={field.value ? field.value.toString() : undefined}
+                                onValueChange={(value) => field.onChange(parseInt(value))}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select primary muscle" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {MUSCLE_GROUPS.map((group) => (
+                                    <SelectItem key={group.id} value={group.id.toString()}>
+                                      {group.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="secondaryMuscleGroupIds"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Secondary Muscle Groups</FormLabel>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 border rounded-lg">
+                                {MUSCLE_GROUPS.map((group) => {
+                                  const isPrimary = group.id === form.getValues("primaryMuscleGroupId");
+                                  return (
+                                    <div
+                                      key={group.id}
+                                      className={`flex items-center space-x-2 ${
+                                        isPrimary ? 'opacity-50' : ''
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        id={`muscle-${group.id}`}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        checked={field.value.includes(group.id)}
+                                        onChange={(e) => {
+                                          const value = group.id;
+                                          if (e.target.checked) {
+                                            field.onChange([...field.value, value]);
+                                          } else {
+                                            field.onChange(field.value.filter((id: number) => id !== value));
+                                          }
+                                        }}
+                                        disabled={isPrimary}
+                                      />
+                                      <label
+                                        htmlFor={`muscle-${group.id}`}
+                                        className="text-sm"
+                                      >
+                                        {group.name}
+                                      </label>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <Button
                     type="submit"
                     className="w-full"
@@ -488,7 +526,7 @@ export default function ExerciseLibrary() {
                     {createExerciseMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
+                        Creating Exercise...
                       </>
                     ) : (
                       "Create Exercise"
