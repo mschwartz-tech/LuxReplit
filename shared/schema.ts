@@ -54,9 +54,18 @@ export const aiMealPlanSchema = z.object({
 // Type Exports
 // =====================
 
+// Schema Types
 export type MealItem = z.infer<typeof mealItemSchema>;
 export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
 export type MacroDistribution = z.infer<typeof macroDistributionSchema>;
+
+// Database Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type MealPlan = typeof mealPlans.$inferSelect;
+export type InsertMealPlan = z.infer<typeof insertMealPlanSchema>;
+export type Meal = typeof meals.$inferSelect;
+export type InsertMeal = z.infer<typeof insertMealSchema>;
 
 // =====================
 // Table Definitions
@@ -556,14 +565,14 @@ const temporaryMealPlans = pgTable("temporary_meal_plans", {
 // Relations Definitions
 // =====================
 
-const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   members: many(members),
   trainers: many(members, { relationName: "trainer" }),
   marketingCampaigns: many(marketingCampaigns),
   mealPlans: many(mealPlans)
 }));
 
-const membersRelations = relations(members, ({ one, many }) => ({
+export const membersRelations = relations(members, ({ one, many }) => ({
   user: one(users, {
     fields: [members.userId],
     references: [users.id],
@@ -577,7 +586,8 @@ const membersRelations = relations(members, ({ one, many }) => ({
   progressPhotos: many(memberProgressPhotos),
   workoutPlans: many(workoutPlans),
   workoutLogs: many(workoutLogs),
-  schedules: many(schedules),  invoices: many(invoices),
+  schedules: many(schedules),
+  invoices: many(invoices),
   memberMealPlans: many(memberMealPlans),
   gymLocation: one(gymMembershipPricing, {
     fields: [members.gymLocationId],
@@ -684,7 +694,7 @@ const exercisesRelations = relations(exercises, ({ one, many }) => ({
 
 const pricingPlansRelations = relations(pricingPlans, ({ many }) => ({}));
 
-const gymMembershipPricingRelations = relations(gymMembershipPricing, ({ many}) => ({
+const gymMembershipPricingRelations = relations(gymMembershipPricing, ({ many }) => ({
   members: many(members)
 }));
 
@@ -772,9 +782,28 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
   })
 }));
 
+const progressRelations = relations(progress, ({ one, many }) => ({
+  member: one(members, {
+    fields: [progress.memberId],
+    references: [members.id]
+  }),
+  strengthMetrics: many(strengthMetrics)
+}));
+
+const strengthMetricsRelations = relations(strengthMetrics, ({ one }) => ({
+  progress: one(progress, {
+    fields: [strengthMetrics.progressId],
+    references: [progress.id]
+  }),
+  exercise: one(exercises, {
+    fields: [strengthMetrics.exerciseId],
+    references: [exercises.id]
+  })
+}));
+
 
 // =====================
-// Schema Definitions
+// Insert Schemas
 // =====================
 
 export const insertUserSchema = createInsertSchema(users)
