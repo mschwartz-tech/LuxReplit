@@ -30,7 +30,7 @@ const paymentSchema = z.object({
     })
     .transform(val => val ? parseInt(val) : undefined),
   amount: z.number().positive("Amount must be greater than 0"),
-  paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash"], {
+  paymentMethod: z.enum(["credit_card", "debit_card", "bank_transfer", "cash", "stripe"], {
     required_error: "Payment method is required",
   }),
   description: z.string().min(1, "Description is required").max(255, "Description is too long"),
@@ -44,8 +44,8 @@ export default function BillingPage() {
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
   const [isNewPaymentOpen, setIsNewPaymentOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Update defaultValues in the form initialization with proper types
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
@@ -63,53 +63,60 @@ export default function BillingPage() {
 
   const createPayment = useMutation({
     mutationFn: async (data: PaymentFormValues) => {
-      console.log("Starting payment submission with data:", data);
-
-      const paymentData = {
-        memberId: data.memberId,
-        amount: data.amount,
-        paymentMethod: data.paymentMethod,
-        description: data.description,
-        status: "pending"
-      };
-
-      console.log("Formatted payment data:", paymentData);
-
-      const response = await fetch("/api/payments", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(paymentData),
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Failed to create payment";
-        try {
-          if (response.headers.get("content-type")?.includes("application/json")) {
-            const errorData = await response.json();
-            console.error("API error response:", errorData);
-            errorMessage = errorData.message || errorMessage;
-          } else {
-            const errorText = await response.text();
-            console.error("API error text:", errorText);
-            errorMessage = "Server error occurred. Please try again.";
-          }
-        } catch (parseError) {
-          console.error("Error parsing error response:", parseError);
-          errorMessage = "An unexpected error occurred";
-        }
-        throw new Error(errorMessage);
-      }
-
+      setIsProcessing(true);
       try {
+        console.log("Starting payment submission with data:", data);
+
+        const paymentData = {
+          memberId: data.memberId,
+          amount: data.amount,
+          paymentMethod: data.paymentMethod,
+          description: data.description,
+          status: "pending"
+        };
+
+        // If using Stripe, we'll create a payment intent first
+        if (data.paymentMethod === "stripe") {
+          // This will be implemented when we have Stripe keys
+          // const stripeIntent = await createStripePaymentIntent(data.amount);
+          // paymentData.stripePaymentIntentId = stripeIntent.id;
+        }
+
+        console.log("Formatted payment data:", paymentData);
+
+        const response = await fetch("/api/payments", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(paymentData),
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Failed to create payment";
+          try {
+            if (response.headers.get("content-type")?.includes("application/json")) {
+              const errorData = await response.json();
+              console.error("API error response:", errorData);
+              errorMessage = errorData.message || errorMessage;
+            } else {
+              const errorText = await response.text();
+              console.error("API error text:", errorText);
+              errorMessage = "Server error occurred. Please try again.";
+            }
+          } catch (parseError) {
+            console.error("Error parsing error response:", parseError);
+            errorMessage = "An unexpected error occurred";
+          }
+          throw new Error(errorMessage);
+        }
+
         const result = await response.json();
         console.log("Payment creation successful:", result);
         return result;
-      } catch (error) {
-        console.error("Error parsing success response:", error);
-        throw new Error("Invalid response format from server");
+      } finally {
+        setIsProcessing(false);
       }
     },
     onSuccess: () => {
@@ -249,6 +256,7 @@ export default function BillingPage() {
                                 <SelectItem value="debit_card">Debit Card</SelectItem>
                                 <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                                 <SelectItem value="cash">Cash</SelectItem>
+                                <SelectItem value="stripe">Stripe (Online)</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -274,9 +282,9 @@ export default function BillingPage() {
                       <Button
                         type="submit"
                         className="w-full"
-                        disabled={createPayment.isPending}
+                        disabled={isProcessing || createPayment.isPending}
                       >
-                        {createPayment.isPending && (
+                        {(isProcessing || createPayment.isPending) && (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
                         Create Payment

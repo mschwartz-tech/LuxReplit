@@ -5,7 +5,7 @@ import { z } from "zod";
 import { members } from "./schema";
 
 // Define payment types
-export type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "cash";
+export type PaymentMethod = "credit_card" | "debit_card" | "bank_transfer" | "cash" | "stripe";
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 
 export const payments = pgTable("payments", {
@@ -16,9 +16,11 @@ export const payments = pgTable("payments", {
     enum: ["pending", "completed", "failed", "refunded"]
   }).notNull(),
   paymentMethod: text("payment_method", {
-    enum: ["credit_card", "debit_card", "bank_transfer", "cash"]
+    enum: ["credit_card", "debit_card", "bank_transfer", "cash", "stripe"]
   }).notNull(),
   transactionId: text("transaction_id"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeCustomerId: text("stripe_customer_id"),
   description: text("description").notNull(),
   metadata: text("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -39,6 +41,8 @@ export const insertPaymentSchema = createInsertSchema(payments)
     ),
     memberId: z.string().transform(val => parseInt(val)).optional(),
     status: z.enum(["pending", "completed", "failed", "refunded"]).default("pending"),
+    stripePaymentIntentId: z.string().optional(),
+    stripeCustomerId: z.string().optional(),
   })
   .omit({ 
     createdAt: true,
@@ -49,3 +53,18 @@ export const insertPaymentSchema = createInsertSchema(payments)
 
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+// Stripe-specific types
+export interface StripePaymentIntent {
+  id: string;
+  amount: number;
+  status: string;
+  client_secret?: string;
+}
+
+export interface StripeCustomer {
+  id: string;
+  email: string;
+  name?: string;
+  metadata?: Record<string, string>;
+}
