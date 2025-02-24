@@ -4,7 +4,10 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Base schemas and validators
+// =====================
+// Base Schemas
+// =====================
+
 export const macroDistributionSchema = z.object({
   protein: z.number().min(0).max(100),
   carbs: z.number().min(0).max(100),
@@ -13,7 +16,6 @@ export const macroDistributionSchema = z.object({
   return data.protein + data.carbs + data.fats === 100;
 }, "Macro distribution must total 100%");
 
-// Base meal item schema for validation
 export const mealItemSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
@@ -36,7 +38,6 @@ export const mealItemSchema = z.object({
   replacementForId: z.number().optional()
 });
 
-// AI meal plan generation schema
 export const aiMealPlanSchema = z.object({
   foodPreferences: z.string().max(1000),
   calorieTarget: z.number().min(500).max(10000),
@@ -50,10 +51,17 @@ export const aiMealPlanSchema = z.object({
 });
 
 // =====================
+// Type Exports
+// =====================
+
+export type MealItem = z.infer<typeof mealItemSchema>;
+export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
+export type MacroDistribution = z.infer<typeof macroDistributionSchema>;
+
+// =====================
 // Table Definitions
 // =====================
 
-// Define meal plans first since meals reference it
 export const mealPlans = pgTable("meal_plans", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -71,7 +79,6 @@ export const mealPlans = pgTable("meal_plans", {
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
 
-// Define meals after meal plans
 export const meals = pgTable("meals", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -764,8 +771,13 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
     references: [members.id]
   })
 }));
-// Fix the string template syntax error and progressRelations
-const insertUserSchema = createInsertSchema(users)
+
+
+// =====================
+// Schema Definitions
+// =====================
+
+export const insertUserSchema = createInsertSchema(users)
   .extend({
     role: z.enum(["admin", "trainer", "user"]).default("user"),
     email: z.string().email("Invalid email format"),
@@ -777,28 +789,37 @@ const insertUserSchema = createInsertSchema(users)
     createdAt: true,
   });
 
-// Fix the progress relations formatting
-const progressRelations = relations(progress, ({ one, many }) => ({
-  member: one(members, {
-    fields: [progress.memberId],
-    references: [members.id],
-  }),
-  strengthMetrics: many(strengthMetrics)}));
-
-// =====================
-// Schema Definitions
-// =====================
-
-const insertUserSchema = createInsertSchema(users)
+export const insertMealSchema = createInsertSchema(meals)
   .extend({
-    role: z.enum(["admin", "trainer", "user"]).default("user"),
-    email: z.string().email("Invalid email format"),
-    name: z.string().min(1, "Name is required"),
-    username: z.string().min(3, "Username must be at least 3 characters"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    cookingDifficulty: z.enum(["beginner", "intermediate", "advanced"]),
+    ingredients: z.array(z.object({
+      item: z.string(),
+      amount: z.string(),
+      unit: z.string()
+    })),
+    instructions: z.array(z.string()).min(1, "Instructions are required"),
   })
   .omit({
+    id: true,
     createdAt: true,
+    updatedAt: true,
+  });
+
+export const insertMealPlanSchema = createInsertSchema(mealPlans)
+  .extend({
+    userId: z.number(),
+    targetCalories: z.number().min(500).max(10000),
+    macroDistribution: macroDistributionSchema,
+    status: z.enum(["draft", "active", "completed", "archived"]).default("draft"),
+    dietaryPreferences: z.array(z.string()).optional(),
+    dietaryRestrictions: z.array(z.string()).optional(),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
   });
 
 const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing)
@@ -1094,31 +1115,6 @@ const insertClassWaitlistSchema = createInsertSchema(classWaitlist)
   })
   .omit({ id: true, createdAt: true });
 
-export const insertMealSchema = createInsertSchema(meals)
-  .omit({ id: true, createdAt: true, updatedAt: true });
-
-export const insertMealPlanSchema = createInsertSchema(mealPlans)
-  .extend({
-    targetCalories: z.number().min(500).max(10000),
-    macroDistribution: macroDistributionSchema,
-    startDate: z.coerce.date(),
-    endDate: z.coerce.date(),
-  })
-  .omit({ id: true, createdAt: true, updatedAt: true });
-
-const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
-  .extend({
-    memberId: z.string().transform(val => parseInt(val)),
-    mealPlanId: z.string().transform(val => parseInt(val)),
-    startDate: z.coerce.date(),
-    endDate: z.coerce.date().optional(),
-    status: z.enum(["pending", "active", "completed"]).default("pending"),
-    customMeals: z.record(z.unknown()).optional(),
-  })
-  .omit({
-    assignedAt: true,
-  });
-
 export const insertTemporaryMealPlanSchema = createInsertSchema(temporaryMealPlans)
   .extend({
     userId: z.number(),
@@ -1136,6 +1132,19 @@ export const insertTemporaryMealPlanSchema = createInsertSchema(temporaryMealPla
   .omit({
     id: true,
     createdAt: true
+  });
+
+const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
+  .extend({
+    memberId: z.string().transform(val => parseInt(val)),
+    mealPlanId: z.string().transform(val => parseInt(val)),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date().optional(),
+    status: z.enum(["pending", "active", "completed"]).default("pending"),
+    customMeals: z.record(z.unknown()).optional(),
+  })
+  .omit({
+    assignedAt: true,
   });
 
 // =====================
@@ -1354,5 +1363,6 @@ export type {
   InsertMemberMealPlan,
   Meal,
   InsertMeal,
-  macroDistributionSchema
+  macroDistributionSchema,
+  MacroDistribution
 };

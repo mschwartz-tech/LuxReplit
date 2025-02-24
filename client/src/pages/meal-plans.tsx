@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MealPlanView } from "@/components/ui/meal-plan-view";
 import { Textarea } from "@/components/ui/textarea";
+import { type MealItem, type MealPlan, type AiMealPlan } from '@shared/schema';
 
 // Define all your hooks at the top level
 export default function MealPlansPage() {
@@ -34,7 +35,7 @@ export default function MealPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [generatedMealPlan, setGeneratedMealPlan] = useState(null);
+  const [generatedMealPlan, setGeneratedMealPlan] = useState<MealPlan | null>(null);
   const [isRegeneratingMeal, setIsRegeneratingMeal] = useState(false);
 
   // Form initialization
@@ -62,7 +63,7 @@ export default function MealPlansPage() {
     data: mealPlans = [], 
     isLoading: isLoadingPlans, 
     error: plansError 
-  } = useQuery({
+  } = useQuery<MealPlan[]>({
     queryKey: ['/api/meal-plans'],
     queryFn: async () => {
       const response = await fetch('/api/meal-plans');
@@ -91,8 +92,8 @@ export default function MealPlansPage() {
   });
 
   // Mutation hooks - always called in the same order
-  const generateMealPlan = useMutation({
-    mutationFn: async (data: z.infer<typeof aiMealPlanSchema>) => {
+  const generateMealPlan = useMutation<MealPlan, Error, AiMealPlan>({
+    mutationFn: async (data: AiMealPlan) => {
       const response = await fetch('/api/meal-plans/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,7 +103,7 @@ export default function MealPlansPage() {
       return response.json();
     },
     onSuccess: (data) => {
-      setGeneratedMealPlan(data.mealPlan);
+      setGeneratedMealPlan(data);
       setIsAiDialogOpen(true);
       toast({
         title: 'Success',
@@ -119,7 +120,7 @@ export default function MealPlansPage() {
   });
 
   const regenerateMeal = useMutation({
-    mutationFn: async ({ meal, preferences }: { meal: any; preferences: any }) => {
+    mutationFn: async ({ meal, preferences }: { meal: MealItem; preferences: z.infer<typeof aiMealPlanSchema> }) => {
       const response = await fetch('/api/meal-plans/regenerate-meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -571,7 +572,7 @@ export default function MealPlansPage() {
               <p className="text-sm text-muted-foreground">{plan.description}</p>
             </CardHeader>
             <CardContent>
-              <MealPlanView meals={plan.meals} />
+              <MealPlanView meals={plan.meals as MealItem[]} />
             </CardContent>
           </Card>
         ))}
@@ -586,31 +587,12 @@ interface Member {
   name: string;
 }
 
-interface Meal {
+// Update the Meal interface to match MealItem
+interface Meal extends MealItem {
   meal: string;
   food: string;
-  ingredients: Array<{
-    item: string;
-    amount: string;
-    unit: string;
-  }>;
-  instructions: string[];
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  dayNumber: number;
-  mealNumber: number;
 }
 
-interface MealPlan {
-  id: number;
-  name: string;
-  description: string;
-  meals: Meal[];
-  trainerId: number;
-  createdAt: string;
-}
 
 // Constants
 const dietaryRestrictionOptions = [
