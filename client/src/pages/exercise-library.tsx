@@ -180,6 +180,15 @@ export default function ExerciseLibrary() {
     },
   });
 
+  // Form submission handler
+  const onSubmit = async (data: FormData) => {
+    try {
+      await createExerciseMutation.mutateAsync(data);
+    } catch (error) {
+      console.error('Form submission error:', error);
+    }
+  };
+
   // Query for exercises
   const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
@@ -238,7 +247,7 @@ export default function ExerciseLibrary() {
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit((data) => createExerciseMutation.mutate(data))} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -381,10 +390,10 @@ export default function ExerciseLibrary() {
                     type="submit"
                     disabled={createExerciseMutation.isPending || isAnalyzing}
                   >
-                    {createExerciseMutation.isPending || isAnalyzing ? (
+                    {createExerciseMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {isAnalyzing ? "Analyzing..." : "Creating..."}
+                        Creating...
                       </>
                     ) : (
                       "Create Exercise"
