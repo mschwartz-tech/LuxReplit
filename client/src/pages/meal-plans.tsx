@@ -180,6 +180,47 @@ export default function MealPlansPage() {
     },
   });
 
+  // Add assignMealPlan mutation after generateMealPlan mutation
+  const assignMealPlan = useMutation({
+    mutationFn: async () => {
+      if (!selectedMember || !selectedPlan || !startDate) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      const response = await fetch(`/api/members/${selectedMember}/meal-plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mealPlanId: selectedPlan,
+          startDate,
+          endDate: endDate || null,
+          status: 'active'
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to assign meal plan');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Meal plan assigned successfully',
+      });
+      setSelectedMember(null);
+      setSelectedPlan(null);
+      setStartDate('');
+      setEndDate('');
+      queryClient.invalidateQueries({ queryKey: ['/api/meal-plans'] });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: 'Failed to assign meal plan',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Loading state
   if (isLoadingPlans || isLoadingMembers) {
     return (
