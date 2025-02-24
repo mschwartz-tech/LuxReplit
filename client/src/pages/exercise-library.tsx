@@ -163,7 +163,11 @@ export default function ExerciseLibrary() {
 
         // Handle instructions array
         if (Array.isArray(data.instructions)) {
-          form.setValue("instructions", data.instructions, { shouldValidate: true });
+          // Clean up the instructions by removing any existing numbering
+          const cleanInstructions = data.instructions.map(instruction => 
+            instruction.replace(/^\d+\.\s*/, '')
+          );
+          form.setValue("instructions", cleanInstructions, { shouldValidate: true });
         }
 
         if (typeof data.difficulty === 'string' &&
@@ -328,9 +332,13 @@ export default function ExerciseLibrary() {
                         <FormControl>
                           <Textarea
                             placeholder="Step-by-step instructions for performing the exercise..."
-                            value={Array.isArray(field.value) ? field.value.join('\n') : ''}
+                            value={Array.isArray(field.value) ? field.value.map((step, i) => `${i + 1}. ${step.replace(/^\d+\.\s*/, '')}`).join('\n') : ''}
                             onChange={(e) => {
-                              const steps = e.target.value.split('\n').filter(step => step.trim());
+                              const steps = e.target.value
+                                .split('\n')
+                                .map(step => step.trim())
+                                .filter(Boolean)
+                                .map(step => step.replace(/^\d+\.\s*/, '')); // Remove existing numbers
                               field.onChange(steps);
                             }}
                             className="min-h-[150px]"
