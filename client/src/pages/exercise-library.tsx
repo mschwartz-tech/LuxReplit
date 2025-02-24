@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -8,7 +8,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, ArrowLeft } from "lucide-react";
+import { Loader2, Search, ArrowLeft, Plus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,9 +18,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Exercise } from "@shared/schema";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Exercise, insertExerciseSchema } from "@shared/schema";
 import { useState } from "react";
 import { Link } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Predefined muscle groups
 const MUSCLE_GROUPS = [
@@ -43,17 +57,103 @@ const MUSCLE_GROUPS = [
 
 export default function ExerciseLibrary() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // State management
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
+  // Form setup
+  const form = useForm({
+    resolver: zodResolver(insertExerciseSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      difficulty: "beginner",
+      primaryMuscleGroupId: 1,
+      secondaryMuscleGroupIds: [],
+      instructions: [],
+      tips: [],
+      equipment: [],
+    }
+  });
+
+  // AI Analysis mutation
+  const analyzeExerciseMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/exercises/analyze", { name });
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error);
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      form.reset({
+        ...form.getValues(),
+        description: data.description,
+        difficulty: data.difficulty,
+        primaryMuscleGroupId: data.primaryMuscleGroupId,
+        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds,
+        instructions: data.instructions,
+      });
+      toast({
+        title: "AI analysis complete",
+        description: "Exercise details have been generated",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to analyze exercise",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create exercise mutation
+  const createExerciseMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/exercises", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create exercise");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Exercise created successfully",
+      });
+      setIsDialogOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/exercises"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Query for exercises
   const { data: exercises = [], isLoading: isLoadingExercises } = useQuery<Exercise[]>({
     queryKey: ["/api/exercises"],
     enabled: !!user,
   });
+
+  // Handle exercise name input
+  const handleExerciseNameChange = async (name: string) => {
+    form.setValue("name", name);
+    if (name.length >= 3) {
+      analyzeExerciseMutation.mutate(name);
+    }
+  };
 
   // Filtered exercises logic
   const filteredExercises = exercises.filter((exercise: Exercise) => {
@@ -93,6 +193,172 @@ export default function ExerciseLibrary() {
             Browse exercises with detailed descriptions and muscle groups
           </p>
         </div>
+        {(user?.role === "trainer" || user?.role === "admin") && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Exercise
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Create New Exercise</DialogTitle>
+                <DialogDescription>
+                  Enter the exercise name and let AI help you generate the details
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => createExerciseMutation.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Exercise Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="e.g. Barbell Back Squat"
+                            onChange={(e) => handleExerciseNameChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="difficulty"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Difficulty</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select difficulty" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="beginner">Beginner</SelectItem>
+                            <SelectItem value="intermediate">Intermediate</SelectItem>
+                            <SelectItem value="advanced">Advanced</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="primaryMuscleGroupId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primary Muscle Group</FormLabel>
+                        <Select
+                          value={field.value.toString()}
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select primary muscle group" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {MUSCLE_GROUPS.map((group) => (
+                              <SelectItem key={group.id} value={group.id.toString()}>
+                                {group.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="secondaryMuscleGroupIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Secondary Muscle Groups</FormLabel>
+                        <div className="grid grid-cols-3 gap-2 p-4 border rounded-lg">
+                          {MUSCLE_GROUPS.map((group) => (
+                            <div key={group.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={field.value.includes(group.id)}
+                                onCheckedChange={(checked) => {
+                                  const newValue = checked
+                                    ? [...field.value, group.id]
+                                    : field.value.filter((id: number) => id !== group.id);
+                                  field.onChange(newValue);
+                                }}
+                                disabled={group.id === form.getValues("primaryMuscleGroupId")}
+                              />
+                              <label className="text-sm">{group.name}</label>
+                            </div>
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="instructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instructions</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            {field.value.map((instruction: string, index: number) => (
+                              <Input
+                                key={index}
+                                value={instruction}
+                                onChange={(e) => {
+                                  const newInstructions = [...field.value];
+                                  newInstructions[index] = e.target.value;
+                                  field.onChange(newInstructions);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="submit"
+                    disabled={createExerciseMutation.isPending || analyzeExerciseMutation.isPending}
+                  >
+                    {createExerciseMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Create Exercise"
+                    )}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="space-y-6">

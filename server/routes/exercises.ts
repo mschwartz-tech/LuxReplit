@@ -49,6 +49,41 @@ const handleApiError = (error: unknown, context: string) => {
   };
 };
 
+// Endpoint for analyzing exercises with OpenAI
+router.post('/api/exercises/analyze', async (req, res) => {
+  try {
+    // Set JSON content type
+    res.setHeader('Content-Type', 'application/json');
+
+    // Log incoming request
+    logInfo('Received analyze request:', { 
+      body: req.body,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    });
+
+    const { exerciseName } = predictExerciseSchema.parse(req.body);
+
+    // Verify OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    const result = await generateExerciseDetails(exerciseName);
+
+    // Log successful response
+    logInfo('Generated exercise details:', { 
+      result,
+      timestamp: new Date().toISOString()
+    });
+
+    return res.json(result);
+  } catch (error) {
+    const { status, message } = handleApiError(error, 'analyze');
+    return res.status(status).json({ message });
+  }
+});
+
 // Endpoint for predicting exercise description
 router.post('/api/exercises/predict-description', async (req, res) => {
   try {

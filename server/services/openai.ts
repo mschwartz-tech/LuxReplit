@@ -46,7 +46,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
       throw new Error('secondaryMuscleGroupIds must be an array');
     }
     parsed.secondaryMuscleGroupIds = parsed.secondaryMuscleGroupIds
-      .filter(id => 
+      .filter((id: number) => 
         Number.isInteger(id) && 
         id >= 1 && 
         id <= 15 && 
@@ -64,8 +64,8 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
       throw new Error('instructions must be an array');
     }
     parsed.instructions = parsed.instructions
-      .filter(instruction => typeof instruction === 'string' && instruction.trim())
-      .map(instruction => {
+      .filter((instruction: string) => typeof instruction === 'string' && instruction.trim())
+      .map((instruction: string) => {
         const words = instruction.split(/\s+/);
         return words.slice(0, 20).join(' '); // Limit to 20 words per instruction
       })
@@ -86,6 +86,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
   }
 }
 
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
     if (!exerciseName || exerciseName.trim().length < 3) {
@@ -95,7 +96,7 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
     logInfo('Generating exercise details for:', { exerciseName });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
