@@ -16,6 +16,34 @@ export interface ExerciseAIResponse {
   difficulty: "beginner" | "intermediate" | "advanced";
 }
 
+// Helper function to validate OpenAI response
+function validateOpenAIResponse(content: string): ExerciseAIResponse {
+  try {
+    const parsed = JSON.parse(content);
+    console.log('Parsed OpenAI response:', parsed);
+
+    // Validate required fields
+    if (!parsed.description || typeof parsed.description !== 'string') {
+      throw new Error('Invalid description in response');
+    }
+    if (!parsed.primaryMuscleGroupId || typeof parsed.primaryMuscleGroupId !== 'number') {
+      throw new Error('Invalid primaryMuscleGroupId in response');
+    }
+    if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
+      throw new Error('Invalid secondaryMuscleGroupIds in response');
+    }
+    if (!parsed.difficulty || !['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
+      throw new Error('Invalid difficulty in response');
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('Failed to parse OpenAI response:', error);
+    console.error('Raw content:', content);
+    throw new Error(`Failed to parse OpenAI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
     console.log('Generating exercise details for:', exerciseName);
@@ -25,7 +53,7 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
       messages: [
         {
           role: "system",
-          content: `You are a professional fitness trainer. Analyze exercises and return a JSON object with EXACTLY this format:
+          content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with this format:
 {
   "description": "Brief description under 100 chars",
   "primaryMuscleGroupId": (number 1-15),
@@ -39,6 +67,7 @@ Available muscle groups:
 11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps
 
 IMPORTANT: 
+- Return ONLY the JSON object, no additional text or formatting
 - Use exact field names (primaryMuscleGroupId not primaryMuscleGroupID)
 - difficulty must be lowercase without "level" suffix
 - description should be mobile-friendly and concise`
@@ -53,30 +82,16 @@ IMPORTANT:
       max_tokens: 150
     });
 
-    const result = JSON.parse(response.choices[0].message.content || "{}");
-    console.log('OpenAI response:', result);
+    console.log('Raw OpenAI response:', response.choices[0].message.content);
 
-    // Validate response format
-    if (
-      !result.description ||
-      !result.primaryMuscleGroupId ||
-      !Array.isArray(result.secondaryMuscleGroupIds) ||
-      !result.difficulty ||
-      typeof result.description !== 'string' ||
-      result.primaryMuscleGroupId < 1 ||
-      result.primaryMuscleGroupId > 15 ||
-      result.secondaryMuscleGroupIds.some((id: number) => id < 1 || id > 15) ||
-      !["beginner", "intermediate", "advanced"].includes(result.difficulty)
-    ) {
-      console.error('Invalid AI response format:', result);
-      throw new Error("Invalid AI response format");
+    if (!response.choices[0].message.content) {
+      throw new Error('Empty response from OpenAI');
     }
 
-    return result;
+    return validateOpenAIResponse(response.choices[0].message.content);
   } catch (error) {
     console.error('Error in generateExerciseDetails:', error);
-    // Fix the typing issue by converting error to a string
-    logError("Error generating exercise details:", error instanceof Error ? error.message : String(error));
-    throw new Error("Failed to generate exercise details");
+    logError('Error generating exercise details:', error instanceof Error ? error.message : String(error));
+    throw error;
   }
 }

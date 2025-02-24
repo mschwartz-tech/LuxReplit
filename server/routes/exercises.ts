@@ -1,150 +1,74 @@
 import { Router } from 'express';
-import OpenAI from 'openai';
 import { z } from 'zod';
+import { generateExerciseDetails } from '../services/openai';
+import { logError } from '../services/logger';
 
 const router = Router();
-
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY environment variable is not set');
-}
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 const predictExerciseSchema = z.object({
   exerciseName: z.string().min(3),
 });
 
-// Helper function to validate JSON response
-const validateOpenAIResponse = (content: string) => {
-  try {
-    return JSON.parse(content);
-  } catch (error) {
-    console.error('Failed to parse OpenAI response:', error);
-    throw new Error('Invalid response format from AI service');
-  }
-};
-
 // Helper function to handle API errors
-const handleApiError = (error: any) => {
-  console.error('API Error:', error);
+const handleApiError = (error: unknown, context: string) => {
+  console.error(`Error in ${context}:`, error);
+
+  // Log detailed error information
+  logError(`${context} error:`, {
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+    context
+  });
+
   if (error instanceof z.ZodError) {
     return { status: 400, message: 'Invalid request data: ' + error.errors[0].message };
   }
-  if (error.response?.status === 429) {
-    return { status: 429, message: 'Rate limit exceeded. Please try again later.' };
+
+  if (error instanceof Error && error.message.includes('Failed to parse OpenAI response')) {
+    return { status: 500, message: 'Invalid response format from AI service. Please try again.' };
   }
-  return { status: 500, message: error.message || 'Internal server error' };
+
+  return { 
+    status: 500, 
+    message: error instanceof Error ? error.message : 'An unexpected error occurred'
+  };
 };
 
-// Separate endpoint for predicting exercise description
+// Endpoint for predicting exercise description
 router.post('/api/exercises/predict-description', async (req, res) => {
   try {
+    console.log('Received predict-description request:', req.body);
+
     const { exerciseName } = predictExerciseSchema.parse(req.body);
+    const result = await generateExerciseDetails(exerciseName);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `You are a professional fitness expert. For the given exercise name, provide a detailed response in JSON format with:
-1. A concise 50-word description of the exercise
-2. Difficulty level (beginner/intermediate/advanced)
-3. Primary muscle group ID (1-15) and secondary muscle group IDs based on this mapping:
-   1: Quadriceps
-   2: Hamstrings
-   3: Calves
-   4: Chest
-   5: Back
-   6: Shoulders
-   7: Biceps
-   8: Triceps
-   9: Forearms
-   10: Abs
-   11: Obliques
-   12: Lower Back
-   13: Glutes
-   14: Hip Flexors
-   15: Traps
+    console.log('Generated exercise details:', result);
 
-Example response format:
-{
-  "description": "A compound leg exercise that targets multiple muscle groups while improving balance and coordination.",
-  "difficulty": "intermediate",
-  "primaryMuscleGroupId": 1,
-  "secondaryMuscleGroupIds": [2, 13]
-}`
-        },
-        {
-          role: "user",
-          content: `Generate exercise description for: ${exerciseName}`
-        }
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    if (!response.choices[0].message.content) {
-      throw new Error('No content in OpenAI response');
-    }
-
-    const result = validateOpenAIResponse(response.choices[0].message.content);
-
-    // Validate response structure
-    if (!result.description || !result.difficulty || !result.primaryMuscleGroupId || !result.secondaryMuscleGroupIds) {
-      throw new Error('Invalid AI response format');
-    }
-
-    // Validate muscle group IDs
-    const primaryMuscleGroupId = Number(result.primaryMuscleGroupId);
-    if (primaryMuscleGroupId < 1 || primaryMuscleGroupId > 15) {
-      throw new Error('Invalid primary muscle group ID');
-    }
-
-    const secondaryMuscleGroupIds = result.secondaryMuscleGroupIds
-      .map(Number)
-      .filter((id: number) => id >= 1 && id <= 15 && id !== primaryMuscleGroupId);
-
-    // Validate difficulty
-    const difficulty = ['beginner', 'intermediate', 'advanced'].includes(result.difficulty)
-      ? result.difficulty
-      : 'beginner';
-
-    res.json({
-      description: result.description,
-      difficulty,
-      primaryMuscleGroupId,
-      secondaryMuscleGroupIds
-    });
+    res.json(result);
   } catch (error) {
-    const { status, message } = handleApiError(error);
+    const { status, message } = handleApiError(error, 'predict-description');
     res.status(status).json({ message });
   }
 });
 
-// Separate endpoint for predicting exercise instructions
+// Endpoint for predicting exercise instructions
 router.post('/api/exercises/predict-instructions', async (req, res) => {
   try {
+    console.log('Received predict-instructions request:', req.body);
+
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4-0125-preview",
       messages: [
         {
           role: "system",
-          content: `You are a professional fitness expert. For the given exercise name, provide detailed step-by-step instructions in JSON format with:
-1. 3-6 numbered steps for performing the exercise
-2. Each step should be clear, concise, and focus on proper form
-
-Example response format:
+          content: `You are a professional fitness trainer. For the given exercise, return ONLY a JSON object with this format:
 {
-  "instructions": [
-    "Start in a standing position with feet hip-width apart",
-    "Bend at knees and hips to lower into a squat position",
-    "Keep chest up and core engaged throughout the movement",
-    "Push through heels to return to starting position"
-  ]
-}`
+  "instructions": ["Step 1 description", "Step 2 description", ...]
+}
+
+IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`
         },
         {
           role: "user",
@@ -152,28 +76,37 @@ Example response format:
         }
       ],
       response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 250
     });
 
+    console.log('Raw instructions response:', response.choices[0].message.content);
+
     if (!response.choices[0].message.content) {
-      throw new Error('No content in OpenAI response');
+      throw new Error('Empty response from OpenAI');
     }
 
-    const result = validateOpenAIResponse(response.choices[0].message.content);
+    // Parse and validate response
+    let result;
+    try {
+      result = JSON.parse(response.choices[0].message.content);
+      console.log('Parsed instructions:', result);
 
-    // Validate and sanitize the response
-    if (!result.instructions || !Array.isArray(result.instructions)) {
-      throw new Error('Invalid AI response format');
+      if (!result.instructions || !Array.isArray(result.instructions)) {
+        throw new Error('Invalid response format: instructions must be an array');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse instructions response:', parseError);
+      throw new Error('Invalid response format from AI service');
     }
 
-    // Ensure instructions is an array and each instruction is properly formatted
     const instructions = result.instructions
       .map((instruction: string) => instruction.trim())
-      .filter(Boolean)
-      .map((instruction: string) => instruction.replace(/^\d+\.\s*/, '')); // Remove any existing numbers
+      .filter(Boolean);
 
     res.json({ instructions });
   } catch (error) {
-    const { status, message } = handleApiError(error);
+    const { status, message } = handleApiError(error, 'predict-instructions');
     res.status(status).json({ message });
   }
 });
