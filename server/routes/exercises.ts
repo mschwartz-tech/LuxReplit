@@ -50,7 +50,21 @@ Output format must be JSON with exactly these fields:
   "secondaryMuscleGroupIds": number[] (1-15)
 }
 
-For instructions, provide 3-6 clear, numbered steps that explain how to perform the exercise correctly. Each step should be precise and focus on proper form.`
+For instructions, provide 3-6 clear, numbered steps that explain how to perform the exercise correctly. Each step should be precise and focus on proper form.
+
+Example response for "Push-up":
+{
+  "description": "A bodyweight exercise that strengthens the upper body by pushing away from the ground and returning to starting position while maintaining proper form.",
+  "instructions": [
+    "1. Start in a plank position with hands shoulder-width apart",
+    "2. Lower your body by bending your elbows, keeping core tight",
+    "3. Lower until chest nearly touches the ground",
+    "4. Push back up to starting position"
+  ],
+  "difficulty": "intermediate",
+  "primaryMuscleGroupId": 4,
+  "secondaryMuscleGroupIds": [6, 8]
+}`
         },
         {
           role: "user",

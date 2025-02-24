@@ -161,7 +161,9 @@ export default function ExerciseLibrary() {
           form.setValue("description", data.description, { shouldValidate: true });
         }
 
-        if (Array.isArray(data.instructions)) {
+        // Handle instructions as an array
+        if (Array.isArray(data.instructions) && data.instructions.length > 0) {
+          console.log('Setting instructions:', data.instructions);
           form.setValue("instructions", data.instructions, { shouldValidate: true });
         }
 
