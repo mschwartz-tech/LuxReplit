@@ -93,11 +93,10 @@ export default function ExerciseLibrary() {
     defaultValues: {
       name: "",
       description: "",
+      instructions: [] as string[],
       difficulty: "beginner" as const,
       primaryMuscleGroupId: 0,
       secondaryMuscleGroupIds: [] as number[],
-      instructions: [""] as string[],
-      tips: [] as string[],
       equipment: [] as string[],
       videoUrl: "",
     },
@@ -154,7 +153,6 @@ export default function ExerciseLibrary() {
       return response.json();
     },
     onSuccess: (data) => {
-      // Log the received data for debugging
       console.log('Received AI predictions:', data);
 
       try {
@@ -163,22 +161,13 @@ export default function ExerciseLibrary() {
           form.setValue("description", data.description, { shouldValidate: true });
         }
 
+        if (Array.isArray(data.instructions)) {
+          form.setValue("instructions", data.instructions, { shouldValidate: true });
+        }
+
         if (typeof data.difficulty === 'string' &&
             ['beginner', 'intermediate', 'advanced'].includes(data.difficulty)) {
           form.setValue("difficulty", data.difficulty, { shouldValidate: true });
-        }
-
-        if (typeof data.primaryMuscleGroupId === 'number' &&
-            data.primaryMuscleGroupId >= 1 &&
-            data.primaryMuscleGroupId <= 15) {
-          form.setValue("primaryMuscleGroupId", data.primaryMuscleGroupId, { shouldValidate: true });
-        }
-
-        if (Array.isArray(data.secondaryMuscleGroupIds)) {
-          const validSecondaryIds = data.secondaryMuscleGroupIds.filter(
-            (id: number) => typeof id === 'number' && id >= 1 && id <= 15
-          );
-          form.setValue("secondaryMuscleGroupIds", validSecondaryIds, { shouldValidate: true });
         }
 
         // Force form to update
@@ -307,8 +296,29 @@ export default function ExerciseLibrary() {
                         <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Describe the exercise..."
+                            placeholder="Brief description of the exercise..."
                             {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="instructions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instructions</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Step-by-step instructions for performing the exercise..."
+                            value={Array.isArray(field.value) ? field.value.join('\n') : field.value}
+                            onChange={(e) => {
+                              const steps = e.target.value.split('\n').filter(step => step.trim());
+                              field.onChange(steps);
+                            }}
+                            className="min-h-[150px]"
                           />
                         </FormControl>
                         <FormMessage />
