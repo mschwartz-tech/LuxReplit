@@ -7,7 +7,7 @@ import { openai } from '../services/openai';
 const router = Router();
 
 const predictExerciseSchema = z.object({
-  exerciseName: z.string().min(3),
+  exerciseName: z.string().min(3).max(100),
 });
 
 // Helper function to handle API errors
@@ -18,15 +18,30 @@ const handleApiError = (error: unknown, context: string) => {
   logError(`${context} error:`, {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
-    context
+    context,
+    timestamp: new Date().toISOString()
   });
 
   if (error instanceof z.ZodError) {
-    return { status: 400, message: 'Invalid request data: ' + error.errors[0].message };
+    return { 
+      status: 400, 
+      message: 'Invalid request data: ' + error.errors[0].message 
+    };
   }
 
-  if (error instanceof Error && error.message.includes('Failed to parse OpenAI response')) {
-    return { status: 500, message: 'Invalid response format from AI service. Please try again.' };
+  if (error instanceof Error) {
+    if (error.message.includes('API key')) {
+      return { status: 401, message: 'Authentication failed with AI service' };
+    }
+    if (error.message.includes('rate limit')) {
+      return { status: 429, message: 'Too many requests. Please try again later' };
+    }
+    if (error.message.includes('timeout')) {
+      return { status: 504, message: 'Request timed out. Please try again' };
+    }
+    if (error.message.includes('Failed to parse OpenAI response')) {
+      return { status: 500, message: 'Invalid response format from AI service. Please try again.' };
+    }
   }
 
   return { 
@@ -38,12 +53,18 @@ const handleApiError = (error: unknown, context: string) => {
 // Endpoint for predicting exercise description
 router.post('/api/exercises/predict-description', async (req, res) => {
   try {
-    logInfo('Received predict-description request:', { body: req.body });
+    logInfo('Received predict-description request:', { 
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
     const result = await generateExerciseDetails(exerciseName);
 
-    logInfo('Generated exercise details:', { result });
+    logInfo('Generated exercise details:', { 
+      result,
+      timestamp: new Date().toISOString()
+    });
 
     res.json(result);
   } catch (error) {
@@ -55,12 +76,15 @@ router.post('/api/exercises/predict-description', async (req, res) => {
 // Endpoint for predicting exercise instructions
 router.post('/api/exercises/predict-instructions', async (req, res) => {
   try {
-    logInfo('Received predict-instructions request:', { body: req.body });
+    logInfo('Received predict-instructions request:', { 
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4-0125-preview",
+      model: "gpt-4o", // Latest model as of May 13, 2024
       messages: [
         {
           role: "system",
@@ -69,7 +93,11 @@ router.post('/api/exercises/predict-instructions', async (req, res) => {
   "instructions": ["Step 1 description", "Step 2 description", ...]
 }
 
-IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`
+IMPORTANT: 
+- Return ONLY the JSON object, no additional text
+- Each instruction should be clear and concise
+- Maximum 10 steps
+- Focus on proper form and safety`
         },
         {
           role: "user",
@@ -81,7 +109,10 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`
       max_tokens: 250
     });
 
-    logInfo('Raw instructions response:', { content: response.choices[0].message.content });
+    logInfo('Raw instructions response:', { 
+      content: response.choices[0].message.content,
+      timestamp: new Date().toISOString()
+    });
 
     if (!response.choices[0].message.content) {
       throw new Error('Empty response from OpenAI');
@@ -98,15 +129,29 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`
       }
 
       result = JSON.parse(content);
-      logInfo('Parsed instructions:', { result });
+      logInfo('Parsed instructions:', { 
+        result,
+        timestamp: new Date().toISOString()
+      });
 
       if (!result.instructions || !Array.isArray(result.instructions)) {
         throw new Error('Invalid response format: instructions must be an array');
       }
+
+      if (result.instructions.length > 10) {
+        result.instructions = result.instructions.slice(0, 10);
+      }
+
+      if (!result.instructions.every(instruction => 
+        typeof instruction === 'string' && instruction.trim().length > 0
+      )) {
+        throw new Error('Invalid instructions format: all instructions must be non-empty strings');
+      }
     } catch (parseError) {
       logError('Failed to parse instructions response:', { 
         error: parseError instanceof Error ? parseError.message : String(parseError),
-        content: response.choices[0].message.content 
+        content: response.choices[0].message.content,
+        timestamp: new Date().toISOString()
       });
       throw new Error('Invalid response format from AI service');
     }

@@ -5,6 +5,7 @@ if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable is required");
 }
 
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -37,45 +38,66 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
     const parsed = JSON.parse(content);
     logInfo('Parsed OpenAI response:', { parsed });
 
-    // Validate required fields
-    if (!parsed.description || typeof parsed.description !== 'string') {
-      throw new Error('Invalid description in response');
+    // Validate required fields with specific error messages
+    if (!parsed.description) {
+      throw new Error('Missing description in response');
     }
-    if (!parsed.primaryMuscleGroupId || typeof parsed.primaryMuscleGroupId !== 'number') {
-      throw new Error('Invalid primaryMuscleGroupId in response');
+    if (typeof parsed.description !== 'string') {
+      throw new Error('Description must be a string');
     }
+    if (parsed.description.length > 100) {
+      throw new Error('Description exceeds 100 characters limit');
+    }
+
+    if (!parsed.primaryMuscleGroupId) {
+      throw new Error('Missing primaryMuscleGroupId in response');
+    }
+    if (typeof parsed.primaryMuscleGroupId !== 'number') {
+      throw new Error('primaryMuscleGroupId must be a number');
+    }
+    if (parsed.primaryMuscleGroupId < 1 || parsed.primaryMuscleGroupId > 15) {
+      throw new Error('primaryMuscleGroupId must be between 1 and 15');
+    }
+
     if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
-      throw new Error('Invalid secondaryMuscleGroupIds in response');
+      throw new Error('secondaryMuscleGroupIds must be an array');
     }
-    if (!parsed.difficulty || !['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
-      throw new Error('Invalid difficulty in response');
+    if (!parsed.secondaryMuscleGroupIds.every(id => 
+      typeof id === 'number' && id >= 1 && id <= 15 && id !== parsed.primaryMuscleGroupId
+    )) {
+      throw new Error('Invalid secondaryMuscleGroupIds: must be unique numbers between 1 and 15, excluding primaryMuscleGroupId');
+    }
+
+    if (!parsed.difficulty) {
+      throw new Error('Missing difficulty in response');
+    }
+    if (!['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
+      throw new Error('Invalid difficulty: must be beginner, intermediate, or advanced');
     }
 
     return parsed;
   } catch (error) {
-    // Enhanced error logging
+    // Enhanced error logging with more context
     logError('Failed to parse OpenAI response:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       rawContent: content,
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
     });
-    throw new Error(`Failed to parse OpenAI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw error;
   }
 }
 
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
-    logInfo('Generating exercise details for:', { exerciseName });
+    logInfo('Generating exercise details for:', { exerciseName, timestamp: new Date().toISOString() });
 
-    // Try to make the API call with error handling
-    let response;
-    try {
-      response = await openai.chat.completions.create({
-        model: "gpt-4-0125-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with this format:
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // Latest model as of May 13, 2024
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with this format:
 {
   "description": "Brief description under 100 chars",
   "primaryMuscleGroupId": (number 1-15),
@@ -89,33 +111,27 @@ Available muscle groups:
 11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps
 
 IMPORTANT: 
-- Return ONLY the JSON object, no additional text or formatting
-- Use exact field names (primaryMuscleGroupId not primaryMuscleGroupID)
-- difficulty must be lowercase without "level" suffix
-- description should be mobile-friendly and concise`
-          },
-          {
-            role: "user",
-            content: `Analyze this exercise: ${exerciseName}`
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 150
-      });
-    } catch (apiError) {
-      logError('OpenAI API call failed:', {
-        error: apiError instanceof Error ? apiError.message : String(apiError),
-        exerciseName,
-        apiKey: process.env.OPENAI_API_KEY ? 'Present' : 'Missing'
-      });
-      throw new Error('Failed to communicate with OpenAI API. Please try again.');
-    }
+- Return ONLY the JSON object, no additional text
+- Use exact field names
+- difficulty must be lowercase
+- description should be concise
+- primaryMuscleGroupId must be different from secondaryMuscleGroupIds`
+        },
+        {
+          role: "user",
+          content: `Analyze this exercise: ${exerciseName}`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 150
+    });
 
     logInfo('OpenAI API response received:', {
       status: response.choices[0].finish_reason,
       model: response.model,
-      usage: response.usage
+      usage: response.usage,
+      timestamp: new Date().toISOString()
     });
 
     if (!response.choices[0].message.content) {
@@ -124,9 +140,23 @@ IMPORTANT:
 
     return validateOpenAIResponse(response.choices[0].message.content);
   } catch (error) {
+    if (error instanceof Error) {
+      // Check for specific OpenAI API errors
+      if (error.message.includes('API key')) {
+        throw new Error('Invalid or missing API key. Please check your configuration.');
+      }
+      if (error.message.includes('rate limit')) {
+        throw new Error('Rate limit exceeded. Please try again in a few moments.');
+      }
+      if (error.message.includes('timeout')) {
+        throw new Error('Request timed out. Please try again.');
+      }
+    }
+
     logError('Error in generateExerciseDetails:', {
       error: error instanceof Error ? error.message : String(error),
-      exerciseName
+      exerciseName,
+      timestamp: new Date().toISOString()
     });
     throw error;
   }
