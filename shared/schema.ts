@@ -273,6 +273,7 @@ const muscleGroups = pgTable("muscle_groups", {
   bodyRegion: text("body_region", { enum: ["upper", "lower", "core"] }).notNull()
 });
 
+// Update the exercises table definition by removing tips and equipment
 const exercises = pgTable("exercises", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
@@ -283,8 +284,6 @@ const exercises = pgTable("exercises", {
   primaryMuscleGroupId: integer("primary_muscle_group_id").references(() => muscleGroups.id).notNull(),
   secondaryMuscleGroupIds: integer("secondary_muscle_group_ids").array().notNull(),
   instructions: text("instructions").array().notNull(),
-  tips: text("tips").array(),
-  equipment: text("equipment").array(),
   videoUrl: text("video_url"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
@@ -791,6 +790,7 @@ const insertGymMembershipPricingSchema = createInsertSchema(gymMembershipPricing
     updatedAt: true,
   });
 
+// Update the exercise schema to match
 const insertExerciseSchema = createInsertSchema(exercises)
   .extend({
     difficulty: z.enum(["beginner", "intermediate", "advanced"]),
@@ -803,7 +803,7 @@ const insertExerciseSchema = createInsertSchema(exercises)
     instructions: z.array(z.string()).min(1, "Instructions are required"),
     videoUrl: z.string().url("Invalid URL").optional().nullable(),
   })
-  .omit({ id: true, createdAt: true, tips: true, equipment: true });
+  .omit({ id: true, createdAt: true });
 
 const insertInvoiceSchema = createInsertSchema(invoices)
   .extend({
