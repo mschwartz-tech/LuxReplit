@@ -60,6 +60,7 @@ For instructions, provide 3-6 clear, numbered steps that explain how to perform 
       response_format: { type: "json_object" },
     });
 
+    console.log('OpenAI response:', response.choices[0].message.content);
     const result = JSON.parse(response.choices[0].message.content);
 
     // Validate and sanitize the response
@@ -69,9 +70,7 @@ For instructions, provide 3-6 clear, numbered steps that explain how to perform 
     }
 
     // Ensure instructions is an array
-    const instructions = Array.isArray(result.instructions) ? 
-      result.instructions : 
-      [result.instructions];
+    const instructions = Array.isArray(result.instructions) ? result.instructions : result.instructions.split('\n');
 
     // Validate muscle group IDs
     const primaryMuscleGroupId = Number(result.primaryMuscleGroupId);
