@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { storage } from '../storage';
 import { generateMealPlan } from '../services/openai-meal-service';
-import { insertMealPlanSchema, mealItemSchema } from '../../shared/schema';
+import { insertMealPlanSchema, mealItemSchema } from '@shared/schema';
 import { z } from 'zod';
 import { logMealPlanError, logMealPlanInfo, logMealPlanValidation } from '../services/meal-plan-logger';
 
@@ -15,6 +15,13 @@ const generateMealPlanSchema = z.object({
   daysInPlan: z.number().min(1).max(30).optional(),
   allergies: z.array(z.string()).optional(),
   fitnessGoals: z.array(z.string()).optional(),
+  macroDistribution: z.object({
+    protein: z.number().min(0).max(100),
+    carbs: z.number().min(0).max(100),
+    fats: z.number().min(0).max(100)
+  }).refine(data => {
+    return data.protein + data.carbs + data.fats === 100;
+  }, "Macro distribution must total 100%").optional()
 });
 
 // Get all meal plans
@@ -44,7 +51,7 @@ router.post('/generate', async (req, res) => {
         userId: (req.user as any)?.id,
         role: userRole 
       });
-      return res.status(403).json({ error: 'Unauthorized' });
+      return res.status(403).json({ error: 'Unauthorized. Only trainers and admins can generate meal plans.' });
     }
 
     const meals = await generateMealPlan(validation.data);
@@ -66,6 +73,15 @@ router.post('/generate', async (req, res) => {
 // Create new meal plan
 router.post('/', async (req, res) => {
   try {
+    const userRole = (req.user as any)?.role;
+    if (!userRole || !['admin', 'trainer'].includes(userRole)) {
+      logMealPlanInfo('Unauthorized meal plan creation attempt', { 
+        userId: (req.user as any)?.id,
+        role: userRole 
+      });
+      return res.status(403).json({ error: 'Unauthorized. Only trainers and admins can create meal plans.' });
+    }
+
     const validation = insertMealPlanSchema.safeParse({
       ...req.body,
       trainerId: (req.user as any)?.id
