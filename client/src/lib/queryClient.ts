@@ -3,20 +3,20 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok && res.status !== 404) {
     const contentType = res.headers.get('content-type');
-    // Check if response is HTML instead of JSON
-    if (contentType?.includes('text/html')) {
-      throw new Error('Received HTML response instead of JSON. This may indicate a routing issue.');
-    }
 
     try {
       const text = await res.text();
-      // Try to parse as JSON first
+      // Check for HTML content in response
+      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+        throw new Error('Received HTML response instead of JSON. Please try again.');
+      }
+
+      // Try to parse as JSON
       try {
         const json = JSON.parse(text);
-        throw new Error(`${res.status}: ${json.message || text}`);
+        throw new Error(json.message || text);
       } catch {
-        // If not JSON, use text directly
-        throw new Error(`${res.status}: ${text}`);
+        throw new Error(text);
       }
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -30,12 +30,18 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Add timestamp to prevent caching
+  const timestamp = new Date().getTime();
+  const urlWithTimestamp = `${url}${url.includes('?') ? '&' : '?'}_t=${timestamp}`;
+
+  const res = await fetch(urlWithTimestamp, {
     method,
     headers: {
       ...data ? { "Content-Type": "application/json" } : {},
-      // Add custom header to prevent Vite from intercepting
-      "X-Custom-Route": "api"
+      "Accept": "application/json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "X-Custom-Route": "api",
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
@@ -51,11 +57,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const timestamp = new Date().getTime();
+    const url = `${queryKey[0]}${queryKey[0].toString().includes('?') ? '&' : '?'}_t=${timestamp}`;
+
+    const res = await fetch(url, {
       credentials: "include",
       headers: {
         "Accept": "application/json",
-        "X-Custom-Route": "api"
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "X-Custom-Route": "api",
       }
     });
 
@@ -73,8 +84,8 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: 300000, // 5 minutes
-      gcTime: 3600000, // 1 hour (renamed from cacheTime in v5)
+      staleTime: 300000,
+      gcTime: 3600000,
       retry: false,
     },
     mutations: {

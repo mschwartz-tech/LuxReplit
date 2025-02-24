@@ -46,6 +46,57 @@ const handleApiError = (error: unknown, context: string) => {
   };
 };
 
+// Move to a non-intercepted path
+router.post('/exercise-ai/analyze', async (req, res) => {
+  try {
+    // Log request details
+    logInfo('Exercise analysis request:', {
+      headers: req.headers,
+      body: req.body,
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+
+    // Set strict headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Custom-Route', 'api');
+    res.setHeader('Pragma', 'no-cache');
+
+    const { exerciseName } = predictExerciseSchema.parse(req.body);
+
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    const result = await generateExerciseDetails(exerciseName);
+
+    // Log successful response
+    logInfo('Exercise analysis success:', { 
+      result,
+      timestamp: new Date().toISOString()
+    });
+
+    return res.json(result);
+  } catch (error) {
+    logError('Exercise analysis error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      request: {
+        body: req.body,
+        headers: req.headers,
+        path: req.path
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    const { status, message } = handleApiError(error, 'analyze');
+    return res.status(status).json({ message });
+  }
+});
+
 // Debug endpoint for troubleshooting OpenAI responses
 router.post('/api/debug/openai', async (req, res) => {
   try {
@@ -91,54 +142,6 @@ router.post('/api/debug/openai', async (req, res) => {
     });
 
     const { status, message } = handleApiError(error, 'debug');
-    return res.status(status).json({ message });
-  }
-});
-
-// Main analyze endpoint
-router.post('/api/exercises/analyze', async (req, res) => {
-  try {
-    // Log request details
-    logInfo('Analyze request details:', {
-      headers: req.headers,
-      body: req.body,
-      path: req.path,
-      method: req.method,
-      timestamp: new Date().toISOString()
-    });
-
-    // Set strict headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-
-    const { exerciseName } = predictExerciseSchema.parse(req.body);
-
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
-    }
-
-    const result = await generateExerciseDetails(exerciseName);
-
-    logInfo('OpenAI API response:', { 
-      result,
-      timestamp: new Date().toISOString()
-    });
-
-    return res.json(result);
-  } catch (error) {
-    logError('Exercise analysis error:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      request: {
-        body: req.body,
-        headers: req.headers,
-        path: req.path
-      },
-      timestamp: new Date().toISOString()
-    });
-
-    const { status, message } = handleApiError(error, 'analyze');
     return res.status(status).json({ message });
   }
 });

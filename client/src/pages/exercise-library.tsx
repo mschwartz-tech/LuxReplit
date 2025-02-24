@@ -109,7 +109,7 @@ export default function ExerciseLibrary() {
         throw new Error('Exercise name must be at least 3 characters');
       }
 
-      const res = await apiRequest("POST", "/api/exercises/analyze", { exerciseName });
+      const res = await apiRequest("POST", "/exercise-ai/analyze", { exerciseName });
       if (!res.ok) {
         const errorText = await res.text();
         try {
