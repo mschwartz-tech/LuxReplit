@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import debounce from "lodash/debounce";
 import {
   Card,
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Exercise, insertExerciseSchema } from "@shared/schema";
-import { useState } from "react";
 import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Predefined muscle groups
+// Muscle groups definition
 const MUSCLE_GROUPS = [
   { id: 1, name: "Quadriceps" },
   { id: 2, name: "Hamstrings" },
@@ -57,7 +56,7 @@ const MUSCLE_GROUPS = [
   { id: 15, name: "Traps" }
 ];
 
-type FormData = {
+interface FormData {
   name: string;
   description: string;
   difficulty: "beginner" | "intermediate" | "advanced";
@@ -66,29 +65,26 @@ type FormData = {
   instructions: string[];
   tips: string[];
   equipment: string[];
-};
+}
 
-type AIAnalysisResponse = {
+interface AIAnalysisResponse {
   description: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   primaryMuscleGroupId: number;
   secondaryMuscleGroupIds: number[];
   instructions: string[];
-};
+}
 
 export default function ExerciseLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
-
-  // State management
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<number | null>(null);
 
-  // Form setup with validation schema and better error handling
+  // Initialize form with empty values
   const form = useForm<FormData>({
     resolver: zodResolver(insertExerciseSchema),
     defaultValues: {
@@ -103,79 +99,56 @@ export default function ExerciseLibrary() {
     }
   });
 
-  // AI Analysis mutation with improved error handling
-  const analyzeExerciseMutation = useMutation({
-    mutationFn: async (exerciseName: string): Promise<AIAnalysisResponse> => {
-      if (!exerciseName || exerciseName.trim().length < 3) {
-        throw new Error('Exercise name must be at least 3 characters');
-      }
-
-      const res = await apiRequest("POST", "/exercise-ai/analyze", { exerciseName });
-      if (!res.ok) {
-        const errorText = await res.text();
-        try {
-          const errorJson = JSON.parse(errorText);
-          throw new Error(errorJson.message || 'Failed to analyze exercise');
-        } catch (e) {
-          throw new Error(errorText || 'Failed to analyze exercise');
-        }
-      }
-      return await res.json();
-    },
-    onSuccess: (data) => {
-      // Reset form with new values, maintaining existing data
-      const currentValues = form.getValues();
-      form.reset({
-        ...currentValues,
-        description: data.description || currentValues.description,
-        difficulty: data.difficulty || currentValues.difficulty,
-        primaryMuscleGroupId: data.primaryMuscleGroupId || currentValues.primaryMuscleGroupId,
-        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds || currentValues.secondaryMuscleGroupIds,
-        instructions: data.instructions || currentValues.instructions,
-      });
-
-      toast({
-        title: "AI analysis complete",
-        description: "Exercise details have been generated",
-      });
-      setIsAnalyzing(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to analyze exercise",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsAnalyzing(false);
-    },
-  });
-
   // Debounced analysis function
   const debouncedAnalyze = useCallback(
-    debounce((name: string) => {
-      if (name.length >= 3 && !isAnalyzing) {
+    debounce(async (exerciseName: string) => {
+      if (exerciseName.trim().length < 3) return;
+
+      try {
         setIsAnalyzing(true);
-        analyzeExerciseMutation.mutate(name);
+        const res = await apiRequest("POST", "/api/exercise-ai/analyze", { exerciseName });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText);
+        }
+
+        const data: AIAnalysisResponse = await res.json();
+
+        // Update form with AI response
+        form.reset({
+          ...form.getValues(),
+          description: data.description || "",
+          difficulty: data.difficulty || "beginner",
+          primaryMuscleGroupId: data.primaryMuscleGroupId || 1,
+          secondaryMuscleGroupIds: data.secondaryMuscleGroupIds || [],
+          instructions: data.instructions || [],
+        });
+
+        toast({
+          title: "Success",
+          description: "Exercise details generated successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to analyze exercise",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzing(false);
       }
     }, 1000),
-    [isAnalyzing]
+    []
   );
 
-  // Handle exercise name input with improved validation
-  const handleExerciseNameChange = (name: string) => {
-    try {
-      form.setValue("name", name, { shouldValidate: true });
-      if (!isAnalyzing && name.length >= 3) {
-        setIsAnalyzing(true);
-        debouncedAnalyze(name);
-      }
-    } catch (error) {
-      console.error('Error setting exercise name:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update exercise name",
-        variant: "destructive",
-      });
+  // Handle name input changes
+  const handleExerciseNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value;
+    form.setValue("name", name, { shouldValidate: true });
+
+    if (name.trim().length >= 3) {
+      debouncedAnalyze(name);
     }
   };
 
@@ -213,7 +186,7 @@ export default function ExerciseLibrary() {
     enabled: !!user,
   });
 
-  // Filtered exercises logic
+  // Filter exercises based on search and filters
   const filteredExercises = exercises.filter((exercise: Exercise) => {
     const matchesSearch = exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       exercise.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -225,7 +198,6 @@ export default function ExerciseLibrary() {
     return matchesSearch && matchesDifficulty && matchesMuscleGroup;
   });
 
-  // Loading state
   if (isLoadingExercises) {
     return (
       <div className="flex h-[200px] items-center justify-center">
@@ -277,7 +249,7 @@ export default function ExerciseLibrary() {
                           <Input
                             {...field}
                             placeholder="e.g. Barbell Back Squat"
-                            onChange={(e) => handleExerciseNameChange(e.target.value)}
+                            onChange={handleExerciseNameChange}
                             disabled={isAnalyzing}
                           />
                         </FormControl>
