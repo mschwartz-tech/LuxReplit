@@ -81,6 +81,7 @@ export default function ExerciseLibrary() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedExercises, setSelectedExercises] = useState<string[]>([]); // Fix type
 
   // State management
   const [searchQuery, setSearchQuery] = useState("");
