@@ -21,72 +21,58 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
   try {
     logInfo('Raw OpenAI response:', { content });
 
-    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
-      logError('Received HTML content instead of JSON', { content: content.substring(0, 200) });
-      throw new Error('Invalid API response format');
-    }
-
     if (!content || content.trim() === '') {
-      logError('Empty content received from OpenAI');
       throw new Error('Empty response from OpenAI');
     }
 
     const parsed = JSON.parse(content);
     logInfo('Parsed OpenAI response:', { parsed });
 
-    // Validate required fields
-    const requiredFields = {
-      description: { type: 'string', maxLength: 100 },
-      primaryMuscleGroupId: { type: 'number', min: 1, max: 15 },
-      secondaryMuscleGroupIds: { type: 'array', itemType: 'number', min: 1, max: 15 },
-      difficulty: { type: 'string', values: ['beginner', 'intermediate', 'advanced'] },
-      instructions: { type: 'array', itemType: 'string', minLength: 1, maxSteps: 10, maxWordsPerStep: 20 }
-    };
+    // Validate and format description
+    if (!parsed.description || typeof parsed.description !== 'string') {
+      throw new Error('Missing or invalid description');
+    }
+    parsed.description = parsed.description.slice(0, 100).trim();
 
-    for (const [field, rules] of Object.entries(requiredFields)) {
-      if (!parsed[field]) {
-        throw new Error(`Missing ${field} in response`);
-      }
+    // Validate primary muscle group
+    if (!Number.isInteger(parsed.primaryMuscleGroupId) || 
+        parsed.primaryMuscleGroupId < 1 || 
+        parsed.primaryMuscleGroupId > 15) {
+      throw new Error('Invalid primaryMuscleGroupId: must be between 1 and 15');
+    }
 
-      if (rules.type === 'string' && typeof parsed[field] !== 'string') {
-        throw new Error(`${field} must be a string`);
-      }
+    // Validate and format secondary muscle groups
+    if (!Array.isArray(parsed.secondaryMuscleGroupIds)) {
+      throw new Error('secondaryMuscleGroupIds must be an array');
+    }
+    parsed.secondaryMuscleGroupIds = parsed.secondaryMuscleGroupIds
+      .filter(id => 
+        Number.isInteger(id) && 
+        id >= 1 && 
+        id <= 15 && 
+        id !== parsed.primaryMuscleGroupId
+      )
+      .slice(0, 5); // Limit to 5 secondary muscle groups
 
-      if (rules.type === 'number' && typeof parsed[field] !== 'number') {
-        throw new Error(`${field} must be a number`);
-      }
+    // Validate difficulty
+    if (!parsed.difficulty || !['beginner', 'intermediate', 'advanced'].includes(parsed.difficulty)) {
+      throw new Error('Invalid difficulty: must be beginner, intermediate, or advanced');
+    }
 
-      if ('maxLength' in rules && rules.maxLength && parsed[field].length > rules.maxLength) {
-        throw new Error(`${field} exceeds ${rules.maxLength} characters limit`);
-      }
+    // Validate and format instructions
+    if (!Array.isArray(parsed.instructions)) {
+      throw new Error('instructions must be an array');
+    }
+    parsed.instructions = parsed.instructions
+      .filter(instruction => typeof instruction === 'string' && instruction.trim())
+      .map(instruction => {
+        const words = instruction.split(/\s+/);
+        return words.slice(0, 20).join(' '); // Limit to 20 words per instruction
+      })
+      .slice(0, 10); // Limit to 10 instructions
 
-      if (rules.type === 'array') {
-        if (!Array.isArray(parsed[field])) {
-          throw new Error(`${field} must be an array`);
-        }
-        if (field === 'secondaryMuscleGroupIds') {
-          if (!parsed[field].every((id: number) => 
-            typeof id === 'number' && id >= 1 && id <= 15 && id !== parsed.primaryMuscleGroupId
-          )) {
-            throw new Error(`Invalid ${field}: must be unique numbers between 1 and 15, excluding primaryMuscleGroupId`);
-          }
-        }
-        if (field === 'instructions') {
-          if ('maxSteps' in rules && parsed[field].length > rules.maxSteps) {
-            parsed[field] = parsed[field].slice(0, rules.maxSteps);
-          }
-          if (!parsed[field].every((item: any) => typeof item === 'string' && item.trim())) {
-            throw new Error(`${field} must contain non-empty strings`);
-          }
-          // Limit words per instruction step
-          if ('maxWordsPerStep' in rules) {
-            parsed[field] = parsed[field].map((instruction: string) => {
-              const words = instruction.split(/\s+/);
-              return words.slice(0, rules.maxWordsPerStep).join(' ');
-            });
-          }
-        }
-      }
+    if (parsed.instructions.length === 0) {
+      throw new Error('At least one instruction is required');
     }
 
     return parsed;
@@ -94,8 +80,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
     logError('Failed to parse OpenAI response:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       rawContent: content,
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
+      stack: error instanceof Error ? error.stack : undefined
     });
     throw new Error('Failed to process AI response: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
@@ -107,20 +92,20 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
       throw new Error('Exercise name must be at least 3 characters long');
     }
 
-    logInfo('Generating exercise details for:', { exerciseName, timestamp: new Date().toISOString() });
+    logInfo('Generating exercise details for:', { exerciseName });
 
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
           role: "system",
-          content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with this format:
+          content: `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with exactly this format:
 {
   "description": "Brief description under 100 chars",
-  "primaryMuscleGroupId": (number 1-15),
-  "secondaryMuscleGroupIds": [array of numbers 1-15],
+  "primaryMuscleGroupId": (single number 1-15),
+  "secondaryMuscleGroupIds": [up to 5 different numbers 1-15, excluding primary],
   "difficulty": "beginner" | "intermediate" | "advanced",
-  "instructions": ["Step 1", "Step 2", "Step 3", ...]
+  "instructions": ["Step 1", "Step 2", ..., "Step 10"] (1-10 steps)
 }
 
 Available muscle groups:
@@ -128,15 +113,15 @@ Available muscle groups:
 6. Shoulders   7. Biceps      8. Triceps  9. Forearms  10. Abs
 11. Obliques   12. Lower Back 13. Glutes  14. Hip Flexors  15. Traps
 
-IMPORTANT: 
+STRICT REQUIREMENTS: 
 - Return ONLY the JSON object, no additional text
-- Use exact field names
-- difficulty must be lowercase
-- description should be concise
-- primaryMuscleGroupId must be different from secondaryMuscleGroupIds
-- instructions should be clear, numbered steps
-- Keep each instruction step under 20 words
-- Maximum 10 instruction steps`
+- Use exact field names as shown
+- Description must be under 100 characters
+- Instructions must be 1-10 clear, concise steps
+- Each instruction step must be under 20 words
+- Difficulty must be exactly "beginner", "intermediate", or "advanced"
+- primaryMuscleGroupId must be a single number 1-15
+- secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`
         },
         {
           role: "user",
@@ -148,18 +133,14 @@ IMPORTANT:
       max_tokens: 500
     });
 
-    logInfo('OpenAI API response received:', {
-      status: response.choices[0].finish_reason,
-      model: response.model,
-      usage: response.usage,
-      timestamp: new Date().toISOString()
-    });
-
     if (!response.choices[0].message.content) {
       throw new Error('Empty response from OpenAI');
     }
 
-    return validateOpenAIResponse(response.choices[0].message.content);
+    const validatedResponse = validateOpenAIResponse(response.choices[0].message.content);
+    logInfo('Validated response:', { validatedResponse });
+    return validatedResponse;
+
   } catch (error) {
     if (error instanceof Error) {
       if (error.message.includes('API key')) {
@@ -175,8 +156,7 @@ IMPORTANT:
 
     logError('Error in generateExerciseDetails:', {
       error: error instanceof Error ? error.message : String(error),
-      exerciseName,
-      timestamp: new Date().toISOString()
+      exerciseName
     });
     throw error;
   }

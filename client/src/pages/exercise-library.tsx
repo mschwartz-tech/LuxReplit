@@ -146,7 +146,7 @@ export default function ExerciseLibrary() {
     mutationFn: async (name: string) => {
       setAIStatus({
         status: 'generating',
-        message: 'Analyzing exercise...'
+        message: 'Analyzing exercise and generating details...'
       });
 
       try {
@@ -176,41 +176,67 @@ export default function ExerciseLibrary() {
       }
     },
     onSuccess: (data) => {
-      // Update form with AI predictions
-      const fieldsToUpdate = {
-        description: data.description,
-        instructions: data.instructions,
-        difficulty: data.difficulty,
-        primaryMuscleGroupId: data.primaryMuscleGroupId,
-        secondaryMuscleGroupIds: data.secondaryMuscleGroupIds,
-      };
+      try {
+        // Validate received data before updating form
+        const fieldsToUpdate = {
+          description: data.description?.slice(0, 100) || '',
+          instructions: Array.isArray(data.instructions) ? 
+            data.instructions.slice(0, 10).map(instr => 
+              typeof instr === 'string' ? instr.trim() : ''
+            ).filter(Boolean) : [],
+          difficulty: ['beginner', 'intermediate', 'advanced'].includes(data.difficulty) ?
+            data.difficulty : 'beginner',
+          primaryMuscleGroupId: Number.isInteger(data.primaryMuscleGroupId) &&
+            data.primaryMuscleGroupId >= 1 && data.primaryMuscleGroupId <= 15 ?
+            data.primaryMuscleGroupId : undefined,
+          secondaryMuscleGroupIds: Array.isArray(data.secondaryMuscleGroupIds) ?
+            data.secondaryMuscleGroupIds.filter(id =>
+              Number.isInteger(id) && id >= 1 && id <= 15 &&
+              id !== data.primaryMuscleGroupId
+            ).slice(0, 5) : []
+        };
 
-      Object.entries(fieldsToUpdate).forEach(([field, value]) => {
-        form.setValue(field as any, value, { shouldValidate: true });
-      });
+        // Update form fields with validated data
+        Object.entries(fieldsToUpdate).forEach(([field, value]) => {
+          if (value !== undefined) {
+            form.setValue(field as any, value, { shouldValidate: true });
+          }
+        });
 
-      setAIStatus({
-        status: 'success',
-        message: 'AI analysis complete! Exercise details have been populated.'
-      });
+        setAIStatus({
+          status: 'success',
+          message: 'Exercise details have been populated! Review and adjust if needed.'
+        });
 
-      toast({
-        title: "Success",
-        description: "Exercise details predicted successfully",
-      });
+        toast({
+          title: "Success",
+          description: "Exercise details generated successfully",
+        });
+      } catch (error) {
+        console.error('Error updating form:', error);
+        setAIStatus({
+          status: 'error',
+          message: 'Error updating form with AI predictions'
+        });
+        toast({
+          title: "Warning",
+          description: "Some fields could not be updated. Please check the form.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       setAIStatus({
         status: 'error',
-        message: error.message
+        message: error.message || 'Failed to analyze exercise'
       });
 
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to analyze exercise",
         variant: "destructive",
       });
-    },
+    }
   });
 
   // Debounced exercise name watcher
@@ -361,12 +387,12 @@ export default function ExerciseLibrary() {
                                     .map(step => step.trim())
                                     .filter(Boolean)
                                     .map(step => step.replace(/^\d+\.\s*/, ''))
-                                    .slice(0, 10) 
-                                    .map(step => step.substring(0, 200)); 
+                                    .slice(0, 10)
+                                    .map(step => step.substring(0, 200));
                                   field.onChange(steps);
                                 }}
                                 className="min-h-[200px] max-h-[400px] font-mono text-sm"
-                                maxLength={2500} 
+                                maxLength={2500}
                               />
                             </FormControl>
                             <p className="text-xs text-muted-foreground mt-1">
