@@ -68,6 +68,14 @@ type FormData = {
   equipment: string[];
 };
 
+type AIAnalysisResponse = {
+  description: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  primaryMuscleGroupId: number;
+  secondaryMuscleGroupIds: number[];
+  instructions: string[];
+};
+
 export default function ExerciseLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -93,15 +101,23 @@ export default function ExerciseLibrary() {
     }
   });
 
-  // AI Analysis mutation
+  // AI Analysis mutation with better error handling
   const analyzeExerciseMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/exercises/analyze", { exerciseName: name });
+    mutationFn: async (exerciseName: string): Promise<AIAnalysisResponse> => {
+      const res = await apiRequest("POST", "/api/exercises/analyze", { exerciseName });
       if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error);
+        const errorText = await res.text();
+        try {
+          // Try to parse as JSON first
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.message || 'Failed to analyze exercise');
+        } catch (e) {
+          // If not JSON, use text directly
+          throw new Error(errorText || 'Failed to analyze exercise');
+        }
       }
-      return res.json();
+      const data = await res.json();
+      return data as AIAnalysisResponse;
     },
     onSuccess: (data) => {
       form.reset({
