@@ -44,11 +44,13 @@ router.post('/api/exercises/predict-details', async (req, res) => {
 Output format must be JSON with exactly these fields:
 {
   "description": "string (50 words max)",
-  "instructions": "string[] (numbered steps)",
+  "instructions": ["1. First step", "2. Second step", ...],
   "difficulty": "beginner" | "intermediate" | "advanced",
   "primaryMuscleGroupId": number (1-15),
   "secondaryMuscleGroupIds": number[] (1-15)
-}`
+}
+
+For instructions, provide 3-6 clear, numbered steps that explain how to perform the exercise correctly. Each step should be precise and focus on proper form.`
         },
         {
           role: "user",
