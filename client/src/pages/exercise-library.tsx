@@ -35,6 +35,7 @@ import { useState, useEffect, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import * as z from 'zod';
 
 
 // Predefined muscle groups
@@ -103,40 +104,13 @@ export default function ExerciseLibrary() {
   });
 
   const createExerciseMutation = useMutation({
-    mutationFn: async (data: typeof insertExerciseSchema._type) => {
-      try {
-        const formattedData = {
-          ...data,
-          primaryMuscleGroupId: Number(data.primaryMuscleGroupId),
-          secondaryMuscleGroupIds: data.secondaryMuscleGroupIds.map(Number),
-        };
-
-        const response = await fetch('/api/exercises', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formattedData),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.text();
-          try {
-            const parsedError = JSON.parse(errorData);
-            throw new Error(parsedError.message || 'Failed to create exercise');
-          } catch {
-            throw new Error(errorData || 'Failed to create exercise');
-          }
-        }
-
-        const result = await response.json();
-        return result;
-      } catch (error) {
-        if (error instanceof Error) {
-          throw new Error(error.message);
-        }
-        throw new Error("An unexpected error occurred");
+    mutationFn: async (data: z.infer<typeof insertExerciseSchema>) => {
+      const response = await apiRequest("POST", "/api/exercises", data);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create exercise");
       }
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -202,7 +176,7 @@ export default function ExerciseLibrary() {
 
         if (Array.isArray(data.secondaryMuscleGroupIds)) {
           const validSecondaryIds = data.secondaryMuscleGroupIds.filter(
-            id => typeof id === 'number' && id >= 1 && id <= 15
+            (id: number) => typeof id === 'number' && id >= 1 && id <= 15
           );
           form.setValue("secondaryMuscleGroupIds", validSecondaryIds, { shouldValidate: true });
         }
