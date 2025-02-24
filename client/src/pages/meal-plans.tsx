@@ -351,7 +351,7 @@ export default function MealPlansPage() {
                       name="foodPreferences"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Food Preferences (max 100 words)</FormLabel>
+                          <FormLabel>Food Preferences (max 1000 words)</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Enter your food preferences, ingredients you like, favorite cuisines, etc..."
@@ -589,10 +589,18 @@ interface Member {
 interface Meal {
   meal: string;
   food: string;
+  ingredients: Array<{
+    item: string;
+    amount: string;
+    unit: string;
+  }>;
+  instructions: string[];
   calories: number;
   protein: number;
   carbs: number;
   fats: number;
+  dayNumber: number;
+  mealNumber: number;
 }
 
 interface MealPlan {
@@ -644,7 +652,7 @@ const fitnessGoalOptions = [
 
 // Validation Schemas
 const aiMealPlanSchema = z.object({
-  foodPreferences: z.string().max(100),
+  foodPreferences: z.string().max(1000),
   calorieTarget: z.number().min(500).max(10000),
   mealsPerDay: z.number().min(1).max(6),
   daysInPlan: z.number().min(1).max(30),
@@ -654,10 +662,7 @@ const aiMealPlanSchema = z.object({
     protein: z.number().min(0).max(100),
     carbs: z.number().min(0).max(100),
     fats: z.number().min(0).max(100),
-  }).refine(data => {
-    const total = data.protein + data.carbs + data.fats;
-    return total === 100;
-  }, "Macro distribution must total 100%"),
+  }).refine(data => data.protein + data.carbs + data.fats === 100, "Macro distribution must total 100%"),
   cookingSkillLevel: z.string(),
   maxPrepTime: z.string(),
 });

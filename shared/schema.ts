@@ -7,12 +7,7 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Re-export payment and subscription types
-export * from './payments';
-export * from './subscriptions';
-
 // Define top-level schemas
-// Update mealItemSchema
 export const mealItemSchema = z.object({
   meal: z.string(),
   food: z.string(),
@@ -30,9 +25,8 @@ export const mealItemSchema = z.object({
   mealNumber: z.number().min(1)
 });
 
-// Update aiMealPlanSchema
-const aiMealPlanSchema = z.object({
-  foodPreferences: z.string().max(1000), // ~100 words limit
+export const aiMealPlanSchema = z.object({
+  foodPreferences: z.string().max(1000),
   calorieTarget: z.number().min(500).max(10000),
   mealsPerDay: z.number().min(1).max(6),
   dietaryRestrictions: z.array(z.string()).optional(),
@@ -44,11 +38,13 @@ const aiMealPlanSchema = z.object({
   }).refine(data => {
     return data.protein + data.carbs + data.fats === 100;
   }, "Macro distribution must total 100%"),
-  cookingSkillLevel: z.string(),
+  cookingSkillLevel: z.enum(["beginner", "intermediate", "advanced"]),
   maxPrepTime: z.string(),
 });
 
+// Export schema types
 export type MealItem = z.infer<typeof mealItemSchema>;
+export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
 
 // =====================
 // Database Tables
@@ -76,7 +72,7 @@ const members = pgTable("members", {
   membershipStatus: text("membership_status", {
     enum: ["active", "inactive", "suspended"]
   }).notNull(),
-  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id), // Removed .notNull()
+  gymLocationId: integer("gym_location_id").references(() => gymMembershipPricing.id),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
@@ -130,7 +126,6 @@ const trainingClients = pgTable("training_clients", {
 const memberProfiles = pgTable("member_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
-  // Personal Information
   birthDate: timestamp("birth_date"),
   gender: text("gender"),
   address: text("address"),
@@ -138,36 +133,29 @@ const memberProfiles = pgTable("member_profiles", {
   state: text("state"),
   zipCode: text("zip_code"),
   phoneNumber: text("phone_number"),
-  // Physical Information
-  height: text("height"),  // Store as text to handle various formats
-  weight: text("weight"),  // Store as text to handle various formats
-  // Goals and Health
+  height: text("height"),
+  weight: text("weight"),
   fitnessGoals: text("fitness_goals").array(),
   healthConditions: text("health_conditions").array(),
   medications: text("medications").array(),
   injuries: text("injuries").array(),
-  // Emergency Contact
   emergencyContactName: text("emergency_contact_name"),
   emergencyContactPhone: text("emergency_contact_phone"),
   emergencyContactRelation: text("emergency_contact_relation"),
-  // Liability and Agreements
   liabilityWaiverSigned: boolean("liability_waiver_signed"),
   liabilityWaiverSignedDate: timestamp("liability_waiver_signed_date"),
   liabilityWaiverSignature: text("liability_waiver_signature"),
   photoReleaseWaiverSigned: boolean("photo_release_waiver_signed"),
   photoReleaseWaiverSignedDate: timestamp("photo_release_waiver_signed_date"),
   photoReleaseSignature: text("photo_release_signature"),
-  // Preferences
   preferredContactMethod: text("preferred_contact_method", {
     enum: ["email", "phone", "text"]
   }),
   marketingOptIn: boolean("marketing_opt_in"),
-  // Previous medical clearance
   hadPhysicalLastYear: boolean("had_physical_last_year"),
   physicianClearance: boolean("physician_clearance"),
   physicianName: text("physician_name"),
   physicianPhone: text("physician_phone"),
-  // Timestamps
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -204,9 +192,9 @@ const memberAssessments = pgTable("member_assessments", {
   id: serial("id").primaryKey(),
   memberId: integer("member_id").references(() => members.id).notNull(),
   assessmentDate: timestamp("assessment_date").notNull(),
-  weight: numeric("weight"),  // in kg
+  weight: numeric("weight"),
   bodyFatPercentage: numeric("body_fat_percentage"),
-  measurements: jsonb("measurements").notNull(), // chest, waist, hips, etc.
+  measurements: jsonb("measurements").notNull(),
   notes: text("notes"),
   trainerId: integer("trainer_id").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow()
@@ -257,7 +245,6 @@ const schedules = pgTable("schedules", {
   status: text("status", { enum: ["scheduled", "completed", "cancelled"] }).notNull()
 }, (table) => {
   return {
-    // Use GiST exclusion constraint for overlapping schedules
     trainerScheduleConstraint: sql`CONSTRAINT trainer_schedule_overlap
       EXCLUDE USING gist (
         trainer_id WITH =,
@@ -318,10 +305,10 @@ const exercises = pgTable("exercises", {
 const pricingPlans = pgTable("pricing_plans", {
   id: serial("id").primaryKey(),
   sessionsPerWeek: integer("sessions_per_week").notNull(),
-  duration: integer("duration").notNull(), // 30 or 60 minutes
+  duration: integer("duration").notNull(),
   costPerSession: numeric("cost_per_session").notNull(),
   biweeklyPrice: numeric("biweekly_price").notNull(),
-  pifPrice: numeric("pif_price").notNull(), // Paid in full price
+  pifPrice: numeric("pif_price").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 });
@@ -398,7 +385,7 @@ const sessions = pgTable("sessions", {
   memberId: integer("member_id").references(() => members.id).notNull(),
   date: timestamp("date").notNull(),
   time: text("time").notNull(),
-  duration: integer("duration").notNull(), // in minutes
+  duration: integer("duration").notNull(),
   status: text("status", {
     enum: ["scheduled", "completed", "canceled"]
   }).notNull(),
@@ -407,11 +394,9 @@ const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 }, (table) => {
   return {
-    // Add time format check constraint
     timeFormatCheck: sql`CONSTRAINT sessions_time_format_check CHECK (
       time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
     )`,
-    // Add exclusion constraint for overlapping sessions
     sessionOverlapCheck: sql`CONSTRAINT session_overlap_exclusion
       EXCLUDE USING gist (
         trainer_id WITH =,
@@ -430,7 +415,7 @@ const classes = pgTable("classes", {
   description: text("description"),
   date: timestamp("date").notNull(),
   time: text("time").notNull(),
-  duration: integer("duration").notNull(), // in minutes
+  duration: integer("duration").notNull(),
   capacity: integer("capacity").notNull(),
   status: text("status", {
     enum: ["scheduled", "completed", "canceled"]
@@ -444,11 +429,9 @@ const classes = pgTable("classes", {
   createdAt: timestamp("created_at").notNull().defaultNow()
 }, (table) => {
   return {
-    // Add time format check constraint
     timeFormatCheck: sql`CONSTRAINT classes_time_format_check CHECK (
       time ~ '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
     )`,
-    // Add exclusion constraint for overlapping classes
     classOverlapCheck: sql`CONSTRAINT class_overlap_exclusion
       EXCLUDE USING gist (
         trainer_id WITH =,
@@ -498,9 +481,9 @@ const classTemplates = pgTable("class_templates", {
   trainerId: integer("trainer_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
-  duration: integer("duration").notNull(), // in minutes
+  duration: integer("duration").notNull(),
   capacity: integer("capacity").notNull(),
-  dayOfWeek: integer("day_of_week").notNull(), // 0-6 for Sunday-Saturday
+  dayOfWeek: integer("day_of_week").notNull(),
   startTime: text("start_time").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow()
@@ -548,7 +531,7 @@ const strengthMetrics = pgTable("strength_metrics", {
   id: serial("id").primaryKey(),
   progressId: integer("progress_id").references(() => progress.id, { onDelete: 'cascade' }).notNull(),
   exerciseId: integer("exercise_id").references(() => exercises.id, { onDelete: 'restrict' }).notNull(),
-  weightAmount: numeric("weight_amount"), // Using consistent naming with snake_case for DB columns
+  weightAmount: numeric("weight_amount"),
   numberOfSets: integer("number_of_sets").notNull(),
   numberOfReps: integer("number_of_reps").notNull(),
   exerciseNotes: text("exercise_notes"),
@@ -801,7 +784,8 @@ const insertUserSchema = createInsertSchema(users)
     email: z.string().email("Invalid email format"),
     name: z.string().min(1, "Name is required"),
     username: z.string().min(3, "Username must be at least 3 characters"),
-    password: z.string().min(8, "Password must be at least 8 characters"),  })
+    password: z.string().min(8, "Password must be at least 8 characters"),
+  })
   .omit({
     createdAt: true,
   });
@@ -1187,6 +1171,9 @@ export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type InsertStrengthMetric = z.infer<typeof insertStrengthMetricSchema>;
 export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
 export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
+export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
+export type MealItem = z.infer<typeof mealItemSchema>;
+
 
 // =====================
 // Exports
@@ -1222,7 +1209,7 @@ export {
   classTemplates,
   classWaitlist,
 
-  // Insert Schemas
+  // Schemas
   insertUserSchema,
   insertGymMembershipPricingSchema,
   insertExerciseSchema,
@@ -1231,6 +1218,9 @@ export {
   insertMealPlanSchema,
   insertMemberAssessmentSchema,
   insertMemberProgressPhotoSchema,
+  insertMovementPatternSchema,
+  mealItemSchema,
+  aiMealPlanSchema,
   insertMemberSchema,
   insertMuscleGroupSchema,
   insertMemberProfileSchema,
@@ -1247,7 +1237,7 @@ export {
   insertScheduleSchema,
   insertStrengthMetricSchema,
   insertPricingPlanSchema,
-  insertMovementPatternSchema,
+
 
   // Relations
   usersRelations,
@@ -1262,14 +1252,13 @@ export {
   workoutLogsRelations,
   schedulesRelations,
   invoicesRelations,
-  marketingCampaignsRelations,
-  muscleGroupsRelations,
   exercisesRelations,
   pricingPlansRelations,
   gymMembershipPricingRelations,
   membershipPricingRelations,
   mealPlansRelations,
   memberMealPlansRelations,
+  sessionsRelations,
   classesRelations,
   classRegistrationsRelations,
   classTemplatesRelations,
@@ -1278,7 +1267,7 @@ export {
   strengthMetricsRelations,
 };
 
-// Export types
+// Type exports
 export type {
   User,
   Member,
@@ -1306,4 +1295,34 @@ export type {
   ClassRegistration,
   ClassTemplate,
   ClassWaitlist,
+  AiMealPlan,
+  Payment,
+  InsertPayment,
+  Subscription,
+  InsertSubscription,
+  InsertUser,
+  InsertGymMembershipPricing,
+  InsertExercise,
+  InsertInvoice,
+  InsertMarketingCampaign,
+  InsertMealPlan,
+  InsertMemberAssessment,
+  InsertMemberProgressPhoto,
+  InsertMember,
+  InsertMuscleGroup,
+  InsertMovementPattern,
+  InsertClass,
+  InsertClassTemplate,
+  InsertClassRegistration,
+  InsertClassWaitlist,
+  InsertWorkoutPlan,
+  InsertWorkoutLog,
+  InsertTrainingPackage,
+  InsertTrainingClient,
+  InsertProgress,
+  InsertSchedule,
+  InsertStrengthMetric,
+  InsertMemberMealPlan,
+  InsertMemberProfile,
+  MealItem,
 };

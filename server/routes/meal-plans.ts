@@ -1,17 +1,15 @@
 import { Router } from 'express';
 import { storage } from '../storage';
 import { generateMealPlan, generateSingleMeal } from '../services/openai-meal-service';
-import { insertMealPlanSchema, mealItemSchema } from '@shared/schema';
+import { insertMealPlanSchema, mealItemSchema, aiMealPlanSchema } from '@shared/schema';
 import { z } from 'zod';
 import { logMealPlanError, logMealPlanInfo, logMealPlanValidation } from '../services/meal-plan-logger';
 import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
 
-// Apply authentication middleware to all routes
 router.use(isAuthenticated);
 
-// Get all meal plans
 router.get('/', async (req, res) => {
   try {
     const plans = await storage.getMealPlans();
@@ -22,10 +20,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Generate AI meal plan
 router.post('/generate', async (req, res) => {
   try {
-    const validation = generateMealPlanSchema.safeParse(req.body);
+    const validation = aiMealPlanSchema.safeParse(req.body);
     if (!validation.success) {
       logMealPlanValidation(0, validation.error.errors);
       return res.status(400).json({ errors: validation.error.errors });
@@ -42,7 +39,6 @@ router.post('/generate', async (req, res) => {
 
     const meals = await generateMealPlan(validation.data);
 
-    // Create a draft meal plan
     const newPlan = await storage.createMealPlan({
       trainerId: (req.user as any).id,
       name: `Meal Plan - ${new Date().toLocaleDateString()}`,
@@ -58,7 +54,21 @@ router.post('/generate', async (req, res) => {
   }
 });
 
-// Regenerate single meal
+const regenerateMealSchema = z.object({
+  foodPreferences: z.string().max(1000),
+  calorieTarget: z.number().min(500).max(10000),
+  mealType: z.string(),
+  dayNumber: z.number().min(1),
+  mealNumber: z.number().min(1),
+  macroDistribution: z.object({
+    protein: z.number().min(0).max(100),
+    carbs: z.number().min(0).max(100),
+    fats: z.number().min(0).max(100),
+  }).refine(data => {
+    return data.protein + data.carbs + data.fats === 100;
+  }, "Macro distribution must total 100%"),
+});
+
 router.post('/regenerate-meal', async (req, res) => {
   try {
     const validation = regenerateMealSchema.safeParse(req.body);
@@ -84,7 +94,6 @@ router.post('/regenerate-meal', async (req, res) => {
   }
 });
 
-// Create new meal plan (final confirmation)
 router.post('/', async (req, res) => {
   try {
     const userRole = (req.user as any)?.role;
@@ -114,7 +123,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Add confirm meal plan endpoint
 router.post('/confirm', async (req, res) => {
   try {
     const userRole = (req.user as any)?.role;
@@ -138,14 +146,12 @@ router.post('/confirm', async (req, res) => {
       return res.status(400).json({ errors: validation.error.errors });
     }
 
-    // Update meal plan status and assign to member
     const updatedPlan = await storage.updateMealPlan(validation.data.mealPlanId, {
       status: 'confirmed',
       startDate: validation.data.startDate,
       endDate: validation.data.endDate,
     });
 
-    // Create member meal plan assignment
     const memberMealPlan = await storage.createMemberMealPlan({
       memberId: validation.data.memberId,
       mealPlanId: validation.data.mealPlanId,
