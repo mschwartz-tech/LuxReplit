@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { generateExerciseDetails } from '../services/openai';
-import { logError } from '../services/logger';
+import { logError, logInfo } from '../services/logger';
+import { openai } from '../services/openai';
 
 const router = Router();
 
@@ -37,12 +38,12 @@ const handleApiError = (error: unknown, context: string) => {
 // Endpoint for predicting exercise description
 router.post('/api/exercises/predict-description', async (req, res) => {
   try {
-    console.log('Received predict-description request:', req.body);
+    logInfo('Received predict-description request:', { body: req.body });
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
     const result = await generateExerciseDetails(exerciseName);
 
-    console.log('Generated exercise details:', result);
+    logInfo('Generated exercise details:', { result });
 
     res.json(result);
   } catch (error) {
@@ -54,7 +55,7 @@ router.post('/api/exercises/predict-description', async (req, res) => {
 // Endpoint for predicting exercise instructions
 router.post('/api/exercises/predict-instructions', async (req, res) => {
   try {
-    console.log('Received predict-instructions request:', req.body);
+    logInfo('Received predict-instructions request:', { body: req.body });
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
@@ -80,7 +81,7 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`
       max_tokens: 250
     });
 
-    console.log('Raw instructions response:', response.choices[0].message.content);
+    logInfo('Raw instructions response:', { content: response.choices[0].message.content });
 
     if (!response.choices[0].message.content) {
       throw new Error('Empty response from OpenAI');
@@ -89,14 +90,24 @@ IMPORTANT: Return ONLY the JSON object, no additional text or formatting.`
     // Parse and validate response
     let result;
     try {
-      result = JSON.parse(response.choices[0].message.content);
-      console.log('Parsed instructions:', result);
+      const content = response.choices[0].message.content;
+
+      // Check for HTML content
+      if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+        throw new Error('Received HTML instead of JSON response');
+      }
+
+      result = JSON.parse(content);
+      logInfo('Parsed instructions:', { result });
 
       if (!result.instructions || !Array.isArray(result.instructions)) {
         throw new Error('Invalid response format: instructions must be an array');
       }
     } catch (parseError) {
-      console.error('Failed to parse instructions response:', parseError);
+      logError('Failed to parse instructions response:', { 
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        content: response.choices[0].message.content 
+      });
       throw new Error('Invalid response format from AI service');
     }
 

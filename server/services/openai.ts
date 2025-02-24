@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { logError } from './logger';
+import { logError, logInfo } from './logger';
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY environment variable is required");
@@ -19,8 +19,16 @@ export interface ExerciseAIResponse {
 // Helper function to validate OpenAI response
 function validateOpenAIResponse(content: string): ExerciseAIResponse {
   try {
+    // Log the raw content for debugging
+    logInfo('Raw OpenAI response:', { content });
+
+    // Check for HTML content
+    if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+      throw new Error('Received HTML instead of JSON response');
+    }
+
     const parsed = JSON.parse(content);
-    console.log('Parsed OpenAI response:', parsed);
+    logInfo('Parsed OpenAI response:', { parsed });
 
     // Validate required fields
     if (!parsed.description || typeof parsed.description !== 'string') {
@@ -38,15 +46,19 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
 
     return parsed;
   } catch (error) {
-    console.error('Failed to parse OpenAI response:', error);
-    console.error('Raw content:', content);
+    // Enhanced error logging
+    logError('Failed to parse OpenAI response:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      rawContent: content,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw new Error(`Failed to parse OpenAI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
 export async function generateExerciseDetails(exerciseName: string): Promise<ExerciseAIResponse> {
   try {
-    console.log('Generating exercise details for:', exerciseName);
+    logInfo('Generating exercise details for:', { exerciseName });
 
     const response = await openai.chat.completions.create({
       model: "gpt-4-0125-preview",
@@ -82,7 +94,10 @@ IMPORTANT:
       max_tokens: 150
     });
 
-    console.log('Raw OpenAI response:', response.choices[0].message.content);
+    logInfo('OpenAI API response received:', {
+      status: response.choices[0].finish_reason,
+      model: response.model
+    });
 
     if (!response.choices[0].message.content) {
       throw new Error('Empty response from OpenAI');
@@ -90,8 +105,10 @@ IMPORTANT:
 
     return validateOpenAIResponse(response.choices[0].message.content);
   } catch (error) {
-    console.error('Error in generateExerciseDetails:', error);
-    logError('Error generating exercise details:', error instanceof Error ? error.message : String(error));
+    logError('Error in generateExerciseDetails:', {
+      error: error instanceof Error ? error.message : String(error),
+      exerciseName
+    });
     throw error;
   }
 }
