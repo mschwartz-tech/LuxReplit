@@ -50,6 +50,13 @@ STRICT REQUIREMENTS:
 - primaryMuscleGroupId must be a single number 1-15
 - secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`;
 
+    // Log the request we're about to make
+    logInfo('OpenAI API request:', {
+      model: "gpt-4o",
+      exerciseName,
+      timestamp: new Date().toISOString()
+    });
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -67,12 +74,19 @@ STRICT REQUIREMENTS:
       max_tokens: 500
     });
 
+    // Log the complete raw response for debugging
+    logInfo('Raw OpenAI response object:', {
+      status: response.choices[0].finish_reason,
+      model: response.model,
+      timestamp: new Date().toISOString()
+    });
+
     if (!response.choices[0].message.content) {
       throw new Error('Empty response from OpenAI');
     }
 
     let content = response.choices[0].message.content.trim();
-    logInfo('Raw OpenAI response:', { content });
+    logInfo('Raw response content:', { content });
 
     try {
       const parsed = JSON.parse(content);

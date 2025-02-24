@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { generateExerciseDetails } from '../services/openai';
 import { logError, logInfo } from '../services/logger';
-import { openai } from '../services/openai';
 
 const router = Router();
 
@@ -49,36 +48,100 @@ const handleApiError = (error: unknown, context: string) => {
   };
 };
 
-// Endpoint for analyzing exercises with OpenAI
-router.post('/api/exercises/analyze', async (req, res) => {
+// Debug endpoint for troubleshooting OpenAI responses
+router.post('/api/debug/openai', async (req, res) => {
   try {
-    // Set JSON content type
-    res.setHeader('Content-Type', 'application/json');
-
-    // Log incoming request
-    logInfo('Received analyze request:', { 
-      body: req.body,
+    logInfo('Debug endpoint request:', {
       headers: req.headers,
+      body: req.body,
+      path: req.path,
+      method: req.method,
       timestamp: new Date().toISOString()
     });
 
+    // Force JSON content type and no caching
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
-    // Verify OpenAI API key
+    // Log the OpenAI API call attempt
+    logInfo('Initiating OpenAI API call:', {
+      exerciseName,
+      timestamp: new Date().toISOString()
+    });
+
+    const rawResponse = await generateExerciseDetails(exerciseName);
+
+    // Log the raw response for debugging
+    logInfo('Raw OpenAI API response:', {
+      response: rawResponse,
+      timestamp: new Date().toISOString()
+    });
+
+    return res.json(rawResponse);
+  } catch (error) {
+    logError('Debug endpoint error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      request: {
+        body: req.body,
+        headers: req.headers,
+        path: req.path
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    const { status, message } = handleApiError(error, 'debug');
+    return res.status(status).json({ message });
+  }
+});
+
+// Main analyze endpoint
+router.post('/api/exercises/analyze', async (req, res) => {
+  try {
+    logInfo('Analyze request details:', {
+      headers: req.headers,
+      body: req.body,
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+
+    const { exerciseName } = predictExerciseSchema.parse(req.body);
+
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OpenAI API key is not configured');
     }
 
+    logInfo('Calling OpenAI API:', { 
+      exerciseName,
+      timestamp: new Date().toISOString()
+    });
+
     const result = await generateExerciseDetails(exerciseName);
 
-    // Log successful response
-    logInfo('Generated exercise details:', { 
+    logInfo('OpenAI API response:', { 
       result,
       timestamp: new Date().toISOString()
     });
 
     return res.json(result);
   } catch (error) {
+    logError('Exercise analysis error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      request: {
+        body: req.body,
+        headers: req.headers,
+        path: req.path
+      },
+      timestamp: new Date().toISOString()
+    });
+
     const { status, message } = handleApiError(error, 'analyze');
     return res.status(status).json({ message });
   }
