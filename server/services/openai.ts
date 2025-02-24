@@ -40,7 +40,7 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
       primaryMuscleGroupId: { type: 'number', min: 1, max: 15 },
       secondaryMuscleGroupIds: { type: 'array', itemType: 'number', min: 1, max: 15 },
       difficulty: { type: 'string', values: ['beginner', 'intermediate', 'advanced'] },
-      instructions: { type: 'array', itemType: 'string', minLength: 1 }
+      instructions: { type: 'array', itemType: 'string', minLength: 1, maxSteps: 10, maxWordsPerStep: 20 }
     };
 
     for (const [field, rules] of Object.entries(requiredFields)) {
@@ -72,11 +72,18 @@ function validateOpenAIResponse(content: string): ExerciseAIResponse {
           }
         }
         if (field === 'instructions') {
-          if ('minLength' in rules && rules.minLength && parsed[field].length < rules.minLength) {
-            throw new Error(`${field} must have at least ${rules.minLength} item`);
+          if ('maxSteps' in rules && parsed[field].length > rules.maxSteps) {
+            parsed[field] = parsed[field].slice(0, rules.maxSteps);
           }
           if (!parsed[field].every((item: any) => typeof item === 'string' && item.trim())) {
             throw new Error(`${field} must contain non-empty strings`);
+          }
+          // Limit words per instruction step
+          if ('maxWordsPerStep' in rules) {
+            parsed[field] = parsed[field].map((instruction: string) => {
+              const words = instruction.split(/\s+/);
+              return words.slice(0, rules.maxWordsPerStep).join(' ');
+            });
           }
         }
       }
@@ -103,7 +110,7 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
     logInfo('Generating exercise details for:', { exerciseName, timestamp: new Date().toISOString() });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4", // Using standard GPT-4 model
+      model: "gpt-4",
       messages: [
         {
           role: "system",
@@ -127,7 +134,9 @@ IMPORTANT:
 - difficulty must be lowercase
 - description should be concise
 - primaryMuscleGroupId must be different from secondaryMuscleGroupIds
-- instructions should be clear, numbered steps`
+- instructions should be clear, numbered steps
+- Keep each instruction step under 20 words
+- Maximum 10 instruction steps`
         },
         {
           role: "user",

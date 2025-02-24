@@ -353,19 +353,25 @@ export default function ExerciseLibrary() {
                           <FormItem>
                             <FormControl>
                               <Textarea
-                                placeholder="Enter each instruction on a new line..."
+                                placeholder="Enter each instruction on a new line. Maximum 10 steps, each step limited to 200 characters."
                                 value={Array.isArray(field.value) ? field.value.map((step, i) => `${i + 1}. ${step}`).join('\n') : ''}
                                 onChange={(e) => {
                                   const steps = e.target.value
                                     .split('\n')
                                     .map(step => step.trim())
                                     .filter(Boolean)
-                                    .map(step => step.replace(/^\d+\.\s*/, ''));
+                                    .map(step => step.replace(/^\d+\.\s*/, ''))
+                                    .slice(0, 10) 
+                                    .map(step => step.substring(0, 200)); 
                                   field.onChange(steps);
                                 }}
-                                className="min-h-[200px] font-mono text-sm"
+                                className="min-h-[200px] max-h-[400px] font-mono text-sm"
+                                maxLength={2500} 
                               />
                             </FormControl>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {field.value?.length || 0}/10 steps
+                            </p>
                             <FormMessage />
                           </FormItem>
                         )}
