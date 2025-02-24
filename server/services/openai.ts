@@ -7,7 +7,6 @@ if (!process.env.OPENAI_API_KEY) {
 
 export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  // Ensure we're sending the correct headers
   defaultHeaders: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -28,8 +27,6 @@ export async function generateExerciseDetails(exerciseName: string): Promise<Exe
     if (!exerciseName || exerciseName.trim().length < 3) {
       throw new Error('Exercise name must be at least 3 characters long');
     }
-
-    logInfo('Generating exercise details for:', { exerciseName });
 
     const systemPrompt = `You are a professional fitness trainer. Analyze exercises and return ONLY a JSON object with exactly this format:
 {
@@ -54,16 +51,8 @@ STRICT REQUIREMENTS:
 - primaryMuscleGroupId must be a single number 1-15
 - secondaryMuscleGroupIds must be an array of up to 5 different numbers 1-15, excluding the primary`;
 
-    // Log the complete request configuration
-    logInfo('OpenAI API request configuration:', {
-      model: "gpt-4o",
-      exerciseName,
-      systemPrompt,
-      headers: openai.defaultHeaders,
-      timestamp: new Date().toISOString()
-    });
+    logInfo('Generating exercise details for:', { exerciseName });
 
-    // Make the API request with strict JSON response format
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -79,14 +68,6 @@ STRICT REQUIREMENTS:
       response_format: { type: "json_object" },
       temperature: 0.3,
       max_tokens: 500
-    });
-
-    // Log the complete raw response
-    logInfo('Raw OpenAI API response:', {
-      status: response.choices[0].finish_reason,
-      model: response.model,
-      rawContent: response.choices[0].message.content,
-      timestamp: new Date().toISOString()
     });
 
     if (!response.choices[0].message.content) {

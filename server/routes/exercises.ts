@@ -11,7 +11,6 @@ const predictExerciseSchema = z.object({
 
 // Helper function to handle API errors
 const handleApiError = (error: unknown, context: string) => {
-  // Log detailed error information
   logError(`${context} error:`, {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
@@ -27,7 +26,6 @@ const handleApiError = (error: unknown, context: string) => {
   }
 
   if (error instanceof Error) {
-    // Check for specific OpenAI API errors
     if (error.message.includes('API key')) {
       return { status: 401, message: 'Authentication failed with AI service' };
     }
@@ -100,6 +98,7 @@ router.post('/api/debug/openai', async (req, res) => {
 // Main analyze endpoint
 router.post('/api/exercises/analyze', async (req, res) => {
   try {
+    // Log request details
     logInfo('Analyze request details:', {
       headers: req.headers,
       body: req.body,
@@ -108,19 +107,16 @@ router.post('/api/exercises/analyze', async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+    // Set strict headers
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
 
     const { exerciseName } = predictExerciseSchema.parse(req.body);
 
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OpenAI API key is not configured');
     }
-
-    logInfo('Calling OpenAI API:', { 
-      exerciseName,
-      timestamp: new Date().toISOString()
-    });
 
     const result = await generateExerciseDetails(exerciseName);
 
