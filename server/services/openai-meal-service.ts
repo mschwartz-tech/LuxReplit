@@ -38,29 +38,32 @@ interface MealDetails {
 }
 
 export async function generateMealPlan(request: MealPlanGenerationRequest): Promise<MealDetails[]> {
-  const prompt = `Generate a detailed 7-day meal plan based on the following requirements:
-- Food preferences and dietary style: ${request.foodPreferences}
-- Daily calorie target: ${request.calorieTarget}
+  const prompt = `As a professional nutritionist, create a detailed 7-day meal plan following these requirements:
+
+KEY REQUIREMENTS:
+- Food preferences and style: ${request.foodPreferences}
+- Daily calorie target: ${request.calorieTarget} calories
 - Meals per day: ${request.mealsPerDay}
 - Dietary restrictions: ${request.dietaryRestrictions?.join(', ') || 'None specified'}
 - Fitness goals: ${request.fitnessGoals?.join(', ') || 'General health'}
-- Macro distribution: Protein ${request.macroDistribution?.protein || 30}%, Carbs ${request.macroDistribution?.carbs || 40}%, Fats ${request.macroDistribution?.fats || 30}%
-- Cooking skill level: ${request.cookingSkillLevel}
-- Maximum prep time per meal: ${request.maxPrepTime}
+- Macro split: Protein ${request.macroDistribution?.protein || 30}%, Carbs ${request.macroDistribution?.carbs || 40}%, Fats ${request.macroDistribution?.fats || 30}%
+- Cooking expertise: ${request.cookingSkillLevel}
+- Maximum prep time: ${request.maxPrepTime}
 
-For each meal across all 7 days, provide:
-1. Name of the meal (Breakfast, Lunch, Dinner, Snack)
-2. Main food items
-3. Detailed ingredients list with amounts and units
+REQUIRED OUTPUT FORMAT:
+Provide a complete 7-day meal plan with ${request.mealsPerDay} meals per day. For each meal include:
+1. Meal type (Breakfast/Lunch/Dinner/Snack)
+2. Main dish name and brief description
+3. Detailed ingredients list with precise measurements
 4. Step-by-step cooking instructions
-5. Complete nutritional breakdown (calories, protein, carbs, fats)
+5. Complete nutritional information
 
-Provide the response in JSON format with the following structure:
+Return the response in this exact JSON structure:
 {
   "meals": [
     {
       "meal": "Breakfast/Lunch/Dinner/Snack",
-      "food": "Main dish name and description",
+      "food": "Name and brief description of dish",
       "ingredients": [
         {
           "item": "ingredient name",
@@ -74,12 +77,18 @@ Provide the response in JSON format with the following structure:
       "carbs": number (in grams),
       "fats": number (in grams),
       "dayNumber": number (1-7),
-      "mealNumber": number (order in the day)
+      "mealNumber": number (1-${request.mealsPerDay})
     }
   ]
 }
 
-Ensure each day has exactly ${request.mealsPerDay} meals and the total calories per day matches the target ${request.calorieTarget} calories.`;
+IMPORTANT REQUIREMENTS:
+- Generate exactly 7 days of meals
+- Each day must have exactly ${request.mealsPerDay} meals
+- Daily total calories should sum to approximately ${request.calorieTarget}
+- All measurements must be precise
+- Instructions should be clear and concise
+- Each meal must have complete nutritional information`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -94,6 +103,8 @@ Ensure each day has exactly ${request.mealsPerDay} meals and the total calories 
           content: prompt
         }
       ],
+      temperature: 0.7,
+      max_tokens: 4000,
       response_format: { type: "json_object" }
     });
 
@@ -108,7 +119,13 @@ Ensure each day has exactly ${request.mealsPerDay} meals and the total calories 
       throw new Error("Invalid response format from OpenAI");
     }
 
-    // Validate each meal has required properties
+    // Validate we have the correct number of meals
+    const expectedTotalMeals = 7 * request.mealsPerDay;
+    if (result.meals.length !== expectedTotalMeals) {
+      throw new Error(`Expected ${expectedTotalMeals} meals but got ${result.meals.length}`);
+    }
+
+    // Validate each meal has required properties and structure
     result.meals.forEach((meal: any, index: number) => {
       if (!meal.meal || !meal.food || !Array.isArray(meal.ingredients) || 
           !Array.isArray(meal.instructions) || typeof meal.calories !== 'number' || 
@@ -116,6 +133,26 @@ Ensure each day has exactly ${request.mealsPerDay} meals and the total calories 
           typeof meal.fats !== 'number' || 
           typeof meal.dayNumber !== 'number' || typeof meal.mealNumber !== 'number') {
         throw new Error(`Invalid meal data at index ${index}`);
+      }
+
+      // Validate day and meal numbers are in correct range
+      if (meal.dayNumber < 1 || meal.dayNumber > 7) {
+        throw new Error(`Invalid day number ${meal.dayNumber} at index ${index}`);
+      }
+      if (meal.mealNumber < 1 || meal.mealNumber > request.mealsPerDay) {
+        throw new Error(`Invalid meal number ${meal.mealNumber} at index ${index}`);
+      }
+
+      // Validate ingredients
+      meal.ingredients.forEach((ingredient: any, ingIndex: number) => {
+        if (!ingredient.item || !ingredient.amount || !ingredient.unit) {
+          throw new Error(`Invalid ingredient at meal ${index}, ingredient ${ingIndex}`);
+        }
+      });
+
+      // Validate instructions
+      if (meal.instructions.length === 0) {
+        throw new Error(`No cooking instructions provided for meal at index ${index}`);
       }
     });
 
