@@ -84,8 +84,8 @@ Example response format:
       .filter((id: number) => id >= 1 && id <= 15 && id !== primaryMuscleGroupId);
 
     // Validate difficulty
-    const difficulty = ['beginner', 'intermediate', 'advanced'].includes(result.difficulty) 
-      ? result.difficulty 
+    const difficulty = ['beginner', 'intermediate', 'advanced'].includes(result.difficulty)
+      ? result.difficulty
       : 'beginner';
 
     res.json({
@@ -96,8 +96,8 @@ Example response format:
     });
   } catch (error) {
     console.error('Error predicting exercise description:', error);
-    res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to predict exercise description' 
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to predict exercise description'
     });
   }
 });
@@ -138,7 +138,7 @@ Example response format:
       throw new Error('No content in OpenAI response');
     }
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content) as { instructions: string[] };
 
     // Validate and sanitize the response
     if (!result.instructions || !Array.isArray(result.instructions)) {
@@ -147,15 +147,15 @@ Example response format:
 
     // Ensure instructions is an array and each instruction is properly formatted
     const instructions = result.instructions
-      .map(instruction => instruction.trim())
+      .map((instruction: string) => instruction.trim())
       .filter(Boolean)
-      .map(instruction => instruction.replace(/^\d+\.\s*/, '')); // Remove any existing numbers
+      .map((instruction: string) => instruction.replace(/^\d+\.\s*/, '')); // Remove any existing numbers
 
     res.json({ instructions });
   } catch (error) {
     console.error('Error predicting exercise instructions:', error);
-    res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Failed to predict exercise instructions' 
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Failed to predict exercise instructions'
     });
   }
 });

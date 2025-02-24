@@ -75,7 +75,8 @@ IMPORTANT:
     return result;
   } catch (error) {
     console.error('Error in generateExerciseDetails:', error);
-    logError("Error generating exercise details:", error);
+    // Fix the typing issue by converting error to a string
+    logError("Error generating exercise details:", error instanceof Error ? error.message : String(error));
     throw new Error("Failed to generate exercise details");
   }
 }
