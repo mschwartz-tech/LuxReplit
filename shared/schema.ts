@@ -354,6 +354,7 @@ const membershipPricing = pgTable("membership_pricing", {
   }
 });
 
+// Update mealPlans table to support draft and final states
 const mealPlans = pgTable("meal_plans", {
   id: serial("id").primaryKey(),
   trainerId: integer("trainer_id").references(() => users.id),
@@ -361,6 +362,9 @@ const mealPlans = pgTable("meal_plans", {
   description: text("description"),
   meals: jsonb("meals").notNull(),
   macroDistribution: jsonb("macro_distribution").notNull().default(sql`'{"protein": 30, "carbs": 40, "fats": 30}'::jsonb`),
+  status: text("status", {
+    enum: ["draft", "confirmed", "active", "completed"]
+  }).notNull().default("draft"),
   dietaryPreferences: text("dietary_preferences").array(),
   dietaryRestrictions: text("dietary_restrictions").array(),
   calorieTarget: integer("calorie_target"),
@@ -370,6 +374,8 @@ const mealPlans = pgTable("meal_plans", {
   }),
   maxPrepTime: text("max_prep_time"),
   excludedIngredients: text("excluded_ingredients").array(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").notNull().defaultNow()
 });
 
@@ -858,6 +864,7 @@ const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns)
     id: true
   });
 
+// Update the insert schema for meal plans
 const insertMealPlanSchema = createInsertSchema(mealPlans)
   .extend({
     trainerId: z.string().transform(val => parseInt(val)).optional(),
@@ -870,6 +877,7 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
       const total = data.protein + data.carbs + data.fats;
       return total === 100;
     }, "Macro distribution must total 100%"),
+    status: z.enum(["draft", "confirmed", "active", "completed"]).default("draft"),
     dietaryPreferences: z.array(z.string()).optional(),
     dietaryRestrictions: z.array(z.string()).optional(),
     calorieTarget: z.number().min(500).max(10000).optional(),
@@ -877,6 +885,8 @@ const insertMealPlanSchema = createInsertSchema(mealPlans)
     cookingSkillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
     maxPrepTime: z.string().optional(),
     excludedIngredients: z.array(z.string()).optional(),
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
   })
   .omit({
     createdAt: true,
