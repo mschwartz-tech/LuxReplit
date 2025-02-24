@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm';
 import { z } from "zod";
 import { createInsertSchema } from "drizzle-zod";
 
-// Define top-level schemas
+// Update the meal item schema to include temporary status
 export const mealItemSchema = z.object({
   meal: z.string(),
   food: z.string(),
@@ -22,9 +22,12 @@ export const mealItemSchema = z.object({
   carbs: z.number(),
   fats: z.number(),
   dayNumber: z.number().min(1).max(7),
-  mealNumber: z.number().min(1)
+  mealNumber: z.number().min(1),
+  isTemporary: z.boolean().default(false),
+  status: z.enum(["draft", "confirmed"]).default("draft")
 });
 
+// Existing aiMealPlanSchema remains unchanged
 export const aiMealPlanSchema = z.object({
   foodPreferences: z.string().max(1000),
   calorieTarget: z.number().min(500).max(10000),
@@ -42,9 +45,25 @@ export const aiMealPlanSchema = z.object({
   maxPrepTime: z.string(),
 });
 
-// Export schema types
+// Define the temporary meal plan schema
+export const temporaryMealPlanSchema = z.object({
+  userId: z.number(),
+  meals: z.array(mealItemSchema),
+  macroDistribution: z.object({
+    protein: z.number().min(0).max(100),
+    carbs: z.number().min(0).max(100),
+    fats: z.number().min(0).max(100),
+  }).refine(data => {
+    return data.protein + data.carbs + data.fats === 100;
+  }, "Macro distribution must total 100%"),
+  targetCalories: z.number().min(500).max(10000),
+  expiresAt: z.date()
+});
+
+// Export type definitions
 export type MealItem = z.infer<typeof mealItemSchema>;
 export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
+export type TemporaryMealPlan = z.infer<typeof temporaryMealPlanSchema>;
 
 // =====================
 // Database Tables
@@ -544,6 +563,17 @@ const strengthMetrics = pgTable("strength_metrics", {
 });
 
 
+// Add temporary meal plan table
+export const temporaryMealPlans = pgTable("temporary_meal_plans", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  meals: jsonb("meals").notNull(),
+  macroDistribution: jsonb("macro_distribution").notNull(),
+  targetCalories: integer("target_calories").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow()
+});
+
 // =====================
 // Relations Definitions
 // =====================
@@ -754,7 +784,7 @@ const classWaitlistRelations = relations(classWaitlist, ({ one }) => ({
   })
 }));
 
-const progressRelations = relations(progress, ({ one, many }) => ({
+const progressRelations = relations(progress, ({ one, many}) => ({
   member: one(members, {
     fields: [progress.memberId],
     references: [members.id],
@@ -1107,6 +1137,28 @@ const insertMemberMealPlanSchema = createInsertSchema(memberMealPlans)
     assignedAt: true,
   });
 
+// Create insert schemas for temporary meal plans
+export const insertTemporaryMealPlanSchema = createInsertSchema(temporaryMealPlans)
+  .extend({
+    userId: z.number(),
+    meals: z.array(mealItemSchema),
+    macroDistribution: z.object({
+      protein: z.number().min(0).max(100),
+      carbs: z.number().min(0).max(100),
+      fats: z.number().min(0).max(100),
+    }).refine(data => {
+      return data.protein + data.carbs + data.fats === 100;
+    }, "Macro distribution must total 100%"),
+    targetCalories: z.number().min(500).max(10000),
+    expiresAt: z.coerce.date()
+  })
+  .omit({
+    id: true,
+    createdAt: true
+  });
+
+export type InsertTemporaryMealPlan = z.infer<typeof insertTemporaryMealPlanSchema>;
+
 // =====================
 // Type Definitions
 // =====================
@@ -1173,6 +1225,8 @@ export type InsertMemberMealPlan = z.infer<typeof insertMemberMealPlanSchema>;
 export type InsertMemberProfile = z.infer<typeof insertMemberProfileSchema>;
 export type AiMealPlan = z.infer<typeof aiMealPlanSchema>;
 export type MealItem = z.infer<typeof mealItemSchema>;
+export type TemporaryMealPlan = z.infer<typeof temporaryMealPlanSchema>;
+export type InsertTemporaryMealPlan = z.infer<typeof insertTemporaryMealPlanSchema>;
 
 
 // =====================
@@ -1184,60 +1238,32 @@ export {
   // Tables
   users,
   members,
-  workoutPlans,
-  workoutLogs,
-  schedules,
-  exercises,
-  muscleGroups,
-  pricingPlans,
-  gymMembershipPricing,
-  membershipPricing,
-  mealPlans,
-  memberMealPlans,
-  progress,
-  strengthMetrics,
   movementPatterns,
   trainingPackages,
   trainingClients,
   memberProfiles,
   memberAssessments,
   memberProgressPhotos,
-  marketingCampaigns,
+  workoutPlans,
+  workoutLogs,
+  schedules,
   invoices,
+  marketingCampaigns,
+  muscleGroups,
+  exercises,
+  pricingPlans,
+  gymMembershipPricing,
+  membershipPricing,
+  mealPlans,
+  memberMealPlans,
+  sessions,
   classes,
   classRegistrations,
   classTemplates,
   classWaitlist,
-
-  // Schemas
-  insertUserSchema,
-  insertGymMembershipPricingSchema,
-  insertExerciseSchema,
-  insertInvoiceSchema,
-  insertMarketingCampaignSchema,
-  insertMealPlanSchema,
-  insertMemberAssessmentSchema,
-  insertMemberProgressPhotoSchema,
-  insertMovementPatternSchema,
-  mealItemSchema,
-  aiMealPlanSchema,
-  insertMemberSchema,
-  insertMuscleGroupSchema,
-  insertMemberProfileSchema,
-  insertClassSchema,
-  insertClassTemplateSchema,
-  insertClassRegistrationSchema,
-  insertClassWaitlistSchema,
-  insertMemberMealPlanSchema,
-  insertWorkoutPlanSchema,
-  insertWorkoutLogSchema,
-  insertTrainingPackageSchema,
-  insertTrainingClientSchema,
-  insertProgressSchema,
-  insertScheduleSchema,
-  insertStrengthMetricSchema,
-  insertPricingPlanSchema,
-
+  progress,
+  strengthMetrics,
+  temporaryMealPlans,
 
   // Relations
   usersRelations,
@@ -1265,64 +1291,86 @@ export {
   classWaitlistRelations,
   progressRelations,
   strengthMetricsRelations,
+
+  // Schemas
+  mealItemSchema,
+  aiMealPlanSchema,
+  temporaryMealPlanSchema,
+  insertUserSchema,
+  insertGymMembershipPricingSchema,
+  insertExerciseSchema,
+  insertInvoiceSchema,
+  insertMarketingCampaignSchema,
+  insertMealPlanSchema,
+  insertMemberProfileSchema,
+  insertTemporaryMealPlanSchema,
+  insertMemberAssessmentSchema,
+  insertMemberProgressPhotoSchema,
+  insertMemberSchema,
+  insertClassSchema,
+  insertClassTemplateSchema,
+  insertClassRegistrationSchema,
+  insertWorkoutPlanSchema,
+  insertWorkoutLogSchema,
+  insertTrainingPackageSchema,
+  insertProgressSchema,
+  insertScheduleSchema,
+  insertStrengthMetricSchema
 };
 
-// Type exports
+// Export types separately to avoid naming conflicts
 export type {
   User,
   Member,
-  WorkoutPlan,
-  WorkoutLog,
-  Schedule,
-  Exercise,
-  MuscleGroup,
-  PricingPlan,
-  GymMembershipPricing,
-  MembershipPricing,
-  MealPlan,
-  MemberMealPlan,
-  Progress,
-  StrengthMetric,
   MovementPattern,
   TrainingPackage,
   TrainingClient,
   MemberProfile,
   MemberAssessment,
   MemberProgressPhoto,
-  MarketingCampaign,
+  WorkoutPlan,
+  WorkoutLog,
+  Schedule,
   Invoice,
+  MarketingCampaign,
+  MuscleGroup,
+  Exercise,
+  PricingPlan,
+  GymMembershipPricing,
+  MembershipPricing,
+  MealPlan,
+  MemberMealPlan,
+  Session,
   Class,
   ClassRegistration,
   ClassTemplate,
   ClassWaitlist,
+  Progress,
+  StrengthMetric,
+
+  // Schema types
+  MealItem,
   AiMealPlan,
-  Payment,
-  InsertPayment,
-  Subscription,
-  InsertSubscription,
+  TemporaryMealPlan,
   InsertUser,
   InsertGymMembershipPricing,
   InsertExercise,
   InsertInvoice,
   InsertMarketingCampaign,
   InsertMealPlan,
+  InsertMemberProfile,
+  InsertTemporaryMealPlan,
   InsertMemberAssessment,
   InsertMemberProgressPhoto,
   InsertMember,
-  InsertMuscleGroup,
-  InsertMovementPattern,
   InsertClass,
   InsertClassTemplate,
   InsertClassRegistration,
-  InsertClassWaitlist,
   InsertWorkoutPlan,
   InsertWorkoutLog,
   InsertTrainingPackage,
-  InsertTrainingClient,
   InsertProgress,
   InsertSchedule,
   InsertStrengthMetric,
-  InsertMemberMealPlan,
-  InsertMemberProfile,
-  MealItem,
+  InsertMemberMealPlan
 };

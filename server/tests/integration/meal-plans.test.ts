@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, it, expect } from '@jest/globals';
 import { db } from '../../db';
-import { users, mealPlans, memberMealPlans } from '../../../shared/schema';
-import type { User, MealPlan, InsertMealPlan } from '../../../shared/schema';
+import { users, mealPlans, memberMealPlans, temporaryMealPlans } from '../../../shared/schema';
+import type { User, MealPlan, InsertMealPlan, InsertTemporaryMealPlan } from '../../../shared/schema';
 import { eq } from 'drizzle-orm';
 
 describe('Meal Plan Management', () => {
@@ -25,11 +25,23 @@ describe('Meal Plan Management', () => {
         trainerId: testTrainer.id,
         name: 'Test Meal Plan',
         description: 'Test meal plan description',
-        meals: {
-          breakfast: { name: 'Oatmeal', calories: 300 },
-          lunch: { name: 'Chicken Salad', calories: 450 },
-          dinner: { name: 'Salmon with Vegetables', calories: 550 }
-        },
+        meals: [{
+          meal: "Breakfast",
+          food: "Oatmeal with Berries",
+          ingredients: [
+            { item: "Oatmeal", amount: "1", unit: "cup" },
+            { item: "Mixed Berries", amount: "1/2", unit: "cup" }
+          ],
+          instructions: ["Cook oatmeal", "Add berries"],
+          calories: 300,
+          protein: 10,
+          carbs: 50,
+          fats: 5,
+          dayNumber: 1,
+          mealNumber: 1,
+          isTemporary: false,
+          status: "confirmed"
+        }],
         macroDistribution: { protein: 30, carbs: 40, fats: 30 },
         dietaryPreferences: ['vegetarian'],
         dietaryRestrictions: ['gluten-free'],
@@ -51,6 +63,7 @@ describe('Meal Plan Management', () => {
       // Clean up test data in correct order
       await db.delete(memberMealPlans);
       await db.delete(mealPlans);
+      await db.delete(temporaryMealPlans);
       await db.delete(users);
     } catch (error) {
       console.error('Error in test cleanup:', error);
@@ -64,11 +77,50 @@ describe('Meal Plan Management', () => {
         trainerId: testTrainer.id,
         name: 'New Test Plan',
         description: 'Complete test plan',
-        meals: {
-          breakfast: { name: 'Smoothie Bowl', calories: 400 },
-          lunch: { name: 'Quinoa Bowl', calories: 500 },
-          dinner: { name: 'Tofu Stir-fry', calories: 600 }
-        },
+        meals: [
+          {
+            meal: "Breakfast",
+            food: "Smoothie Bowl",
+            ingredients: [],
+            instructions: [],
+            calories: 400,
+            protein: 0,
+            carbs: 0,
+            fats: 0,
+            dayNumber: 1,
+            mealNumber: 1,
+            isTemporary: false,
+            status: "confirmed"
+          },
+          {
+            meal: "Lunch",
+            food: "Quinoa Bowl",
+            ingredients: [],
+            instructions: [],
+            calories: 500,
+            protein: 0,
+            carbs: 0,
+            fats: 0,
+            dayNumber: 1,
+            mealNumber: 2,
+            isTemporary: false,
+            status: "confirmed"
+          },
+          {
+            meal: "Dinner",
+            food: "Tofu Stir-fry",
+            ingredients: [],
+            instructions: [],
+            calories: 600,
+            protein: 0,
+            carbs: 0,
+            fats: 0,
+            dayNumber: 1,
+            mealNumber: 3,
+            isTemporary: false,
+            status: "confirmed"
+          }
+        ],
         macroDistribution: { protein: 25, carbs: 50, fats: 25 },
         dietaryPreferences: ['vegan'],
         dietaryRestrictions: ['nut-free'],
@@ -91,7 +143,20 @@ describe('Meal Plan Management', () => {
       const invalidMealPlanData: InsertMealPlan = {
         trainerId: testTrainer.id,
         name: 'Invalid Macros Plan',
-        meals: { breakfast: { name: 'Toast', calories: 200 } },
+        meals: [{
+          meal: "Breakfast",
+          food: "Toast",
+          ingredients: [],
+          instructions: [],
+          calories: 200,
+          protein: 0,
+          carbs: 0,
+          fats: 0,
+          dayNumber: 1,
+          mealNumber: 1,
+          isTemporary: false,
+          status: "confirmed"
+        }],
         macroDistribution: { protein: 20, carbs: 20, fats: 20 } // Only totals 60%
       };
 
@@ -131,6 +196,87 @@ describe('Meal Plan Management', () => {
       expect(updatedPlan.macroDistribution).toEqual(updates.macroDistribution);
       expect(updatedPlan.calorieTarget).toBe(updates.calorieTarget);
       expect(updatedPlan.mealsPerDay).toBe(updates.mealsPerDay);
+    });
+  });
+
+  describe('Temporary Meal Plan Management', () => {
+    it('should create and manage temporary meal plans', async () => {
+      const temporaryPlanData: InsertTemporaryMealPlan = {
+        userId: testTrainer.id,
+        meals: [{
+          meal: "Breakfast",
+          food: "Oatmeal with Berries",
+          ingredients: [
+            { item: "Oatmeal", amount: "1", unit: "cup" },
+            { item: "Mixed Berries", amount: "1/2", unit: "cup" }
+          ],
+          instructions: ["Cook oatmeal", "Add berries"],
+          calories: 300,
+          protein: 10,
+          carbs: 50,
+          fats: 5,
+          dayNumber: 1,
+          mealNumber: 1,
+          isTemporary: true,
+          status: "draft"
+        }],
+        macroDistribution: { protein: 30, carbs: 40, fats: 30 },
+        targetCalories: 2000,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      };
+
+      // Create temporary plan
+      const [newTempPlan] = await db.insert(temporaryMealPlans)
+        .values(temporaryPlanData)
+        .returning();
+
+      expect(newTempPlan).toBeDefined();
+      expect(newTempPlan.userId).toBe(testTrainer.id);
+      expect(newTempPlan.meals[0]).toBeDefined();
+      expect(newTempPlan.meals[0].status).toBe("draft");
+    });
+
+    it('should allow regeneration of individual meals', async () => {
+      const temporaryPlanData: InsertTemporaryMealPlan = {
+        userId: testTrainer.id,
+        meals: [{
+          meal: "Lunch",
+          food: "Chicken Salad",
+          ingredients: [
+            { item: "Chicken Breast", amount: "6", unit: "oz" },
+            { item: "Mixed Greens", amount: "2", unit: "cups" }
+          ],
+          instructions: ["Cook chicken", "Assemble salad"],
+          calories: 400,
+          protein: 35,
+          carbs: 10,
+          fats: 15,
+          dayNumber: 1,
+          mealNumber: 2,
+          isTemporary: true,
+          status: "confirmed"
+        }],
+        macroDistribution: { protein: 30, carbs: 40, fats: 30 },
+        targetCalories: 2000,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      };
+
+      const [plan] = await db.insert(temporaryMealPlans)
+        .values(temporaryPlanData)
+        .returning();
+
+      // Update meal status for regeneration
+      const updatedMeals = plan.meals.map(meal => ({
+        ...meal,
+        status: meal.mealNumber === 2 ? "draft" : meal.status
+      }));
+
+      const [updatedPlan] = await db.update(temporaryMealPlans)
+        .set({ meals: updatedMeals })
+        .where(eq(temporaryMealPlans.id, plan.id))
+        .returning();
+
+      expect(updatedPlan.meals[0].status).toBe("draft");
     });
   });
 });
