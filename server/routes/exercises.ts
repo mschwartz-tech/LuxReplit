@@ -16,6 +16,28 @@ const predictExerciseSchema = z.object({
   exerciseName: z.string().min(3),
 });
 
+// Helper function to validate JSON response
+const validateOpenAIResponse = (content: string) => {
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('Failed to parse OpenAI response:', error);
+    throw new Error('Invalid response format from AI service');
+  }
+};
+
+// Helper function to handle API errors
+const handleApiError = (error: any) => {
+  console.error('API Error:', error);
+  if (error instanceof z.ZodError) {
+    return { status: 400, message: 'Invalid request data: ' + error.errors[0].message };
+  }
+  if (error.response?.status === 429) {
+    return { status: 429, message: 'Rate limit exceeded. Please try again later.' };
+  }
+  return { status: 500, message: error.message || 'Internal server error' };
+};
+
 // Separate endpoint for predicting exercise description
 router.post('/api/exercises/predict-description', async (req, res) => {
   try {
@@ -66,9 +88,9 @@ Example response format:
       throw new Error('No content in OpenAI response');
     }
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = validateOpenAIResponse(response.choices[0].message.content);
 
-    // Validate response
+    // Validate response structure
     if (!result.description || !result.difficulty || !result.primaryMuscleGroupId || !result.secondaryMuscleGroupIds) {
       throw new Error('Invalid AI response format');
     }
@@ -95,10 +117,8 @@ Example response format:
       secondaryMuscleGroupIds
     });
   } catch (error) {
-    console.error('Error predicting exercise description:', error);
-    res.status(500).json({
-      message: error instanceof Error ? error.message : 'Failed to predict exercise description'
-    });
+    const { status, message } = handleApiError(error);
+    res.status(status).json({ message });
   }
 });
 
@@ -138,7 +158,7 @@ Example response format:
       throw new Error('No content in OpenAI response');
     }
 
-    const result = JSON.parse(response.choices[0].message.content) as { instructions: string[] };
+    const result = validateOpenAIResponse(response.choices[0].message.content);
 
     // Validate and sanitize the response
     if (!result.instructions || !Array.isArray(result.instructions)) {
@@ -153,10 +173,8 @@ Example response format:
 
     res.json({ instructions });
   } catch (error) {
-    console.error('Error predicting exercise instructions:', error);
-    res.status(500).json({
-      message: error instanceof Error ? error.message : 'Failed to predict exercise instructions'
-    });
+    const { status, message } = handleApiError(error);
+    res.status(status).json({ message });
   }
 });
 
